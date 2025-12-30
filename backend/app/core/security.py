@@ -3,25 +3,27 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import pyotp
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 import qrcode
 import io
 import base64
 
 from app.core.config import settings
 
-# 密碼雜湊 context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
-    """雜湊密碼"""
-    return pwd_context.hash(password)
+    """Hash password using bcrypt"""
+    # Bcrypt has a 72 byte limit, encode to bytes
+    password_bytes = password.encode('utf-8')
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """驗證密碼"""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify password using bcrypt"""
+    password_bytes = plain_password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:

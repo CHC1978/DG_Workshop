@@ -57,9 +57,9 @@ async def health_check():
     return {"status": "healthy"}
 
 
-# TODO: 註冊 API routers
-# from app.api import router as api_router
-# app.include_router(api_router, prefix="/api")
+# Register API routers
+from app.api import api_router
+app.include_router(api_router, prefix="/api")
 
 
 if __name__ == "__main__":
