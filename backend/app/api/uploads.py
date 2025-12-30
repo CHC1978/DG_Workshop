@@ -359,3 +359,116 @@ async def list_equipment_files(
             })
 
     return {"files": files}
+
+
+# ==================== Calibration Report Upload ====================
+
+@router.post("/calibrations/{calibration_id}/report")
+async def upload_calibration_report(
+    calibration_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload calibration report file"""
+    from app.models.calibration import Calibration
+
+    # Get calibration
+    result = await db.execute(
+        select(Calibration).where(Calibration.id == calibration_id)
+    )
+    calibration = result.scalar_one_or_none()
+
+    if not calibration:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Calibration not found"
+        )
+
+    # Get equipment to determine directory
+    result = await db.execute(
+        select(Equipment).where(Equipment.id == calibration.equipment_id)
+    )
+    equipment = result.scalar_one_or_none()
+
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found"
+        )
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided"
+        )
+
+    ext = validate_file_extension(file.filename, "report")
+
+    # Check file size
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
+        )
+
+    # Save file
+    upload_dir = get_equipment_upload_dir(equipment.asset_code)
+    filename = f"calibration_{calibration_id}{ext}"
+    file_path = upload_dir / filename
+
+    # Remove old file if exists
+    if file_path.exists():
+        file_path.unlink()
+
+    # Save new file
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Update calibration record
+    relative_path = f"/uploads/{equipment.asset_code}/{filename}"
+    calibration.report_url = relative_path
+    await db.commit()
+
+    return {
+        "message": "Calibration report uploaded successfully",
+        "url": relative_path,
+        "filename": filename
+    }
+
+
+@router.delete("/calibrations/{calibration_id}/report")
+async def delete_calibration_report(
+    calibration_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete calibration report"""
+    from app.models.calibration import Calibration
+
+    result = await db.execute(
+        select(Calibration).where(Calibration.id == calibration_id)
+    )
+    calibration = result.scalar_one_or_none()
+
+    if not calibration or not calibration.report_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found"
+        )
+
+    # Delete file
+    file_path = Path(calibration.report_url.lstrip('/'))
+    if file_path.exists():
+        file_path.unlink()
+
+    # Clear URL from database
+    calibration.report_url = None
+    await db.commit()
+
+    return {"message": "Calibration report deleted successfully"}
