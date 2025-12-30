@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 REM Marine Equipment QR System - Control Panel
 title Marine Equipment QR System - Control Panel
 
@@ -9,13 +10,7 @@ REM Get all IPv4 addresses
 set IP_COUNT=0
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
     set /a IP_COUNT+=1
-    set "IP_!IP_COUNT!=%%a"
-)
-
-REM Clean up IP addresses (remove leading space)
-for /L %%i in (1,1,%IP_COUNT%) do (
-    call set "temp=%%IP_%%i%%"
-    call set "IP_%%i=%%temp:~1%%"
+    for /f "tokens=* delims= " %%b in ("%%a") do set IP_!IP_COUNT!=%%b
 )
 
 echo ========================================
@@ -24,8 +19,13 @@ echo Control Panel
 echo ========================================
 echo.
 echo Detected IP addresses:
-for /L %%i in (1,1,%IP_COUNT%) do (
-    call echo   %%i. %%IP_%%i%%
+if %IP_COUNT%==0 (
+    echo   No IP addresses detected
+    echo   Make sure network is connected
+) else (
+    for /L %%i in (1,1,%IP_COUNT%) do (
+        echo   [%%i] !IP_%%i!
+    )
 )
 echo.
 echo [1] Start All - Localhost Mode
@@ -70,9 +70,15 @@ echo ========================================
 echo Select IP Address for Network Mode
 echo ========================================
 echo.
+if %IP_COUNT%==0 (
+    echo No IP addresses detected!
+    echo Please check your network connection.
+    pause
+    goto MENU
+)
 echo Available IP addresses:
 for /L %%i in (1,1,%IP_COUNT%) do (
-    call echo   [%%i] %%IP_%%i%%
+    echo   [%%i] !IP_%%i!
 )
 echo.
 echo [0] Cancel and return to menu
@@ -81,13 +87,11 @@ set /p ip_choice="Select IP address (1-%IP_COUNT%): "
 
 if "%ip_choice%"=="0" goto MENU
 if "%ip_choice%"=="" goto SELECT_IP_FOR_NETWORK
-
-REM Validate choice
 if %ip_choice% LEQ 0 goto SELECT_IP_FOR_NETWORK
 if %ip_choice% GTR %IP_COUNT% goto SELECT_IP_FOR_NETWORK
 
 REM Get selected IP
-call set SELECTED_IP=%%IP_%ip_choice%%%
+set SELECTED_IP=!IP_%ip_choice%!
 goto START_ALL_NETWORK
 
 :START_ALL
@@ -111,7 +115,7 @@ goto MENU
 :START_ALL_NETWORK
 echo.
 echo Starting all services (Network mode)...
-echo Selected IP: %SELECTED_IP%
+echo Selected IP: !SELECTED_IP!
 echo.
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
@@ -124,13 +128,13 @@ echo ========================================
 echo Network Mode - Access from other devices
 echo ========================================
 echo.
-echo Backend API: http://%SELECTED_IP%:8000
-echo Frontend: http://%SELECTED_IP%:5173
-echo API Docs: http://%SELECTED_IP%:8000/docs
+echo Backend API: http://!SELECTED_IP!:8000
+echo Frontend: http://!SELECTED_IP!:5173
+echo API Docs: http://!SELECTED_IP!:8000/docs
 echo.
 echo From other devices on same network:
 echo   1. Open browser on phone/tablet
-echo   2. Visit: http://%SELECTED_IP%:5173
+echo   2. Visit: http://!SELECTED_IP!:5173
 echo   3. Login and use the system
 echo.
 echo NOTE: Make sure Windows Firewall allows ports 8000 and 5173
@@ -293,11 +297,11 @@ echo   Backend:  http://localhost:8000
 echo   Frontend: http://localhost:5173
 echo   API Docs: http://localhost:8000/docs
 echo.
-echo Network Access (from other devices):
-for /L %%i in (1,1,%IP_COUNT%) do (
-    call echo   Backend:  http://%%IP_%%i%%:8000
-    call echo   Frontend: http://%%IP_%%i%%:5173
-    echo.
+if %IP_COUNT% GTR 0 (
+    echo Network Access (from other devices):
+    for /L %%i in (1,1,%IP_COUNT%) do (
+        echo   !IP_%%i! - http://!IP_%%i!:5173
+    )
 )
 echo ========================================
 echo.
