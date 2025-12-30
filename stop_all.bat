@@ -1,15 +1,14 @@
 @echo off
 REM Marine Equipment QR System - Stop All Services
-chcp 65001 >nul
+title Stop All Services
 
 echo ========================================
-echo 停止所有伺服器...
-echo Stopping all servers...
+echo Stopping All Servers...
 echo ========================================
 echo.
 
 REM Kill uvicorn processes (backend)
-echo [1/3] 停止後端伺服器...
+echo [1/3] Stopping backend server...
 taskkill /F /IM uvicorn.exe 2>nul
 if %errorlevel% equ 0 (
     echo   Backend server stopped
@@ -22,7 +21,7 @@ taskkill /F /IM python.exe 2>nul
 echo.
 
 REM Kill bun processes (frontend)
-echo [2/3] 停止前端伺服器...
+echo [2/3] Stopping frontend server...
 taskkill /F /IM bun.exe 2>nul
 if %errorlevel% equ 0 (
     echo   Frontend server stopped
@@ -30,14 +29,13 @@ if %errorlevel% equ 0 (
     echo   No frontend server running
 )
 
-REM Also kill node processes (in case Vite is running)
-echo [3/3] 清理相關程序...
+REM Also kill node processes
+echo [3/3] Cleanup processes...
 taskkill /F /IM node.exe 2>nul
 
 echo.
 echo ========================================
-echo 所有伺服器已停止
-echo All servers stopped
+echo All Servers Stopped
 echo ========================================
 echo.
 
