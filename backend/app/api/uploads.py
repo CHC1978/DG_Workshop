@@ -472,3 +472,154 @@ async def delete_calibration_report(
     await db.commit()
 
     return {"message": "Calibration report deleted successfully"}
+
+
+# ==================== Equipment Log Attachment Upload ====================
+
+@router.post("/equipment-logs/{log_id}/attachments")
+async def upload_log_attachment(
+    log_id: int,
+    file: UploadFile = File(...),
+    attachment_type: str = "other",
+    description: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload attachment to equipment log"""
+    from app.models.equipment_log import EquipmentLog
+    from app.models.log_attachment import LogAttachment, AttachmentType
+
+    # Get log
+    result = await db.execute(
+        select(EquipmentLog).where(EquipmentLog.id == log_id)
+    )
+    log = result.scalar_one_or_none()
+
+    if not log:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment log not found"
+        )
+
+    # Get equipment
+    result = await db.execute(
+        select(Equipment).where(Equipment.id == log.equipment_id)
+    )
+    equipment = result.scalar_one_or_none()
+
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found"
+        )
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided"
+        )
+
+    # Check file size
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
+        )
+
+    # Save file
+    log_dir = UPLOAD_DIR / equipment.asset_code / "logs" / str(log_id)
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    import time
+    timestamp = int(time.time())
+    safe_filename = f"{timestamp}_{file.filename}"
+    file_path = log_dir / safe_filename
+
+    with open(file_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Create attachment record
+    relative_path = f"/uploads/{equipment.asset_code}/logs/{log_id}/{safe_filename}"
+
+    attachment = LogAttachment(
+        equipment_log_id=log_id,
+        file_url=relative_path,
+        file_name=file.filename,
+        file_type=AttachmentType(attachment_type) if attachment_type in [e.value for e in AttachmentType] else AttachmentType.OTHER,
+        file_size=file_size,
+        description=description,
+        uploaded_by=current_user.id
+    )
+
+    db.add(attachment)
+    await db.commit()
+    await db.refresh(attachment)
+
+    return {
+        "id": attachment.id,
+        "message": "Attachment uploaded successfully",
+        "url": relative_path,
+        "filename": safe_filename
+    }
+
+
+@router.get("/equipment-logs/{log_id}/attachments")
+async def list_log_attachments(
+    log_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all attachments for a log"""
+    from app.models.log_attachment import LogAttachment
+
+    result = await db.execute(
+        select(LogAttachment).where(LogAttachment.equipment_log_id == log_id)
+    )
+    attachments = result.scalars().all()
+
+    return [{
+        "id": att.id,
+        "file_url": att.file_url,
+        "file_name": att.file_name,
+        "file_type": att.file_type.value,
+        "file_size": att.file_size,
+        "description": att.description,
+        "created_at": att.created_at
+    } for att in attachments]
+
+
+@router.delete("/log-attachments/{attachment_id}")
+async def delete_log_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete log attachment"""
+    from app.models.log_attachment import LogAttachment
+
+    result = await db.execute(
+        select(LogAttachment).where(LogAttachment.id == attachment_id)
+    )
+    attachment = result.scalar_one_or_none()
+
+    if not attachment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found"
+        )
+
+    # Delete file
+    file_path = Path(attachment.file_url.lstrip('/'))
+    if file_path.exists():
+        file_path.unlink()
+
+    # Delete record
+    await db.delete(attachment)
+    await db.commit()
+
+    return {"message": "Attachment deleted successfully"}
