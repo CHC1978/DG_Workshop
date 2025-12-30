@@ -9,25 +9,25 @@ from app.core.database import init_db, close_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """應用程式生命週期管理"""
-    # 啟動時
-    print("🚀 正在啟動應用程式...")
+    """Application lifespan management"""
+    # Startup
+    print("Starting application...")
     await init_db()
-    print("✅ 資料庫初始化完成")
+    print("Database initialized successfully")
 
     yield
 
-    # 關閉時
-    print("🛑 正在關閉應用程式...")
+    # Shutdown
+    print("Shutting down application...")
     await close_db()
-    print("✅ 資料庫連線已關閉")
+    print("Database connection closed")
 
 
 # 建立 FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="海洋調查設備資產管理系統 API",
+    description="Marine Equipment QR Management System API",
     lifespan=lifespan,
 )
 

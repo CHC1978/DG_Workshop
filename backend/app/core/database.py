@@ -1,5 +1,6 @@
 """資料庫連線與 Session 管理"""
 from typing import AsyncGenerator
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import StaticPool
@@ -50,10 +51,10 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
 
         # 啟用 SQLite WAL 模式
-        await conn.execute("PRAGMA journal_mode=WAL")
-        await conn.execute("PRAGMA synchronous=NORMAL")
-        await conn.execute("PRAGMA cache_size=1000000000")
-        await conn.execute("PRAGMA temp_store=memory")
+        await conn.execute(text("PRAGMA journal_mode=WAL"))
+        await conn.execute(text("PRAGMA synchronous=NORMAL"))
+        await conn.execute(text("PRAGMA cache_size=1000000000"))
+        await conn.execute(text("PRAGMA temp_store=memory"))
 
 
 async def close_db() -> None:

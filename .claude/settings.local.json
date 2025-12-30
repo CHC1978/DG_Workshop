@@ -4,7 +4,18 @@
       "Bash(if exist backendapp dir backendapp /b)",
       "Bash(git init:*)",
       "Bash(copy .env.example .env)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(python -m venv:*)",
+      "Bash(./venv/Scripts/pip:*)",
+      "Bash(python:*)",
+      "Bash(./venv/Scripts/alembic init:*)",
+      "Bash(./venv/Scripts/alembic revision:*)",
+      "Bash(./venv/Scripts/alembic upgrade:*)",
+      "Bash(bun install:*)",
+      "Bash(timeout 10 ./venv/Scripts/python:*)",
+      "Bash(timeout 15 bun dev:*)"
     ]
   }
 }
