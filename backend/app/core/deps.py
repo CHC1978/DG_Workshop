@@ -92,6 +92,59 @@ def require_role(*allowed_roles: UserRole):
     return role_checker
 
 
+async def get_user_from_temp_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    """
+    Get user from temporary token (for 2FA setup)
+    Accepts temp token from login step 1
+    """
+    token = credentials.credentials
+
+    # Decode token
+    payload = decode_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    # Verify it's a temp token
+    token_type = payload.get("type")
+    if token_type != "temp":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type. Temporary token required.",
+        )
+
+    # Get user_id
+    user_id: Optional[int] = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Get user from database
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is disabled",
+        )
+
+    return user
+
+
 # 預定義的權限檢查依賴
 require_admin = require_role(UserRole.ADMIN)
 require_manager = require_role(UserRole.ADMIN, UserRole.MANAGER)

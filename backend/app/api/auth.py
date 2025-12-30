@@ -15,7 +15,7 @@ from app.core.security import (
     verify_totp,
     generate_backup_codes,
 )
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_user_from_temp_token
 from app.models.user import User
 from app.schemas.auth import (
     LoginStep1Request,
@@ -143,11 +143,12 @@ async def login_step2(
 
 @router.post("/2fa/setup", response_model=Setup2FAResponse)
 async def setup_2fa(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_from_temp_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Setup 2FA for current user
+    Requires temporary token from login step 1
     Returns QR code and backup codes
     """
     # Generate TOTP secret
@@ -177,11 +178,12 @@ async def setup_2fa(
 @router.post("/2fa/confirm", response_model=Confirm2FAResponse)
 async def confirm_2fa(
     request: Confirm2FARequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_user_from_temp_token),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Confirm and enable 2FA
+    Requires temporary token from login step 1
     Verify TOTP code to ensure setup is correct
     """
     if not current_user.totp_secret:
