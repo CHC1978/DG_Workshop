@@ -14,7 +14,7 @@ const routes: RouteRecordRaw[] = [
     path: '/setup-2fa',
     name: 'setup-2fa',
     component: () => import('@/views/auth/Setup2FAView.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresTempToken: true },  // Special: requires temp token, not full auth
   },
   {
     path: '/debug',
@@ -57,11 +57,27 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
+  // Special handling for setup-2fa (requires temp token)
+  if (to.meta.requiresTempToken) {
+    if (authStore.tempToken) {
+      // Has temp token, allow access
+      next()
+    } else {
+      // No temp token, redirect to login
+      console.log('No temp token, redirecting to login')
+      next('/login')
+    }
+    return
+  }
+
+  // Normal auth check
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     // Redirect to login if not authenticated
+    console.log('Not authenticated, redirecting to login')
     next('/login')
   } else if (to.path === '/login' && authStore.isAuthenticated) {
     // Redirect to dashboard if already authenticated
+    console.log('Already authenticated, redirecting to dashboard')
     next('/dashboard')
   } else {
     next()

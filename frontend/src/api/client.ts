@@ -20,8 +20,10 @@ apiClient.interceptors.request.use(
     if (authData) {
       try {
         const auth = JSON.parse(authData)
-        if (auth.token) {
-          config.headers.Authorization = `Bearer ${auth.token}`
+        // Use tempToken for setup-2fa endpoints, otherwise use token
+        const token = auth.token || auth.tempToken
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
         }
       } catch (e) {
         console.error('Failed to parse auth data:', e)
