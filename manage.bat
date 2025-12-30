@@ -1,6 +1,5 @@
 @echo off
 REM Marine Equipment QR System - Control Panel
-chcp 65001 >nul
 title Marine Equipment QR System - Control Panel
 
 :MENU
@@ -10,7 +9,7 @@ echo Marine Equipment QR Management System
 echo Control Panel
 echo ========================================
 echo.
-echo [1] Start All (Backend + Frontend)
+echo [1] Start All - Backend and Frontend
 echo [2] Stop All
 echo [3] Restart All
 echo.
@@ -77,8 +76,6 @@ goto :EOF
 :CLOSE_SERVER_WINDOWS
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
-taskkill /FI "WindowTitle eq 後端伺服器*" 2>nul
-taskkill /FI "WindowTitle eq 前端伺服器*" 2>nul
 goto :EOF
 
 :RESTART_ALL
@@ -148,7 +145,7 @@ goto MENU
 echo.
 echo Checking service status...
 echo.
-echo Backend (Python/Uvicorn):
+echo Backend - Python/Uvicorn:
 tasklist 2>nul | findstr /I "python.exe" >nul
 if %errorlevel% equ 0 (
     echo   [RUNNING] Backend server is running
@@ -156,14 +153,14 @@ if %errorlevel% equ 0 (
     echo   [STOPPED] Backend server is not running
 )
 echo.
-echo Frontend (Bun/Node):
+echo Frontend - Bun/Node:
 tasklist 2>nul | findstr /I "bun.exe" >nul
 if %errorlevel% equ 0 (
     echo   [RUNNING] Frontend server is running
 ) else (
     tasklist 2>nul | findstr /I "node.exe" >nul
     if %errorlevel% equ 0 (
-        echo   [RUNNING] Frontend server is running (Node)
+        echo   [RUNNING] Frontend server is running
     ) else (
         echo   [STOPPED] Frontend server is not running
     )
