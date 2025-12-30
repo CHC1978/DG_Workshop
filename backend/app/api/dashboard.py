@@ -271,30 +271,39 @@ async def get_recent_activities(
     """Get recent equipment activities"""
     from app.models.equipment_log import EquipmentLog
 
-    # Query recent logs with equipment and user info
-    query = (
-        select(EquipmentLog, Equipment, User)
-        .join(Equipment, EquipmentLog.equipment_id == Equipment.id)
-        .outerjoin(User, EquipmentLog.created_by == User.id)
-        .order_by(EquipmentLog.created_at.desc())
-        .limit(limit)
-    )
+    try:
+        # Query recent logs with equipment and user info
+        query = (
+            select(EquipmentLog, Equipment, User)
+            .join(Equipment, EquipmentLog.equipment_id == Equipment.id)
+            .outerjoin(User, EquipmentLog.created_by == User.id)
+            .order_by(EquipmentLog.created_at.desc())
+            .limit(limit)
+        )
 
-    result = await db.execute(query)
-    log_tuples = result.all()
+        result = await db.execute(query)
+        log_tuples = result.all()
 
-    activities = []
-    for log, equipment, user in log_tuples:
-        activities.append(RecentActivity(
-            id=log.id,
-            equipment_id=equipment.id,
-            asset_code=equipment.asset_code,
-            manufacturer=equipment.manufacturer,
-            model=equipment.model,
-            log_type=log.log_type.value,
-            description=log.description or "",
-            created_by_username=user.username if user else None,
-            created_at=log.created_at
-        ))
+        activities = []
+        for log, equipment, user in log_tuples:
+            # Handle potential None values
+            if not equipment or not log:
+                continue
 
-    return activities
+            activities.append(RecentActivity(
+                id=log.id,
+                equipment_id=equipment.id,
+                asset_code=equipment.asset_code,
+                manufacturer=equipment.manufacturer,
+                model=equipment.model,
+                log_type=log.log_type.value if hasattr(log.log_type, 'value') else str(log.log_type),
+                description=log.description or "",
+                created_by_username=user.username if user else None,
+                created_at=log.created_at
+            ))
+
+        return activities
+    except Exception as e:
+        print(f"[ERROR] Failed to get recent activities: {e}")
+        # Return empty list instead of error
+        return []
