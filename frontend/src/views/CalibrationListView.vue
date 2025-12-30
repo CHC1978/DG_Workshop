@@ -32,60 +32,62 @@
         <p class="text-gray-500">No calibrations found</p>
       </div>
 
-      <!-- Calibrations Table (Desktop) -->
-      <div v-else class="bg-white rounded-lg shadow overflow-hidden hidden md:block">
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipment</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Calibration</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Next Due</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              <tr v-for="cal in calibrations" :key="cal.id" class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <router-link
-                    :to="`/equipment/${cal.equipment_id}`"
-                    class="text-sm font-medium text-sky-600 hover:text-sky-800"
-                  >
-                    {{ cal.equipment_asset_code }}
-                  </router-link>
-                  <p class="text-xs text-gray-500">
-                    {{ cal.equipment_manufacturer }} {{ cal.equipment_model }}
-                  </p>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatDate(cal.calibration_date) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ formatDate(cal.next_due_date) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                  <span :class="daysTextClass(cal.days_until_due)">
-                    {{ cal.days_until_due >= 0 ? cal.days_until_due : `${Math.abs(cal.days_until_due)} overdue` }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span :class="statusBadge(cal.days_until_due, cal.is_overdue)" class="px-2 py-1 text-xs font-semibold rounded">
-                    {{ statusLabel(cal.days_until_due, cal.is_overdue) }}
-                  </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                  {{ cal.provider }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Calibrations Display -->
+      <div v-else>
+        <!-- Desktop: Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden hidden md:block">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipment</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Calibration</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Next Due</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="cal in calibrations" :key="cal.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <router-link
+                      :to="`/equipment/${cal.equipment_id}`"
+                      class="text-sm font-medium text-sky-600 hover:text-sky-800"
+                    >
+                      {{ cal.equipment_asset_code }}
+                    </router-link>
+                    <p class="text-xs text-gray-500">
+                      {{ cal.equipment_manufacturer }} {{ cal.equipment_model }}
+                    </p>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatDate(cal.calibration_date) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatDate(cal.next_due_date) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span :class="daysTextClass(cal.days_until_due)">
+                      {{ cal.days_until_due >= 0 ? cal.days_until_due : `${Math.abs(cal.days_until_due)} overdue` }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span :class="statusBadge(cal.days_until_due, cal.is_overdue)" class="px-2 py-1 text-xs font-semibold rounded">
+                      {{ statusLabel(cal.days_until_due, cal.is_overdue) }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {{ cal.provider }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
 
-      <!-- Calibrations Cards (Mobile) -->
-      <div v-else class="block md:hidden space-y-4">
+        <!-- Mobile: Cards -->
+        <div class="block md:hidden space-y-4">
         <div v-for="cal in calibrations" :key="cal.id" class="bg-white rounded-lg shadow p-4">
           <div class="flex justify-between items-start mb-3">
             <router-link
