@@ -191,20 +191,31 @@ goto MENU
 
 :STOP_ALL_SILENT
 echo Stopping processes...
-taskkill /F /IM python.exe 2>nul
-taskkill /F /IM bun.exe 2>nul
-taskkill /F /IM node.exe 2>nul
-timeout /t 1 >nul 2>&1
+REM Kill backend
+taskkill /F /IM python.exe
+taskkill /F /IM uvicorn.exe
+REM Kill frontend
+taskkill /F /IM bun.exe
+taskkill /F /IM node.exe
+REM Kill command windows
+for /f "tokens=2" %%i in ('tasklist /FI "IMAGENAME eq cmd.exe" /FO list ^| findstr /I "PID"') do (
+    tasklist /FI "PID eq %%i" /V | findstr /I "backend frontend" >nul
+    if !errorlevel!==0 taskkill /F /PID %%i >nul 2>&1
+)
+timeout /t 2 >nul 2>&1
 goto :EOF
 
 :STOP_BACKEND_SILENT
-taskkill /F /IM python.exe 2>nul
+echo Stopping backend...
+taskkill /F /IM python.exe
+taskkill /F /IM uvicorn.exe
 timeout /t 1 >nul 2>&1
 goto :EOF
 
 :STOP_FRONTEND_SILENT
-taskkill /F /IM bun.exe 2>nul
-taskkill /F /IM node.exe 2>nul
+echo Stopping frontend...
+taskkill /F /IM bun.exe
+taskkill /F /IM node.exe
 timeout /t 1 >nul 2>&1
 goto :EOF
 
