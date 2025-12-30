@@ -79,17 +79,20 @@ async function checkBackend() {
   backendStatus.value = null
 
   try {
-    const response = await axios.get('/api/', { timeout: 5000 })
+    // Test backend root endpoint (proxied to http://localhost:8000/)
+    const response = await axios.get('http://localhost:8000/', { timeout: 5000 })
     backendStatus.value = {
       status: 'OK',
       data: response.data,
       headers: response.headers,
+      note: 'Direct connection to backend:8000 successful'
     }
   } catch (error: any) {
     backendStatus.value = {
       status: 'ERROR',
       message: error.message,
       response: error.response?.data,
+      note: 'Cannot connect to backend. Make sure backend is running on port 8000'
     }
   } finally {
     checking.value = false
