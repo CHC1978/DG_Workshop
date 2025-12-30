@@ -1,7 +1,8 @@
 """Equipment log model"""
 import enum
 from typing import Optional
-from sqlalchemy import String, Text, Float, ForeignKey, Enum as SQLEnum
+from datetime import datetime
+from sqlalchemy import String, Text, Float, ForeignKey, Enum as SQLEnum, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -30,7 +31,13 @@ class EquipmentLog(Base, TimestampMixin):
     equipment_id: Mapped[int] = mapped_column(
         ForeignKey("equipments.id"),
         nullable=False,
-        index=True
+        index=True,
+        comment="設備 ID（可以是主設備或子設備，透過 is_sub_equipment 區分）"
+    )
+    is_sub_equipment: Mapped[bool] = mapped_column(
+        default=False,
+        nullable=False,
+        comment="True 表示此 log 屬於子設備，equipment_id 指向 sub_equipments 表"
     )
     log_type: Mapped[EquipmentLogType] = mapped_column(
         SQLEnum(EquipmentLogType),
@@ -53,6 +60,39 @@ class EquipmentLog(Base, TimestampMixin):
         nullable=True
     )
 
+    # Edit tracking
+    edited_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+        comment="Last edited time"
+    )
+    edited_by: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+        comment="User who last edited this log"
+    )
+    edit_count: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Number of times this log has been edited"
+    )
+    original_description: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Original description before first edit"
+    )
+    original_latitude: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Original latitude before first edit"
+    )
+    original_longitude: Mapped[Optional[float]] = mapped_column(
+        Float,
+        nullable=True,
+        comment="Original longitude before first edit"
+    )
+
     # Relationships
     equipment: Mapped["Equipment"] = relationship(
         "Equipment",
@@ -61,6 +101,10 @@ class EquipmentLog(Base, TimestampMixin):
     creator: Mapped[Optional["User"]] = relationship(
         "User",
         foreign_keys=[created_by]
+    )
+    editor: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[edited_by]
     )
     attachments: Mapped[list["LogAttachment"]] = relationship(
         "LogAttachment",

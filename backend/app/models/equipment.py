@@ -102,6 +102,11 @@ class Equipment(Base, TimestampMixin):
         back_populates="equipment",
         cascade="all, delete-orphan"
     )
+    sub_equipments: Mapped[list["SubEquipment"]] = relationship(
+        "SubEquipment",
+        back_populates="parent_equipment",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Equipment(id={self.id}, asset_code='{self.asset_code}', status='{self.status.value}')>"

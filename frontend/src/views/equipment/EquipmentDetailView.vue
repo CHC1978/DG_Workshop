@@ -187,6 +187,9 @@
           </div>
         </div>
 
+        <!-- Sub-Equipment Section -->
+        <SubEquipmentList :parent-equipment-id="equipment.id" />
+
         <!-- Activity Log -->
         <div class="bg-white rounded-lg shadow overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200">
@@ -222,10 +225,13 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Attachments
                   </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50 cursor-pointer" @click="viewLogAttachments(log)">
+                <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {{ formatDateTime(log.created_at) }}
                   </td>
@@ -242,6 +248,9 @@
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-900">
                     {{ log.description }}
+                    <span v-if="log.is_edited" class="ml-2 text-xs text-gray-400" :title="`Edited ${log.edit_count} time(s), last at ${formatDateTime(log.edited_at)}`">
+                      (edited ×{{ log.edit_count }})
+                    </span>
                   </td>
                   <td class="px-6 py-4 text-sm text-gray-600">
                     <div v-if="log.new_value" class="max-w-xs truncate" :title="log.new_value">
@@ -263,9 +272,98 @@
                       📎 View
                     </button>
                   </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      v-if="authStore.isManager"
+                      @click.stop="openEditLogModal(log)"
+                      class="text-indigo-600 hover:text-indigo-900"
+                    >
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Edit Log Modal -->
+        <div
+          v-if="showEditLogModal"
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+          @click.self="showEditLogModal = false"
+        >
+          <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">Edit Activity Log</h3>
+              <button @click="showEditLogModal = false" class="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+
+            <div v-if="editingLog" class="space-y-4">
+              <!-- Read-only Info -->
+              <div class="p-3 bg-gray-50 rounded">
+                <p class="text-xs text-gray-500 mb-1">Type: {{ logTypeLabel(editingLog.log_type) }}</p>
+                <p class="text-xs text-gray-500">Created: {{ formatDateTime(editingLog.created_at) }} by {{ editingLog.created_by_username || 'System' }}</p>
+                <p v-if="editingLog.is_edited" class="text-xs text-orange-600 mt-1">
+                  Edited {{ editingLog.edit_count }} time(s), last at {{ formatDateTime(editingLog.edited_at) }} by {{ editingLog.edited_by_username }}
+                </p>
+              </div>
+
+              <!-- Non-editable fields -->
+              <div v-if="editingLog.old_value || editingLog.new_value" class="border-l-4 border-gray-300 pl-3">
+                <p class="text-xs text-gray-500 mb-1">Change Record (read-only):</p>
+                <p v-if="editingLog.old_value" class="text-sm text-gray-600">Old: {{ editingLog.old_value }}</p>
+                <p v-if="editingLog.new_value" class="text-sm text-gray-600">New: {{ editingLog.new_value }}</p>
+              </div>
+
+              <!-- Editable fields -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Description <span class="text-red-500">*</span>
+                </label>
+                <textarea
+                  v-model="editLogForm.description"
+                  class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-sky-500"
+                  rows="4"
+                  placeholder="Enter description..."
+                ></textarea>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Latitude (optional)</label>
+                  <input
+                    v-model.number="editLogForm.latitude"
+                    type="number"
+                    step="0.000001"
+                    class="w-full px-3 py-2 border rounded-lg"
+                    placeholder="e.g., 25.033671"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Longitude (optional)</label>
+                  <input
+                    v-model.number="editLogForm.longitude"
+                    type="number"
+                    step="0.000001"
+                    class="w-full px-3 py-2 border rounded-lg"
+                    placeholder="e.g., 121.564427"
+                  />
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex justify-end gap-2 pt-4 border-t">
+                <AppButton variant="secondary" @click="showEditLogModal = false">
+                  Cancel
+                </AppButton>
+                <AppButton @click="handleUpdateLog" :loading="updatingLog">
+                  Save Changes
+                </AppButton>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -387,6 +485,7 @@ import { equipmentApi } from '@/api/equipment'
 import axios from 'axios'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import SubEquipmentList from '@/components/equipment/SubEquipmentList.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -413,6 +512,16 @@ const uploadAttachmentType = ref('other')
 const uploadDescription = ref('')
 const selectedAttachmentFile = ref<File | null>(null)
 const attachmentFileInput = ref<HTMLInputElement | null>(null)
+
+// Log Editing
+const showEditLogModal = ref(false)
+const editingLog = ref<any>(null)
+const updatingLog = ref(false)
+const editLogForm = ref({
+  description: '',
+  latitude: null as number | null,
+  longitude: null as number | null,
+})
 
 const canPerformActions = computed(() => {
   return equipment.value?.status !== 'disposed' && equipment.value?.status !== 'lost'
@@ -590,6 +699,53 @@ async function loadQRCode() {
     console.error('Failed to load QR code:', error)
   }
 }
+
+// ==================== Log Editing ====================
+
+function openEditLogModal(log: any) {
+  editingLog.value = log
+  editLogForm.value = {
+    description: log.description || '',
+    latitude: log.latitude,
+    longitude: log.longitude,
+  }
+  showEditLogModal.value = true
+}
+
+async function handleUpdateLog() {
+  if (!editingLog.value || !equipment.value) return
+
+  if (!editLogForm.value.description.trim()) {
+    uiStore.showNotification('error', 'Description is required')
+    return
+  }
+
+  updatingLog.value = true
+
+  try {
+    const response = await equipmentApi.updateLog(
+      equipment.value.id,
+      editingLog.value.id,
+      editLogForm.value
+    )
+
+    // Update local log in the list
+    const index = logs.value.findIndex(l => l.id === editingLog.value.id)
+    if (index !== -1) {
+      logs.value[index] = response.data
+    }
+
+    uiStore.showNotification('success', 'Log updated successfully')
+    showEditLogModal.value = false
+    editingLog.value = null
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Update failed')
+  } finally {
+    updatingLog.value = false
+  }
+}
+
+// ==================== Log Attachments ====================
 
 async function viewLogAttachments(log: any) {
   selectedLog.value = log

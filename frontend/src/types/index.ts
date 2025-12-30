@@ -196,6 +196,39 @@ export interface Calibration {
   updated_at: string
 }
 
+// ==================== SubEquipment ====================
+
+export interface SubEquipment {
+  id: number
+  parent_equipment_id: number
+  asset_code: string
+  qr_code: string
+  component_name: string
+  serial_number?: string
+  status: EquipmentStatus
+  notes?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SubEquipmentDetail extends SubEquipment {
+  parent_asset_code?: string
+  parent_model?: string
+}
+
+export interface SubEquipmentCreateRequest {
+  parent_equipment_id: number
+  component_name: string
+  serial_number?: string
+  notes?: string
+}
+
+export interface SubEquipmentListResponse {
+  sub_equipments: SubEquipment[]
+  total: number
+}
+
 // ==================== API Response ====================
 
 export interface ApiResponse<T> {

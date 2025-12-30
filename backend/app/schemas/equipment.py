@@ -106,6 +106,13 @@ class QRCodeResponse(BaseModel):
 
 # ==================== Equipment Log Schemas ====================
 
+class EquipmentLogUpdateRequest(BaseModel):
+    """Equipment log update request - only description and GPS can be edited"""
+    description: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
 class EquipmentLogResponse(BaseModel):
     """Equipment log response schema"""
     id: int
@@ -119,6 +126,13 @@ class EquipmentLogResponse(BaseModel):
     created_at: datetime
     created_by: Optional[int]
     created_by_username: Optional[str] = None  # Username of who created the log
+
+    # Edit tracking
+    edited_at: Optional[datetime] = None
+    edited_by: Optional[int] = None
+    edited_by_username: Optional[str] = None
+    edit_count: int = 0
+    is_edited: bool = False  # Computed: edit_count > 0
 
     model_config = {"from_attributes": True}
 

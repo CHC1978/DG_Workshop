@@ -1,6 +1,7 @@
 """Models 模組"""
 from app.models.user import User, UserRole
 from app.models.equipment import Equipment, EquipmentCategory, EquipmentStatus
+from app.models.sub_equipment import SubEquipment
 from app.models.location import Location, LocationType
 from app.models.equipment_log import EquipmentLog, EquipmentLogType
 from app.models.customer import Customer
@@ -15,6 +16,7 @@ __all__ = [
     "Equipment",
     "EquipmentCategory",
     "EquipmentStatus",
+    "SubEquipment",
     "Location",
     "LocationType",
     "EquipmentLog",

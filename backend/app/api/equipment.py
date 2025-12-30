@@ -1,5 +1,6 @@
 """Equipment management API endpoints"""
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
@@ -16,6 +17,7 @@ from app.schemas.equipment import (
     EquipmentListResponse,
     EquipmentDetailResponse,
     EquipmentLogResponse,
+    EquipmentLogUpdateRequest,
 )
 from app.utils.asset_code import generate_asset_code, generate_qr_code_url
 
@@ -312,10 +314,15 @@ async def get_equipment_logs(
             detail="Equipment not found",
         )
 
-    # Get logs with user join
+    # Get logs with user join (creator and editor)
+    from sqlalchemy.orm import aliased
+    Creator = aliased(User)
+    Editor = aliased(User)
+
     query = (
-        select(EquipmentLog, User)
-        .outerjoin(User, EquipmentLog.created_by == User.id)
+        select(EquipmentLog, Creator, Editor)
+        .outerjoin(Creator, EquipmentLog.created_by == Creator.id)
+        .outerjoin(Editor, EquipmentLog.edited_by == Editor.id)
         .where(EquipmentLog.equipment_id == equipment_id)
         .order_by(EquipmentLog.created_at.desc())
         .offset(skip)
@@ -323,16 +330,105 @@ async def get_equipment_logs(
     )
 
     result = await db.execute(query)
-    log_user_pairs = result.all()
+    log_rows = result.all()
 
-    # Build response with username
+    # Build response with usernames
     responses = []
-    for log, user in log_user_pairs:
+    for log, creator, editor in log_rows:
         log_dict = EquipmentLogResponse.model_validate(log).model_dump()
-        log_dict['created_by_username'] = user.username if user else None
+        log_dict['created_by_username'] = creator.username if creator else None
+        log_dict['edited_by_username'] = editor.username if editor else None
+        log_dict['is_edited'] = log.edit_count > 0
         responses.append(EquipmentLogResponse(**log_dict))
 
     return responses
+
+
+@router.put("/{equipment_id}/logs/{log_id}", response_model=EquipmentLogResponse)
+async def update_equipment_log(
+    equipment_id: int,
+    log_id: int,
+    log_update: EquipmentLogUpdateRequest,
+    current_user: User = Depends(require_manager),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update equipment log (Manager+ only)
+
+    Only allows editing:
+    - description
+    - latitude
+    - longitude
+
+    Cannot edit:
+    - log_type
+    - old_value
+    - new_value
+
+    Edit history is tracked in the log itself.
+    """
+    # Verify equipment exists
+    equipment_result = await db.execute(
+        select(Equipment).where(Equipment.id == equipment_id)
+    )
+    equipment = equipment_result.scalar_one_or_none()
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found"
+        )
+
+    # Get log with creator and editor
+    from sqlalchemy.orm import aliased
+    Creator = aliased(User)
+    Editor = aliased(User)
+
+    log_result = await db.execute(
+        select(EquipmentLog, Creator, Editor)
+        .outerjoin(Creator, EquipmentLog.created_by == Creator.id)
+        .outerjoin(Editor, EquipmentLog.edited_by == Editor.id)
+        .where(
+            EquipmentLog.id == log_id,
+            EquipmentLog.equipment_id == equipment_id
+        )
+    )
+    row = log_result.one_or_none()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Log not found"
+        )
+
+    log, creator, editor = row
+
+    # First edit: save original values
+    if log.edit_count == 0:
+        log.original_description = log.description
+        log.original_latitude = log.latitude
+        log.original_longitude = log.longitude
+
+    # Update editable fields
+    update_data = log_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(log, field):
+            setattr(log, field, value)
+
+    # Update edit tracking
+    log.edited_at = datetime.utcnow()
+    log.edited_by = current_user.id
+    log.edit_count += 1
+
+    await db.commit()
+    await db.refresh(log)
+
+    # Build response with usernames
+    log_dict = EquipmentLogResponse.model_validate(log).model_dump()
+    log_dict['created_by_username'] = creator.username if creator else None
+    log_dict['edited_by_username'] = current_user.username
+    log_dict['is_edited'] = log.edit_count > 0
+
+    return EquipmentLogResponse(**log_dict)
 
 
 # ==================== Status Change Operations ====================

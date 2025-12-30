@@ -90,6 +90,21 @@ export const equipmentApi = {
   },
 
   /**
+   * Update equipment log (only description and GPS)
+   */
+  updateLog(
+    equipmentId: number,
+    logId: number,
+    data: {
+      description?: string
+      latitude?: number | null
+      longitude?: number | null
+    }
+  ) {
+    return apiClient.put(`/equipment/${equipmentId}/logs/${logId}`, data)
+  },
+
+  /**
    * Deploy equipment
    */
   deploy(

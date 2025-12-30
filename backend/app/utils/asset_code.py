@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.models.equipment import Equipment, EquipmentCategory
+from app.models.sub_equipment import SubEquipment
 
 
 async def generate_asset_code(
@@ -68,3 +69,38 @@ def generate_qr_code_url(asset_code: str, domain: str = None, protocol: str = No
         protocol = protocol or settings.QR_CODE_PROTOCOL
 
     return f"{protocol}://{domain}/e/{asset_code}"
+
+
+async def generate_sub_equipment_asset_code(
+    parent_asset_code: str,
+    db: AsyncSession
+) -> str:
+    """
+    Generate unique asset code for sub-equipment
+
+    Format: {PARENT_ASSET_CODE}-{SUB_SEQUENCE}
+    Example: MBES-2024-001-01, MBES-2024-001-02
+
+    Args:
+        parent_asset_code: Parent equipment asset code
+        db: Database session
+
+    Returns:
+        Sub-equipment asset code string
+    """
+    # Find the highest sequence number for this parent
+    pattern = f"{parent_asset_code}-%"
+
+    result = await db.execute(
+        select(func.count(SubEquipment.id))
+        .where(SubEquipment.asset_code.like(pattern))
+    )
+    count = result.scalar()
+
+    # Next sequence number (01, 02, 03, ...)
+    next_sequence = count + 1
+
+    # Format: PARENT-SEQUENCE (2 digits)
+    asset_code = f"{parent_asset_code}-{next_sequence:02d}"
+
+    return asset_code

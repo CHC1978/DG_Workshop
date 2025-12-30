@@ -73,6 +73,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresManager: true },
   },
 
+  // SubEquipment routes
+  {
+    path: '/sub-equipment/:id',
+    name: 'sub-equipment-detail',
+    component: () => import('@/views/subEquipment/SubEquipmentDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   // Admin routes
   {
     path: '/admin/users',

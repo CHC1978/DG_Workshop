@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.equipment import Equipment
+from app.models.sub_equipment import SubEquipment
 from app.schemas.equipment import QRCodeResponse
 from app.utils.asset_code import generate_qr_code_url
 
@@ -153,5 +154,99 @@ async def get_qrcode_image_by_asset_code(
         media_type="image/png",
         headers={
             "Content-Disposition": f"attachment; filename={asset_code}.png"
+        }
+    )
+
+
+@router.get("/sub/{sub_equipment_id}", response_model=QRCodeResponse)
+async def get_sub_qrcode_info(
+    sub_equipment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get QR code information for sub-equipment (base64 encoded)
+    """
+    result = await db.execute(
+        select(SubEquipment).where(SubEquipment.id == sub_equipment_id)
+    )
+    sub_equipment = result.scalar_one_or_none()
+
+    if not sub_equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sub-equipment not found",
+        )
+
+    # Generate QR code image
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(sub_equipment.qr_code)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Convert to base64
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    import base64
+    img_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    return QRCodeResponse(
+        asset_code=sub_equipment.asset_code,
+        qr_code_url=sub_equipment.qr_code,
+        qr_code_base64=f"data:image/png;base64,{img_base64}"
+    )
+
+
+@router.get("/sub/{sub_equipment_id}/image")
+async def get_sub_qrcode_image(
+    sub_equipment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get QR code image (PNG) for sub-equipment
+    Returns image file for download/printing
+    """
+    result = await db.execute(
+        select(SubEquipment).where(SubEquipment.id == sub_equipment_id)
+    )
+    sub_equipment = result.scalar_one_or_none()
+
+    if not sub_equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sub-equipment not found",
+        )
+
+    # Generate QR code image
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(sub_equipment.qr_code)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    # Convert to bytes
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"attachment; filename={sub_equipment.asset_code}.png"
         }
     )
