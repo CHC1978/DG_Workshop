@@ -1,0 +1,38 @@
+"""應用程式配置"""
+from typing import List
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """應用程式設定"""
+
+    # 應用程式基本設定
+    APP_NAME: str = "Marine Equipment QR System"
+    APP_VERSION: str = "0.1.0"
+    DEBUG: bool = True
+
+    # 安全性設定
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+
+    # Token 過期時間 (分鐘)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    TEMP_TOKEN_EXPIRE_MINUTES: int = 5
+
+    # 資料庫設定
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/marine_equipment.db"
+
+    # CORS 設定
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ]
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
+
+
+# 建立全域設定實例
+settings = Settings()

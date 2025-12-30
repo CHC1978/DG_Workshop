@@ -1,0 +1,25 @@
+[project]
+name = "marine-equipment-qr-backend"
+version = "0.1.0"
+description = "海洋設備 QR Code 管理系統 - 後端 API"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
