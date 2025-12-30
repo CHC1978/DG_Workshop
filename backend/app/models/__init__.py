@@ -6,6 +6,7 @@ from app.models.equipment_log import EquipmentLog, EquipmentLogType
 from app.models.customer import Customer
 from app.models.rental import Rental, RentalStatus
 from app.models.calibration import Calibration
+from app.models.trusted_device import TrustedDevice
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "Rental",
     "RentalStatus",
     "Calibration",
+    "TrustedDevice",
 ]

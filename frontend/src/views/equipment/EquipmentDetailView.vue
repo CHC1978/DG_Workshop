@@ -69,21 +69,37 @@
             </dl>
           </div>
 
-          <!-- Financial Information -->
+          <!-- Attachments -->
           <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Financial Information</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Attachments</h2>
             <dl class="space-y-3">
               <div v-if="equipment.purchase_date">
                 <dt class="text-sm font-medium text-gray-500">Purchase Date</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ formatDate(equipment.purchase_date) }}</dd>
               </div>
-              <div v-if="equipment.purchase_price">
-                <dt class="text-sm font-medium text-gray-500">Purchase Price</dt>
-                <dd class="mt-1 text-sm text-gray-900">${{ equipment.purchase_price.toLocaleString() }}</dd>
+              <div v-if="equipment.photo_url">
+                <dt class="text-sm font-medium text-gray-500">Photo</dt>
+                <dd class="mt-1">
+                  <a :href="equipment.photo_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
+                    View Photo
+                  </a>
+                </dd>
               </div>
-              <div v-if="equipment.rental_daily_rate">
-                <dt class="text-sm font-medium text-gray-500">Daily Rental Rate</dt>
-                <dd class="mt-1 text-sm text-gray-900">${{ equipment.rental_daily_rate.toLocaleString() }}/day</dd>
+              <div v-if="equipment.manual_url">
+                <dt class="text-sm font-medium text-gray-500">Manual</dt>
+                <dd class="mt-1">
+                  <a :href="equipment.manual_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
+                    Download Manual (PDF)
+                  </a>
+                </dd>
+              </div>
+              <div v-if="equipment.calibration_report_url">
+                <dt class="text-sm font-medium text-gray-500">Calibration Report</dt>
+                <dd class="mt-1">
+                  <a :href="equipment.calibration_report_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
+                    Download Report (PDF)
+                  </a>
+                </dd>
               </div>
             </dl>
           </div>

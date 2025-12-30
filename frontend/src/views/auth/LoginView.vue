@@ -65,6 +65,19 @@
             autocomplete="one-time-code"
             :error="errors.totp"
           />
+
+          <!-- Remember Device -->
+          <div class="flex items-center">
+            <input
+              v-model="rememberDevice"
+              type="checkbox"
+              id="remember-device"
+              class="h-4 w-4 text-sky-600 focus:ring-sky-500 border-gray-300 rounded"
+            />
+            <label for="remember-device" class="ml-2 block text-sm text-gray-700">
+              Remember this device for 7 days
+            </label>
+          </div>
         </div>
 
         <div v-if="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -105,6 +118,7 @@ import { useUiStore } from '@/stores/ui'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import { generateDeviceFingerprint, getDeviceName } from '@/utils/deviceFingerprint'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -126,6 +140,7 @@ const credentials = reactive({
 })
 
 const totpCode = ref('')
+const rememberDevice = ref(false)
 
 const errors = reactive({
   username: '',
@@ -157,8 +172,28 @@ async function handleStep1() {
 
   try {
     console.log('Attempting login step 1...')
-    const response = await authStore.loginStep1(credentials)
+
+    // Add device fingerprint
+    const deviceFingerprint = generateDeviceFingerprint()
+    const deviceName = getDeviceName()
+
+    const response = await authStore.loginStep1({
+      ...credentials,
+      device_fingerprint: deviceFingerprint,
+      device_name: deviceName,
+    })
     console.log('Login step 1 response:', response)
+
+    // Check if trusted device (skip 2FA)
+    if (response.trusted_device && response.access_token) {
+      console.log('Trusted device detected, logging in directly')
+      // Save access token and proceed
+      authStore.token = response.access_token
+      await authStore.fetchCurrentUser()
+      uiStore.showNotification('success', 'Login successful (trusted device)')
+      await router.push('/dashboard')
+      return
+    }
 
     if (response.totp_required) {
       console.log('2FA required, moving to step 2')
@@ -196,13 +231,25 @@ async function handleStep2() {
 
   try {
     console.log('Attempting login step 2...')
+
+    // Add device fingerprint if remember device is checked
+    const deviceFingerprint = rememberDevice.value ? generateDeviceFingerprint() : undefined
+    const deviceName = rememberDevice.value ? getDeviceName() : undefined
+
     await authStore.loginStep2({
       temp_token: authStore.tempToken,
       totp_code: totpCode.value,
+      remember_device: rememberDevice.value,
+      device_fingerprint: deviceFingerprint,
+      device_name: deviceName,
     })
 
     console.log('Login successful, redirecting to dashboard')
-    uiStore.showNotification('success', 'Login successful')
+    if (rememberDevice.value) {
+      uiStore.showNotification('success', 'Login successful. Device trusted for 7 days.')
+    } else {
+      uiStore.showNotification('success', 'Login successful')
+    }
     await router.push('/dashboard')
   } catch (error: any) {
     console.error('Login step 2 failed:', error)

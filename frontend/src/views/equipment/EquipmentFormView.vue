@@ -69,22 +69,28 @@
             label="Purchase Date"
           />
 
-          <!-- Purchase Price -->
+          <!-- Photo URL -->
           <AppInput
-            v-model.number="formData.purchase_price"
-            type="number"
-            label="Purchase Price"
-            placeholder="0"
-            :error="errors.purchase_price"
+            v-model="formData.photo_url"
+            label="Photo URL"
+            placeholder="URL to equipment photo"
+            hint="Upload photo and enter URL"
           />
 
-          <!-- Daily Rental Rate -->
+          <!-- Manual URL -->
           <AppInput
-            v-model.number="formData.rental_daily_rate"
-            type="number"
-            label="Daily Rental Rate"
-            placeholder="0"
-            :error="errors.rental_daily_rate"
+            v-model="formData.manual_url"
+            label="Manual URL"
+            placeholder="URL to equipment manual (PDF)"
+            hint="Upload manual and enter URL"
+          />
+
+          <!-- Calibration Report URL -->
+          <AppInput
+            v-model="formData.calibration_report_url"
+            label="Calibration Report URL"
+            placeholder="URL to calibration report (PDF)"
+            hint="Upload report and enter URL"
           />
 
           <!-- Specifications -->
@@ -179,8 +185,9 @@ const formData = reactive({
   model: '',
   serial_number: '',
   purchase_date: '',
-  purchase_price: 0,
-  rental_daily_rate: 0,
+  photo_url: '',
+  manual_url: '',
+  calibration_report_url: '',
   specifications: '',
   notes: '',
 })
@@ -188,8 +195,6 @@ const formData = reactive({
 const errors = reactive({
   manufacturer: '',
   model: '',
-  purchase_price: '',
-  rental_daily_rate: '',
 })
 
 function clearErrors() {
@@ -211,8 +216,9 @@ async function loadEquipment() {
     formData.model = equipment.model
     formData.serial_number = equipment.serial_number || ''
     formData.purchase_date = equipment.purchase_date || ''
-    formData.purchase_price = equipment.purchase_price || 0
-    formData.rental_daily_rate = equipment.rental_daily_rate || 0
+    formData.photo_url = equipment.photo_url || ''
+    formData.manual_url = equipment.manual_url || ''
+    formData.calibration_report_url = equipment.calibration_report_url || ''
     formData.specifications = equipment.specifications || ''
     formData.notes = equipment.notes || ''
   } catch (error: any) {
@@ -247,8 +253,9 @@ async function handleSubmit() {
       model: formData.model,
       serial_number: formData.serial_number || undefined,
       purchase_date: formData.purchase_date || undefined,
-      purchase_price: formData.purchase_price > 0 ? formData.purchase_price : undefined,
-      rental_daily_rate: formData.rental_daily_rate > 0 ? formData.rental_daily_rate : undefined,
+      photo_url: formData.photo_url || undefined,
+      manual_url: formData.manual_url || undefined,
+      calibration_report_url: formData.calibration_report_url || undefined,
       specifications: formData.specifications || undefined,
       notes: formData.notes || undefined,
     }

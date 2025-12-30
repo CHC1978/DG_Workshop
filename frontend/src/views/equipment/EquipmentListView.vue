@@ -97,8 +97,8 @@
               <p v-if="equipment.serial_number">
                 <strong>S/N:</strong> {{ equipment.serial_number }}
               </p>
-              <p v-if="equipment.rental_daily_rate">
-                <strong>Daily Rate:</strong> ${{ equipment.rental_daily_rate.toLocaleString() }}
+              <p v-if="equipment.purchase_date">
+                <strong>Purchased:</strong> {{ new Date(equipment.purchase_date).toLocaleDateString() }}
               </p>
             </div>
           </div>

@@ -21,17 +21,24 @@ export interface User {
 export interface LoginStep1Request {
   username: string
   password: string
+  device_fingerprint?: string
+  device_name?: string
 }
 
 export interface LoginStep1Response {
-  temp_token: string
+  temp_token?: string
+  access_token?: string
   totp_required: boolean
+  trusted_device?: boolean
   message: string
 }
 
 export interface LoginStep2Request {
   temp_token: string
   totp_code: string
+  remember_device?: boolean
+  device_fingerprint?: string
+  device_name?: string
 }
 
 export interface LoginStep2Response {
@@ -82,8 +89,9 @@ export interface Equipment {
   status: EquipmentStatus
   current_location_id?: number
   purchase_date?: string
-  purchase_price?: number
-  rental_daily_rate?: number
+  photo_url?: string
+  manual_url?: string
+  calibration_report_url?: string
   specifications?: string
   notes?: string
   is_active: boolean
@@ -97,8 +105,9 @@ export interface EquipmentCreateRequest {
   model: string
   serial_number?: string
   purchase_date?: string
-  purchase_price?: number
-  rental_daily_rate?: number
+  photo_url?: string
+  manual_url?: string
+  calibration_report_url?: string
   current_location_id?: number
   specifications?: string
   notes?: string

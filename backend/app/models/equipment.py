@@ -66,10 +66,13 @@ class Equipment(Base, TimestampMixin):
         nullable=True
     )
 
-    # 財務資訊
+    # Purchase information
     purchase_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    purchase_price: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
-    rental_daily_rate: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
+
+    # Attachments
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    manual_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    calibration_report_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
     # 備註與規格
     specifications: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

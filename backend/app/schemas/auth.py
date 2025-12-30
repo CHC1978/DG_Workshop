@@ -9,12 +9,16 @@ class LoginStep1Request(BaseModel):
     """Step 1: Username and password login"""
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=8, max_length=128)
+    device_fingerprint: Optional[str] = Field(None, max_length=255)
+    device_name: Optional[str] = Field(None, max_length=200)
 
 
 class LoginStep1Response(BaseModel):
-    """Step 1 response: Temporary token"""
-    temp_token: str
+    """Step 1 response: Temporary token or direct access"""
+    temp_token: Optional[str] = None
+    access_token: Optional[str] = None  # If trusted device, skip 2FA
     totp_required: bool
+    trusted_device: bool = False  # Is this a trusted device?
     message: str = "Please provide TOTP code"
 
 
@@ -22,6 +26,9 @@ class LoginStep2Request(BaseModel):
     """Step 2: TOTP verification"""
     temp_token: str
     totp_code: str = Field(..., min_length=6, max_length=6)
+    remember_device: bool = False  # Remember this device for 7 days
+    device_fingerprint: Optional[str] = Field(None, max_length=255)
+    device_name: Optional[str] = Field(None, max_length=200)
 
 
 class LoginStep2Response(BaseModel):

@@ -40,8 +40,12 @@ async def login_step1(
 ):
     """
     Step 1: Verify username and password
-    Returns a temporary token for Step 2
+    Check if device is trusted (skip 2FA for 7 days)
+    Returns access token if trusted, otherwise temp token for Step 2
     """
+    from app.models.trusted_device import TrustedDevice
+    from datetime import datetime
+
     # Find user by username
     result = await db.execute(
         select(User).where(User.username == credentials.username)
@@ -62,9 +66,41 @@ async def login_step1(
             detail="User account is disabled",
         )
 
+    # Check if this is a trusted device (only if 2FA is enabled)
+    if user.totp_enabled and credentials.device_fingerprint:
+        result = await db.execute(
+            select(TrustedDevice).where(
+                TrustedDevice.user_id == user.id,
+                TrustedDevice.device_fingerprint == credentials.device_fingerprint
+            )
+        )
+        trusted_device = result.scalar_one_or_none()
+
+        if trusted_device and trusted_device.is_valid():
+            # Device is trusted and still valid, skip 2FA
+            print(f"[INFO] Trusted device login for user {user.username}")
+
+            # Extend trust period and update last used
+            trusted_device.extend_trust(days=7)
+            await db.commit()
+
+            # Generate access token directly
+            access_token = create_access_token({
+                "sub": str(user.id),
+                "username": user.username,
+                "role": user.role.value,
+            })
+
+            return LoginStep1Response(
+                access_token=access_token,
+                totp_required=False,
+                trusted_device=True,
+                message="Login successful (trusted device)"
+            )
+
     # Generate temporary token (short-lived)
     temp_token = create_temp_token({
-        "sub": str(user.id),  # JWT spec requires sub to be a string
+        "sub": str(user.id),
         "username": user.username,
         "type": "temp"
     })
@@ -72,6 +108,7 @@ async def login_step1(
     return LoginStep1Response(
         temp_token=temp_token,
         totp_required=user.totp_enabled,
+        trusted_device=False,
         message="2FA required" if user.totp_enabled else "2FA setup required"
     )
 
@@ -136,6 +173,37 @@ async def login_step2(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid TOTP code",
         )
+
+    # Save as trusted device if requested
+    if credentials.remember_device and credentials.device_fingerprint:
+        from app.models.trusted_device import TrustedDevice
+        from datetime import datetime, timedelta
+
+        # Check if device already exists
+        result = await db.execute(
+            select(TrustedDevice).where(
+                TrustedDevice.user_id == user.id,
+                TrustedDevice.device_fingerprint == credentials.device_fingerprint
+            )
+        )
+        existing_device = result.scalar_one_or_none()
+
+        if existing_device:
+            # Update existing device
+            existing_device.extend_trust(days=7)
+        else:
+            # Create new trusted device
+            new_device = TrustedDevice(
+                user_id=user.id,
+                device_fingerprint=credentials.device_fingerprint,
+                device_name=credentials.device_name or "Unknown Device",
+                trusted_until=datetime.utcnow() + timedelta(days=7),
+                last_used_at=datetime.utcnow(),
+            )
+            db.add(new_device)
+
+        await db.commit()
+        print(f"[INFO] Device marked as trusted for user {user.username}")
 
     # Generate access token
     access_token = create_access_token({

@@ -21,9 +21,10 @@ class EquipmentBase(BaseModel):
 class EquipmentCreate(EquipmentBase):
     """Create equipment schema"""
     purchase_date: Optional[date] = None
-    purchase_price: Optional[float] = Field(None, ge=0)
-    rental_daily_rate: Optional[float] = Field(None, ge=0)
     current_location_id: Optional[int] = None
+    photo_url: Optional[str] = None
+    manual_url: Optional[str] = None
+    calibration_report_url: Optional[str] = None
 
 
 class EquipmentUpdate(BaseModel):
@@ -35,10 +36,11 @@ class EquipmentUpdate(BaseModel):
     status: Optional[EquipmentStatus] = None
     current_location_id: Optional[int] = None
     purchase_date: Optional[date] = None
-    purchase_price: Optional[float] = Field(None, ge=0)
-    rental_daily_rate: Optional[float] = Field(None, ge=0)
     specifications: Optional[str] = None
     notes: Optional[str] = None
+    photo_url: Optional[str] = None
+    manual_url: Optional[str] = None
+    calibration_report_url: Optional[str] = None
 
 
 # ==================== Response Schemas ====================
@@ -51,8 +53,9 @@ class EquipmentResponse(EquipmentBase):
     status: EquipmentStatus
     current_location_id: Optional[int]
     purchase_date: Optional[date]
-    purchase_price: Optional[float]
-    rental_daily_rate: Optional[float]
+    photo_url: Optional[str]
+    manual_url: Optional[str]
+    calibration_report_url: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

@@ -1,8 +1,8 @@
 """使用者模型"""
 import enum
-from typing import Optional
+from typing import Optional, List
 from sqlalchemy import String, Boolean, Enum as SQLEnum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
@@ -40,6 +40,13 @@ class User(Base, TimestampMixin):
 
     # 帳號狀態
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    trusted_devices: Mapped[list["TrustedDevice"]] = relationship(
+        "TrustedDevice",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username='{self.username}', role='{self.role.value}')>"
