@@ -50,7 +50,7 @@ async def generate_asset_code(
     return asset_code
 
 
-async def generate_qr_code_url(asset_code: str, domain: str = None) -> str:
+def generate_qr_code_url(asset_code: str, domain: str = None) -> str:
     """
     Generate QR code URL for equipment
 
