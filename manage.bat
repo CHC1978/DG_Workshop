@@ -61,6 +61,7 @@ goto MENU
 echo.
 echo Stopping all services...
 call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
 echo.
 echo All services stopped
 pause
