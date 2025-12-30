@@ -53,6 +53,7 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
@@ -86,6 +87,14 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {{ cal.provider }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button
+                      @click="editCalibration(cal)"
+                      class="text-sky-600 hover:text-sky-900"
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -140,9 +149,11 @@
         @click.self="showAddModal = false"
       >
         <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Calibration Record</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            {{ isEditMode ? 'Edit Calibration Record' : 'Add Calibration Record' }}
+          </h3>
           <form @submit.prevent="handleAddCalibration" class="space-y-4">
-            <!-- Equipment Selection -->
+            <!-- Equipment Selection (disabled in edit mode) -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Equipment</label>
               <input
@@ -150,9 +161,10 @@
                 type="text"
                 placeholder="Search by asset code..."
                 class="w-full px-3 py-2 border rounded-lg mb-2"
+                :disabled="isEditMode"
                 @input="searchEquipment"
               />
-              <div v-if="searchResults.length > 0" class="border rounded max-h-40 overflow-y-auto">
+              <div v-if="searchResults.length > 0 && !isEditMode" class="border rounded max-h-40 overflow-y-auto">
                 <div
                   v-for="eq in searchResults"
                   :key="eq.id"
@@ -198,11 +210,27 @@
               label="Cost (optional)"
             />
 
+            <!-- File Upload (Edit mode only) -->
+            <div v-if="isEditMode && editingCalibrationId" class="p-4 bg-gray-50 rounded-lg">
+              <FileUpload
+                label="Calibration Report"
+                file-type="calibration"
+                :calibration-id="editingCalibrationId"
+                :current-file-url="newCalibration.report_url"
+                accept=".pdf"
+                hint="Upload calibration report (PDF, Max 10MB)"
+                @uploaded="handleReportUploaded"
+                @deleted="handleReportDeleted"
+              />
+            </div>
+
+            <!-- URL input for create mode -->
             <AppInput
+              v-if="!isEditMode"
               v-model="newCalibration.report_url"
               label="Calibration Report URL (optional)"
-              placeholder="URL to calibration report file"
-              hint="Upload file and paste URL, or leave empty to add later"
+              placeholder="Leave empty, upload file after creation"
+              hint="File upload available in edit mode"
             />
 
             <div>
@@ -223,7 +251,7 @@
                 Cancel
               </AppButton>
               <AppButton type="submit" variant="primary" :loading="adding">
-                Create Calibration
+                {{ isEditMode ? 'Update Calibration' : 'Create Calibration' }}
               </AppButton>
             </div>
           </form>
@@ -254,12 +282,15 @@ const loading = ref(true)
 const calibrationsRaw = ref<CalibrationDueSoon[]>([])
 const filter = ref('30days')
 
-// Add Calibration Modal
+// Add/Edit Calibration Modal
 const showAddModal = ref(false)
 const adding = ref(false)
 const addError = ref('')
 const selectedEquipment = ref<Equipment | null>(null)
 const searchResults = ref<Equipment[]>([])
+const editingCalibrationId = ref<number | null>(null)
+const isEditMode = computed(() => editingCalibrationId.value !== null)
+
 const newCalibration = ref({
   equipmentSearch: '',
   calibration_date: '',
@@ -370,7 +401,7 @@ async function handleAddCalibration() {
   addError.value = ''
 
   try {
-    await calibrationsApi.create({
+    const data = {
       equipment_id: selectedEquipment.value.id,
       calibration_date: newCalibration.value.calibration_date,
       next_due_date: newCalibration.value.next_due_date,
@@ -379,22 +410,61 @@ async function handleAddCalibration() {
       cost: newCalibration.value.cost > 0 ? newCalibration.value.cost : undefined,
       report_url: newCalibration.value.report_url || undefined,
       notes: newCalibration.value.notes || undefined,
-    })
+    }
 
-    uiStore.showNotification('success', 'Calibration record created')
+    if (isEditMode.value && editingCalibrationId.value) {
+      // Update existing calibration
+      await calibrationsApi.update(editingCalibrationId.value, data)
+      uiStore.showNotification('success', 'Calibration record updated')
+    } else {
+      // Create new calibration
+      await calibrationsApi.create(data)
+      uiStore.showNotification('success', 'Calibration record created')
+    }
+
     showAddModal.value = false
     resetForm()
     await loadCalibrations()
   } catch (error: any) {
-    addError.value = error.response?.data?.detail || 'Failed to create calibration'
+    addError.value = error.response?.data?.detail || 'Failed to save calibration'
   } finally {
     adding.value = false
   }
 }
 
+function editCalibration(cal: any) {
+  editingCalibrationId.value = cal.id
+  selectedEquipment.value = {
+    id: cal.equipment_id,
+    asset_code: cal.equipment_asset_code,
+  } as Equipment
+  newCalibration.value = {
+    equipmentSearch: cal.equipment_asset_code,
+    calibration_date: cal.calibration_date,
+    next_due_date: cal.next_due_date,
+    provider: cal.provider,
+    certificate_number: cal.certificate_number || '',
+    cost: cal.cost || 0,
+    report_url: cal.report_url || '',
+    notes: cal.notes || '',
+  }
+  showAddModal.value = true
+}
+
+function handleReportUploaded(url: string) {
+  newCalibration.value.report_url = url
+  uiStore.showNotification('success', 'Report uploaded successfully')
+}
+
+function handleReportDeleted() {
+  newCalibration.value.report_url = ''
+  uiStore.showNotification('success', 'Report deleted successfully')
+}
+
 function resetForm() {
   selectedEquipment.value = null
   searchResults.value = []
+  editingCalibrationId.value = null
   newCalibration.value = {
     equipmentSearch: '',
     calibration_date: '',

@@ -72,7 +72,8 @@ interface Props {
   label?: string
   currentFileUrl?: string
   equipmentId?: number
-  fileType: 'photo' | 'manual' | 'report'
+  calibrationId?: number
+  fileType: 'photo' | 'manual' | 'report' | 'calibration'
   accept?: string
   hint?: string
   disabled?: boolean
@@ -114,8 +115,18 @@ function handleFileChange(event: Event) {
 }
 
 async function handleUpload() {
-  if (!selectedFile.value || !props.equipmentId) {
-    error.value = 'Please select a file and equipment'
+  if (!selectedFile.value) {
+    error.value = 'Please select a file'
+    return
+  }
+
+  if (props.fileType === 'calibration' && !props.calibrationId) {
+    error.value = 'Calibration ID required'
+    return
+  }
+
+  if (props.fileType !== 'calibration' && !props.equipmentId) {
+    error.value = 'Equipment ID required'
     return
   }
 
@@ -126,7 +137,12 @@ async function handleUpload() {
   error.value = ''
 
   try {
-    const endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+    let endpoint = ''
+    if (props.fileType === 'calibration') {
+      endpoint = `/api/uploads/calibrations/${props.calibrationId}/report`
+    } else {
+      endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+    }
 
     // Get token from localStorage for authorization
     const authData = localStorage.getItem('auth')
@@ -163,12 +179,19 @@ async function handleUpload() {
 }
 
 async function handleDelete() {
-  if (!props.equipmentId || !confirm('Delete this file?')) {
+  if (!confirm('Delete this file?')) {
     return
   }
 
   try {
-    const endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+    let endpoint = ''
+    if (props.fileType === 'calibration') {
+      if (!props.calibrationId) return
+      endpoint = `/api/uploads/calibrations/${props.calibrationId}/report`
+    } else {
+      if (!props.equipmentId) return
+      endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+    }
 
     // Get token from localStorage for authorization
     const authData = localStorage.getItem('auth')
