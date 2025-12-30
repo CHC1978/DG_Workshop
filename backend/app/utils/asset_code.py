@@ -50,18 +50,21 @@ async def generate_asset_code(
     return asset_code
 
 
-def generate_qr_code_url(asset_code: str, domain: str = None) -> str:
+def generate_qr_code_url(asset_code: str, domain: str = None, protocol: str = None) -> str:
     """
     Generate QR code URL for equipment
 
     Args:
         asset_code: Equipment asset code
-        domain: Domain name (default: localhost for development)
+        domain: Domain name (default: from settings)
+        protocol: http or https (default: from settings)
 
     Returns:
         QR code URL string
     """
-    if domain is None:
-        domain = "localhost:5173"
+    if domain is None or protocol is None:
+        from app.core.config import settings
+        domain = domain or settings.QR_CODE_DOMAIN
+        protocol = protocol or settings.QR_CODE_PROTOCOL
 
-    return f"https://{domain}/e/{asset_code}"
+    return f"{protocol}://{domain}/e/{asset_code}"

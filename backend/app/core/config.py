@@ -28,6 +28,10 @@ class Settings(BaseSettings):
         "http://localhost:3000",
     ]
 
+    # QR Code 設定
+    QR_CODE_DOMAIN: str = "localhost:5173"  # QR code URL domain (可設為固定 IP)
+    QR_CODE_PROTOCOL: str = "http"  # http or https
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

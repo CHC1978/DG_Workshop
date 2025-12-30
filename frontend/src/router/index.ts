@@ -23,6 +23,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
   },
 
+  // QR Code scan entry (public - can view basic info without login)
+  {
+    path: '/e/:assetCode',
+    name: 'equipment-scan',
+    component: () => import('@/views/equipment/EquipmentScanView.vue'),
+    meta: { requiresAuth: false },
+  },
+
   // Protected routes
   {
     path: '/',
