@@ -3,6 +3,9 @@ from app.models.user import User, UserRole
 from app.models.equipment import Equipment, EquipmentCategory, EquipmentStatus
 from app.models.location import Location, LocationType
 from app.models.equipment_log import EquipmentLog, EquipmentLogType
+from app.models.customer import Customer
+from app.models.rental import Rental, RentalStatus
+from app.models.calibration import Calibration
 
 __all__ = [
     "User",
@@ -14,4 +17,8 @@ __all__ = [
     "LocationType",
     "EquipmentLog",
     "EquipmentLogType",
+    "Customer",
+    "Rental",
+    "RentalStatus",
+    "Calibration",
 ]

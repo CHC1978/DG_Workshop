@@ -37,6 +37,35 @@ from app.schemas.location import (
     LocationListResponse,
     LocationDetailResponse,
 )
+from app.schemas.customer import (
+    CustomerBase,
+    CustomerCreate,
+    CustomerUpdate,
+    CustomerResponse,
+    CustomerListResponse,
+    CustomerDetailResponse,
+)
+from app.schemas.rental import (
+    RentalBase,
+    RentalCreate,
+    RentalUpdate,
+    RentalResponse,
+    RentalListResponse,
+    RentalDetailResponse,
+    RentalConfirmRequest,
+    RentalDeliverRequest,
+    RentalReturnRequest,
+    RentalCancelRequest,
+)
+from app.schemas.calibration import (
+    CalibrationBase,
+    CalibrationCreate,
+    CalibrationUpdate,
+    CalibrationResponse,
+    CalibrationListResponse,
+    CalibrationDetailResponse,
+    CalibrationDueSoonResponse,
+)
 
 __all__ = [
     # Auth
@@ -73,4 +102,30 @@ __all__ = [
     "LocationResponse",
     "LocationListResponse",
     "LocationDetailResponse",
+    # Customer
+    "CustomerBase",
+    "CustomerCreate",
+    "CustomerUpdate",
+    "CustomerResponse",
+    "CustomerListResponse",
+    "CustomerDetailResponse",
+    # Rental
+    "RentalBase",
+    "RentalCreate",
+    "RentalUpdate",
+    "RentalResponse",
+    "RentalListResponse",
+    "RentalDetailResponse",
+    "RentalConfirmRequest",
+    "RentalDeliverRequest",
+    "RentalReturnRequest",
+    "RentalCancelRequest",
+    # Calibration
+    "CalibrationBase",
+    "CalibrationCreate",
+    "CalibrationUpdate",
+    "CalibrationResponse",
+    "CalibrationListResponse",
+    "CalibrationDetailResponse",
+    "CalibrationDueSoonResponse",
 ]
