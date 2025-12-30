@@ -66,6 +66,10 @@ class Equipment(Base, TimestampMixin):
         nullable=True
     )
 
+    # Deployment information
+    deployed_to: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # Vessel name or person name
+    deployed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Who deployed it
+
     # Purchase information
     purchase_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 

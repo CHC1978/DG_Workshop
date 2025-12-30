@@ -9,26 +9,36 @@
       <!-- Equipment Details -->
       <div v-else-if="equipment" class="space-y-6">
         <!-- Header -->
-        <div class="flex justify-between items-start">
+        <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">{{ equipment.asset_code }}</h1>
-            <p class="mt-1 text-lg text-gray-600">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">{{ equipment.asset_code }}</h1>
+            <p class="mt-1 text-base sm:text-lg text-gray-600">
               {{ equipment.manufacturer }} {{ equipment.model }}
             </p>
           </div>
-          <div class="flex space-x-2">
+          <div class="flex flex-wrap gap-2">
             <AppButton
               v-if="authStore.isManager"
               variant="secondary"
+              size="sm"
               @click="router.push(`/equipment/${equipment.id}/edit`)"
             >
               Edit
             </AppButton>
             <AppButton
               variant="secondary"
+              size="sm"
               @click="downloadQRCode"
             >
-              Download QR Code
+              Download QR
+            </AppButton>
+            <AppButton
+              v-if="authStore.isAdmin"
+              variant="danger"
+              size="sm"
+              @click="handleDelete"
+            >
+              Delete
             </AppButton>
           </div>
         </div>
@@ -203,6 +213,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
+import { useUiStore } from '@/stores/ui'
 import { equipmentApi } from '@/api/equipment'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -211,6 +222,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const equipmentStore = useEquipmentStore()
+const uiStore = useUiStore()
 
 const equipmentId = computed(() => parseInt(route.params.id as string))
 const equipment = computed(() => equipmentStore.currentEquipment)
@@ -291,6 +303,26 @@ function downloadQRCode() {
   if (!equipment.value) return
   const url = equipmentApi.getQRCodeImageUrl(equipment.value.id)
   window.open(url, '_blank')
+}
+
+async function handleDelete() {
+  if (!equipment.value) return
+
+  const confirmed = confirm(
+    `Delete equipment ${equipment.value.asset_code}?\n\n` +
+    `This will deactivate the equipment (soft delete).\n` +
+    `Are you sure?`
+  )
+
+  if (!confirmed) return
+
+  try {
+    await equipmentStore.remove(equipment.value.id)
+    uiStore.showNotification('success', 'Equipment deleted successfully')
+    router.push('/equipment')
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to delete equipment')
+  }
 }
 
 async function loadLogs() {

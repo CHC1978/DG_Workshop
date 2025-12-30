@@ -38,6 +38,8 @@ class EquipmentUpdate(BaseModel):
     serial_number: Optional[str] = Field(None, max_length=100)
     status: Optional[EquipmentStatus] = None
     current_location_id: Optional[int] = None
+    deployed_to: Optional[str] = Field(None, max_length=200)
+    deployed_by: Optional[int] = None
     purchase_date: Optional[date] = None
     specifications: Optional[str] = None
     notes: Optional[str] = None
@@ -62,6 +64,8 @@ class EquipmentResponse(BaseModel):
     serial_number: Optional[str]
     status: EquipmentStatus
     current_location_id: Optional[int]
+    deployed_to: Optional[str]
+    deployed_by: Optional[int]
     purchase_date: Optional[date]
     photo_url: Optional[str]
     manual_url: Optional[str]
