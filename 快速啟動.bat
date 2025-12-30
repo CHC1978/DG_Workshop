@@ -16,14 +16,14 @@ taskkill /F /IM bun.exe 2>nul
 taskkill /F /IM node.exe 2>nul
 timeout /t 1 /nobreak >nul
 
-REM Start backend
+REM Start backend (minimized)
 echo [1/2] 啟動後端伺服器...
-start "後端伺服器 - Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "後端伺服器 - Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 timeout /t 3 /nobreak >nul
 
-REM Start frontend
+REM Start frontend (minimized)
 echo [2/2] 啟動前端伺服器...
-start "前端伺服器 - Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "前端伺服器 - Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 
 echo.
 echo ========================================

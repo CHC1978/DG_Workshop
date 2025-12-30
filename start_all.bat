@@ -15,14 +15,14 @@ echo Press Ctrl+C in each window to stop
 echo ========================================
 echo.
 
-REM Start backend in new window
-start "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+REM Start backend in new minimized window
+start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 
 REM Wait 3 seconds for backend to start
 timeout /t 3 /nobreak >nul
 
-REM Start frontend in new window
-start "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+REM Start frontend in new minimized window
+start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 
 echo.
 echo Both servers are starting in separate windows...

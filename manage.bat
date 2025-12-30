@@ -44,9 +44,9 @@ echo.
 echo Starting all services...
 call :STOP_ALL_SILENT
 timeout /t 2 /nobreak >nul
-start "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 timeout /t 3 /nobreak >nul
-start "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 echo.
 echo Backend: http://localhost:8000
 echo Frontend: http://localhost:5173
@@ -77,9 +77,9 @@ echo.
 echo Restarting all services...
 call :STOP_ALL_SILENT
 timeout /t 2 /nobreak >nul
-start "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 timeout /t 3 /nobreak >nul
-start "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 echo.
 echo Services restarted
 pause
@@ -88,7 +88,7 @@ goto MENU
 :START_BACKEND
 echo.
 echo Starting backend server...
-start "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 echo.
 echo Backend started in new window
 echo URL: http://localhost:8000
@@ -98,7 +98,7 @@ goto MENU
 :START_FRONTEND
 echo.
 echo Starting frontend server...
-start "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 echo.
 echo Frontend started in new window
 echo URL: http://localhost:5173
