@@ -62,6 +62,11 @@ class EquipmentLog(Base, TimestampMixin):
         "User",
         foreign_keys=[created_by]
     )
+    attachments: Mapped[list["LogAttachment"]] = relationship(
+        "LogAttachment",
+        back_populates="equipment_log",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<EquipmentLog(id={self.id}, equipment_id={self.equipment_id}, type='{self.log_type.value}')>"

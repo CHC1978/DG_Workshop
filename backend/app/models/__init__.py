@@ -7,6 +7,7 @@ from app.models.customer import Customer
 from app.models.rental import Rental, RentalStatus
 from app.models.calibration import Calibration
 from app.models.trusted_device import TrustedDevice
+from app.models.log_attachment import LogAttachment, AttachmentType
 
 __all__ = [
     "User",
@@ -23,4 +24,6 @@ __all__ = [
     "RentalStatus",
     "Calibration",
     "TrustedDevice",
+    "LogAttachment",
+    "AttachmentType",
 ]
