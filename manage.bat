@@ -32,8 +32,8 @@ if %IP_COUNT%==0 (
     )
 )
 echo.
-if %NETWORK_MODE%==1 (
-    echo Current Mode: Network Mode (IP: %SELECTED_IP%)
+if "!NETWORK_MODE!"=="1" (
+    echo Current Mode: Network Mode (IP: !SELECTED_IP!)
 ) else (
     echo Current Mode: Localhost Mode
 )
@@ -113,8 +113,8 @@ goto START_ALL
 
 :START_ALL
 echo.
-if %NETWORK_MODE%==1 (
-    echo Starting all services (Network mode - IP: %SELECTED_IP%)...
+if "!NETWORK_MODE!"=="1" (
+    echo Starting all services (Network mode - IP: !SELECTED_IP!)...
 ) else (
     echo Starting all services (Localhost mode)...
 )
@@ -122,7 +122,7 @@ call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
 
-if %NETWORK_MODE%==1 (
+if "!NETWORK_MODE!"=="1" (
     REM Network mode - bind to 0.0.0.0
     start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
     timeout /t 3 /nobreak >nul
@@ -132,11 +132,11 @@ if %NETWORK_MODE%==1 (
     echo Network Mode - Access from other devices
     echo ========================================
     echo.
-    echo Backend API: http://%SELECTED_IP%:8000
-    echo Frontend: http://%SELECTED_IP%:5173
-    echo API Docs: http://%SELECTED_IP%:8000/docs
+    echo Backend API: http://!SELECTED_IP!:8000
+    echo Frontend: http://!SELECTED_IP!:5173
+    echo API Docs: http://!SELECTED_IP!:8000/docs
     echo.
-    echo From other devices: Visit http://%SELECTED_IP%:5173
+    echo From other devices: Visit http://!SELECTED_IP!:5173
     echo.
 ) else (
     REM Localhost mode - default binding
@@ -150,6 +150,7 @@ if %NETWORK_MODE%==1 (
     echo.
 )
 echo Services started in separate windows
+echo.
 pause
 goto MENU
 
@@ -187,10 +188,10 @@ taskkill /F /IM python.exe 2>nul
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 1 /nobreak >nul
 
-if %NETWORK_MODE%==1 (
+if "!NETWORK_MODE!"=="1" (
     start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
-    echo Backend started (Network mode - IP: %SELECTED_IP%)
-    echo URL: http://%SELECTED_IP%:8000
+    echo Backend started (Network mode - IP: !SELECTED_IP!)
+    echo URL: http://!SELECTED_IP!:8000
 ) else (
     start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
     echo Backend started (Localhost mode)
@@ -204,10 +205,10 @@ goto MENU
 echo.
 echo Starting frontend server...
 
-if %NETWORK_MODE%==1 (
+if "!NETWORK_MODE!"=="1" (
     start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
-    echo Frontend started (Network mode - IP: %SELECTED_IP%)
-    echo URL: http://%SELECTED_IP%:5173
+    echo Frontend started (Network mode - IP: !SELECTED_IP!)
+    echo URL: http://!SELECTED_IP!:5173
 ) else (
     start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
     echo Frontend started (Localhost mode)
@@ -227,10 +228,10 @@ taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting backend...
 
-if %NETWORK_MODE%==1 (
+if "!NETWORK_MODE!"=="1" (
     start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
     echo Backend restarted (Network mode)
-    echo URL: http://%SELECTED_IP%:8000
+    echo URL: http://!SELECTED_IP!:8000
 ) else (
     start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
     echo Backend restarted (Localhost mode)
@@ -250,10 +251,10 @@ taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting frontend...
 
-if %NETWORK_MODE%==1 (
+if "!NETWORK_MODE!"=="1" (
     start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
     echo Frontend restarted (Network mode)
-    echo URL: http://%SELECTED_IP%:5173
+    echo URL: http://!SELECTED_IP!:5173
 ) else (
     start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
     echo Frontend restarted (Localhost mode)
