@@ -45,17 +45,23 @@ class EquipmentUpdate(BaseModel):
 
 # ==================== Response Schemas ====================
 
-class EquipmentResponse(EquipmentBase):
+class EquipmentResponse(BaseModel):
     """Equipment response schema"""
     id: int
     asset_code: str
     qr_code: str
+    category: EquipmentCategory
+    manufacturer: str
+    model: str
+    serial_number: Optional[str]
     status: EquipmentStatus
     current_location_id: Optional[int]
     purchase_date: Optional[date]
     photo_url: Optional[str]
     manual_url: Optional[str]
     calibration_report_url: Optional[str]
+    specifications: Optional[str]
+    notes: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime

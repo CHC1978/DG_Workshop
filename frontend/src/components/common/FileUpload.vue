@@ -128,11 +128,24 @@ async function handleUpload() {
   try {
     const endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
 
-    const response = await axios.post(endpoint, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    // Get token from localStorage for authorization
+    const authData = localStorage.getItem('auth')
+    let headers: any = {
+      'Content-Type': 'multipart/form-data',
+    }
+
+    if (authData) {
+      try {
+        const auth = JSON.parse(authData)
+        if (auth.token) {
+          headers.Authorization = `Bearer ${auth.token}`
+        }
+      } catch (e) {
+        console.error('Failed to parse auth data')
+      }
+    }
+
+    const response = await axios.post(endpoint, formData, { headers })
 
     emit('uploaded', response.data.url)
     selectedFile.value = null
@@ -157,7 +170,22 @@ async function handleDelete() {
   try {
     const endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
 
-    await axios.delete(endpoint)
+    // Get token from localStorage for authorization
+    const authData = localStorage.getItem('auth')
+    let headers: any = {}
+
+    if (authData) {
+      try {
+        const auth = JSON.parse(authData)
+        if (auth.token) {
+          headers.Authorization = `Bearer ${auth.token}`
+        }
+      } catch (e) {
+        console.error('Failed to parse auth data')
+      }
+    }
+
+    await axios.delete(endpoint, { headers })
     emit('deleted')
   } catch (err: any) {
     console.error('Delete failed:', err)
