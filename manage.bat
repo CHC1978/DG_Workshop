@@ -101,11 +101,11 @@ timeout /t 1 >nul 2>&1
 if "!NETWORK_MODE!"=="1" (
     echo Starting Network Mode: !SELECTED_IP!
     cd backend
-    start /min cmd /k "venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    start /min "MarineBackend" cmd /k venv\Scripts\activate ^&^& python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
     cd ..
     timeout /t 2 >nul 2>&1
     cd frontend
-    start /min cmd /k "bun dev --host 0.0.0.0"
+    start /min "MarineFrontend" cmd /k bun dev --host 0.0.0.0
     cd ..
     echo.
     echo Backend: http://!SELECTED_IP!:8000
@@ -113,11 +113,11 @@ if "!NETWORK_MODE!"=="1" (
 ) else (
     echo Starting Localhost Mode
     cd backend
-    start /min cmd /k "venv\Scripts\activate && python -m uvicorn app.main:app --port 8000"
+    start /min "MarineBackend" cmd /k venv\Scripts\activate ^&^& python -m uvicorn app.main:app --port 8000
     cd ..
     timeout /t 2 >nul 2>&1
     cd frontend
-    start /min cmd /k "bun dev"
+    start /min "MarineFrontend" cmd /k bun dev
     cd ..
     echo.
     echo Backend: http://localhost:8000
@@ -134,12 +134,12 @@ timeout /t 1 >nul 2>&1
 
 if "!NETWORK_MODE!"=="1" (
     cd backend
-    start /min cmd /k "venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    start /min "MarineBackend" cmd /k venv\Scripts\activate ^&^& python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
     cd ..
     echo Backend started - Network: !SELECTED_IP!:8000
 ) else (
     cd backend
-    start /min cmd /k "venv\Scripts\activate && python -m uvicorn app.main:app --port 8000"
+    start /min "MarineBackend" cmd /k venv\Scripts\activate ^&^& python -m uvicorn app.main:app --port 8000
     cd ..
     echo Backend started - Localhost:8000
 )
@@ -152,12 +152,12 @@ timeout /t 1 >nul 2>&1
 
 if "!NETWORK_MODE!"=="1" (
     cd frontend
-    start /min cmd /k "bun dev --host 0.0.0.0"
+    start /min "MarineFrontend" cmd /k bun dev --host 0.0.0.0
     cd ..
     echo Frontend started - Network: !SELECTED_IP!:5173
 ) else (
     cd frontend
-    start /min cmd /k "bun dev"
+    start /min "MarineFrontend" cmd /k bun dev
     cd ..
     echo Frontend started - Localhost:5173
 )
@@ -191,31 +191,32 @@ goto MENU
 
 :STOP_ALL_SILENT
 echo Stopping processes...
-REM Kill backend
-taskkill /F /IM python.exe
-taskkill /F /IM uvicorn.exe
-REM Kill frontend
-taskkill /F /IM bun.exe
-taskkill /F /IM node.exe
-REM Kill command windows
-for /f "tokens=2" %%i in ('tasklist /FI "IMAGENAME eq cmd.exe" /FO list ^| findstr /I "PID"') do (
-    tasklist /FI "PID eq %%i" /V | findstr /I "backend frontend" >nul
-    if !errorlevel!==0 taskkill /F /PID %%i >nul 2>&1
-)
-timeout /t 2 >nul 2>&1
+REM Kill backend processes
+taskkill /F /IM python.exe 2>nul
+taskkill /F /IM uvicorn.exe 2>nul
+REM Kill frontend processes
+taskkill /F /IM bun.exe 2>nul
+taskkill /F /IM node.exe 2>nul
+REM Close windows by title
+taskkill /FI "WINDOWTITLE eq MarineBackend" /F 2>nul
+taskkill /FI "WINDOWTITLE eq MarineFrontend" /F 2>nul
+echo Done
+timeout /t 1 >nul 2>&1
 goto :EOF
 
 :STOP_BACKEND_SILENT
 echo Stopping backend...
-taskkill /F /IM python.exe
-taskkill /F /IM uvicorn.exe
+taskkill /F /IM python.exe 2>nul
+taskkill /F /IM uvicorn.exe 2>nul
+taskkill /FI "WINDOWTITLE eq MarineBackend" /F 2>nul
 timeout /t 1 >nul 2>&1
 goto :EOF
 
 :STOP_FRONTEND_SILENT
 echo Stopping frontend...
-taskkill /F /IM bun.exe
-taskkill /F /IM node.exe
+taskkill /F /IM bun.exe 2>nul
+taskkill /F /IM node.exe 2>nul
+taskkill /FI "WINDOWTITLE eq MarineFrontend" /F 2>nul
 timeout /t 1 >nul 2>&1
 goto :EOF
 
