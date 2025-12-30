@@ -16,10 +16,10 @@ export interface Calibration {
   updated_at: string
 }
 
-export interface CalibrationWithEquipment extends Calibration {
+export interface CalibrationDueSoon {
+  calibration: Calibration
   equipment_asset_code: string
-  equipment_manufacturer: string
-  equipment_model: string
+  equipment_name: string
   days_until_due: number
   is_overdue: boolean
 }
@@ -38,7 +38,7 @@ export const calibrationsApi = {
    * Get calibrations due soon (within specified days)
    */
   getDueSoon(days = 30) {
-    return apiClient.get<CalibrationWithEquipment[]>('/calibrations/due-soon', {
+    return apiClient.get<CalibrationDueSoon[]>('/calibrations/due-soon', {
       params: { days },
     })
   },

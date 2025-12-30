@@ -130,16 +130,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { calibrationsApi, type CalibrationWithEquipment } from '@/api/calibrations'
+import { calibrationsApi, type CalibrationDueSoon } from '@/api/calibrations'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const router = useRouter()
 
 const loading = ref(true)
-const calibrations = ref<CalibrationWithEquipment[]>([])
+const calibrationsRaw = ref<CalibrationDueSoon[]>([])
 const filter = ref('30days')
+
+// Transform data for display
+const calibrations = computed(() => {
+  return calibrationsRaw.value.map(item => {
+    const [manufacturer, ...modelParts] = item.equipment_name.split(' ')
+    return {
+      ...item.calibration,
+      equipment_asset_code: item.equipment_asset_code,
+      equipment_manufacturer: manufacturer,
+      equipment_model: modelParts.join(' '),
+      days_until_due: item.days_until_due,
+      is_overdue: item.is_overdue,
+    }
+  })
+})
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-TW')
@@ -176,11 +191,11 @@ async function loadCalibrations() {
     if (filter.value === 'all') days = 365
 
     const response = await calibrationsApi.getDueSoon(days)
-    calibrations.value = response.data
+    calibrationsRaw.value = response.data
 
     // Filter overdue if selected
     if (filter.value === 'overdue') {
-      calibrations.value = calibrations.value.filter(c => c.is_overdue)
+      calibrationsRaw.value = calibrationsRaw.value.filter(c => c.is_overdue)
     }
   } catch (error) {
     console.error('Failed to load calibrations:', error)
