@@ -64,7 +64,7 @@ async def login_step1(
 
     # Generate temporary token (short-lived)
     temp_token = create_temp_token({
-        "sub": user.id,
+        "sub": str(user.id),  # JWT spec requires sub to be a string
         "username": user.username,
         "type": "temp"
     })
@@ -93,7 +93,21 @@ async def login_step2(
             detail="Invalid or expired temporary token",
         )
 
-    user_id = payload.get("sub")
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -125,7 +139,7 @@ async def login_step2(
 
     # Generate access token
     access_token = create_access_token({
-        "sub": user.id,
+        "sub": str(user.id),  # JWT spec requires sub to be a string
         "username": user.username,
         "role": user.role.value,
     })

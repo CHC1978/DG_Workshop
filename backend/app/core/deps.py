@@ -33,8 +33,22 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # 取得 user_id
-    user_id: Optional[int] = payload.get("sub")
+    # 取得 user_id (convert from string to int)
+    user_id_str = payload.get("sub")
+    if user_id_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="無效的認證憑證",
+        )
+
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="無效的認證憑證",
+        )
+
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -101,10 +115,14 @@ async def get_user_from_temp_token(
     Accepts temp token from login step 1
     """
     token = credentials.credentials
+    print(f"[DEBUG] get_user_from_temp_token called with token: {token[:50]}...")
 
     # Decode token
     payload = decode_token(token)
+    print(f"[DEBUG] Decoded payload: {payload}")
+
     if payload is None:
+        print("[DEBUG] Payload is None - token decode failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
@@ -112,15 +130,38 @@ async def get_user_from_temp_token(
 
     # Verify it's a temp token
     token_type = payload.get("type")
+    print(f"[DEBUG] Token type: {token_type}")
+
     if token_type != "temp":
+        print(f"[DEBUG] Wrong token type. Expected 'temp', got '{token_type}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type. Temporary token required.",
+            detail=f"Invalid token type. Expected 'temp', got '{token_type}'. Temporary token required.",
         )
 
-    # Get user_id
-    user_id: Optional[int] = payload.get("sub")
+    # Get user_id (convert from string to int)
+    user_id_str = payload.get("sub")
+    print(f"[DEBUG] User ID string from token: {user_id_str}")
+
+    if user_id_str is None:
+        print("[DEBUG] No user_id in payload")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    try:
+        user_id = int(user_id_str)
+        print(f"[DEBUG] Converted to int: {user_id}")
+    except (ValueError, TypeError) as e:
+        print(f"[DEBUG] Failed to convert user_id to int: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
     if user_id is None:
+        print("[DEBUG] No user_id in payload")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload",
@@ -129,19 +170,23 @@ async def get_user_from_temp_token(
     # Get user from database
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
+    print(f"[DEBUG] User found: {user is not None}")
 
     if user is None:
+        print("[DEBUG] User not found in database")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
 
     if not user.is_active:
+        print("[DEBUG] User is not active")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled",
         )
 
+    print(f"[DEBUG] Successfully authenticated user: {user.username}")
     return user
 
 
