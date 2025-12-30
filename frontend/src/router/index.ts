@@ -41,6 +41,32 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
+  // Admin routes
+  {
+    path: '/admin/users',
+    name: 'users-list',
+    component: () => import('@/views/admin/UsersListView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/users/new',
+    name: 'user-create',
+    component: () => import('@/views/admin/UserFormView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/admin/users/:id',
+    name: 'user-detail',
+    component: () => import('@/views/admin/UserDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin/users/:id/edit',
+    name: 'user-edit',
+    component: () => import('@/views/admin/UserFormView.vue'),
+    meta: { requiresAuth: true },
+  },
+
   // Fallback
   {
     path: '/:pathMatch(.*)*',

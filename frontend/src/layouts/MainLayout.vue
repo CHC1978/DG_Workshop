@@ -11,6 +11,32 @@
             </h1>
           </div>
 
+          <!-- Navigation -->
+          <nav class="flex items-center space-x-6">
+            <router-link
+              to="/dashboard"
+              class="text-sm text-gray-700 hover:text-sky-600"
+              active-class="text-sky-600 font-semibold"
+            >
+              Dashboard
+            </router-link>
+            <router-link
+              to="/equipment"
+              class="text-sm text-gray-700 hover:text-sky-600"
+              active-class="text-sky-600 font-semibold"
+            >
+              Equipment
+            </router-link>
+            <router-link
+              v-if="authStore.isAdmin"
+              to="/admin/users"
+              class="text-sm text-gray-700 hover:text-sky-600"
+              active-class="text-sky-600 font-semibold"
+            >
+              Users
+            </router-link>
+          </nav>
+
           <!-- User menu -->
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-700">
