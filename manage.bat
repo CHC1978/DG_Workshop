@@ -63,7 +63,7 @@ echo Stopping all services...
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 echo.
-echo All services stopped
+echo All servers stopped
 pause
 goto MENU
 
@@ -75,7 +75,6 @@ taskkill /F /IM node.exe 2>nul
 goto :EOF
 
 :CLOSE_SERVER_WINDOWS
-REM Close windows with specific titles
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
 taskkill /FI "WindowTitle eq 後端伺服器*" 2>nul
@@ -99,6 +98,9 @@ goto MENU
 :START_BACKEND
 echo.
 echo Starting backend server...
+call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
+timeout /t 1 /nobreak >nul
 start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 echo.
 echo Backend started in new window
