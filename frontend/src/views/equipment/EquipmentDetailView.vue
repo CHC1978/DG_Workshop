@@ -154,9 +154,10 @@
         <!-- Status Actions (Operator+) -->
         <div v-if="authStore.isOperator && canPerformActions" class="bg-white rounded-lg shadow p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Status Actions</h2>
+          <p class="text-sm text-gray-600 mb-4">Current Status: {{ equipment.status }}</p>
           <div class="flex flex-wrap gap-3">
             <AppButton
-              v-if="equipment.status === 'in_stock'"
+              v-if="equipment.status === 'in_stock' || equipment.status === 'ordering'"
               variant="primary"
               @click="showDeployModal = true"
             >
@@ -170,14 +171,14 @@
               Return Equipment
             </AppButton>
             <AppButton
-              v-if="equipment.status !== 'repair' && equipment.status !== 'calibrating'"
+              v-if="equipment.status === 'in_stock' || equipment.status === 'deployed'"
               variant="secondary"
-              @click="showRepairModal = true"
+              @click="handleSendToRepair"
             >
               Send to Repair
             </AppButton>
             <AppButton
-              v-if="equipment.status !== 'calibrating'"
+              v-if="equipment.status === 'in_stock' || equipment.status === 'deployed'"
               variant="secondary"
               @click="handleSendToCalibration"
             >
@@ -415,11 +416,27 @@ async function handleDelete() {
   }
 }
 
+async function handleSendToRepair() {
+  if (!equipment.value) return
+
+  const notes = prompt('Notes for repair (optional):')
+  if (notes === null) return
+
+  try {
+    await equipmentApi.repair(equipment.value.id, notes || undefined)
+    uiStore.showNotification('success', 'Equipment sent to repair')
+    await equipmentStore.fetchById(equipmentId.value)
+    await loadLogs()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to repair')
+  }
+}
+
 async function handleSendToCalibration() {
   if (!equipment.value) return
 
   const notes = prompt('Notes for calibration (optional):')
-  if (notes === null) return // User cancelled
+  if (notes === null) return
 
   try {
     await equipmentApi.sendToCalibration(equipment.value.id, notes || undefined)
