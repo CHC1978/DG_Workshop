@@ -2,7 +2,6 @@
  * Axios API client configuration
  */
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
-import { useAuthStore } from '@/stores/auth'
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -16,10 +15,17 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor - Add auth token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const authStore = useAuthStore()
-
-    if (authStore.token) {
-      config.headers.Authorization = `Bearer ${authStore.token}`
+    // Get token from localStorage directly to avoid circular dependency
+    const authData = localStorage.getItem('auth')
+    if (authData) {
+      try {
+        const auth = JSON.parse(authData)
+        if (auth.token) {
+          config.headers.Authorization = `Bearer ${auth.token}`
+        }
+      } catch (e) {
+        console.error('Failed to parse auth data:', e)
+      }
     }
 
     return config
@@ -38,9 +44,12 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
-        const authStore = useAuthStore()
-        authStore.logout()
-        window.location.href = '/login'
+        // Clear auth data
+        localStorage.removeItem('auth')
+        // Redirect to login if not already there
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
       }
 
       // Handle 403 Forbidden

@@ -16,6 +16,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/Setup2FAView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/debug',
+    name: 'debug',
+    component: () => import('@/views/DebugView.vue'),
+    meta: { requiresAuth: false },
+  },
 
   // Protected routes
   {

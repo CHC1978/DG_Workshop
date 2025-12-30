@@ -150,17 +150,22 @@ async function handleStep1() {
   loading.value = true
 
   try {
+    console.log('Attempting login step 1...')
     const response = await authStore.loginStep1(credentials)
+    console.log('Login step 1 response:', response)
 
     if (response.totp_required) {
+      console.log('2FA required, moving to step 2')
       step.value = 2
     } else {
+      console.log('2FA not set up, redirecting to setup')
       // 2FA not set up, redirect to 2FA setup
-      router.push('/setup-2fa')
+      await router.push('/setup-2fa')
     }
   } catch (error: any) {
     console.error('Login step 1 failed:', error)
-    errorMessage.value = error.response?.data?.detail || 'Login failed'
+    console.error('Error details:', error.response)
+    errorMessage.value = error.response?.data?.detail || error.message || 'Login failed'
   } finally {
     loading.value = false
   }
@@ -175,19 +180,28 @@ async function handleStep2() {
     return
   }
 
+  if (!authStore.tempToken) {
+    errorMessage.value = 'Session expired, please login again'
+    backToStep1()
+    return
+  }
+
   loading.value = true
 
   try {
+    console.log('Attempting login step 2...')
     await authStore.loginStep2({
-      temp_token: authStore.tempToken!,
+      temp_token: authStore.tempToken,
       totp_code: totpCode.value,
     })
 
+    console.log('Login successful, redirecting to dashboard')
     uiStore.showNotification('success', 'Login successful')
-    router.push('/dashboard')
+    await router.push('/dashboard')
   } catch (error: any) {
     console.error('Login step 2 failed:', error)
-    errorMessage.value = error.response?.data?.detail || 'Invalid TOTP code'
+    console.error('Error details:', error.response)
+    errorMessage.value = error.response?.data?.detail || error.message || 'Invalid TOTP code'
   } finally {
     loading.value = false
   }
