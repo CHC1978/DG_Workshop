@@ -1,6 +1,6 @@
 """Dashboard statistics and alerts API"""
-from typing import List
-from datetime import date, timedelta
+from typing import List, Optional
+from datetime import date, timedelta, datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
