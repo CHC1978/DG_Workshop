@@ -53,6 +53,7 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Report</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -87,6 +88,17 @@
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {{ cal.provider }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <a
+                      v-if="cal.report_url"
+                      :href="`http://localhost:8000${cal.report_url}`"
+                      target="_blank"
+                      class="text-sky-600 hover:text-sky-900"
+                    >
+                      📄 View
+                    </a>
+                    <span v-else class="text-gray-400">-</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm">
                     <button
@@ -137,6 +149,24 @@
               {{ cal.days_until_due >= 0 ? `${cal.days_until_due} days` : `${Math.abs(cal.days_until_due)} days overdue` }}
             </span>
             <span class="text-gray-600">{{ cal.provider }}</span>
+          </div>
+
+          <div class="mt-3 flex justify-between items-center">
+            <a
+              v-if="cal.report_url"
+              :href="`http://localhost:8000${cal.report_url}`"
+              target="_blank"
+              class="text-sm text-sky-600 hover:text-sky-800"
+            >
+              📄 View Report
+            </a>
+            <span v-else class="text-sm text-gray-400">No report</span>
+            <button
+              @click="editCalibration(cal)"
+              class="text-sm text-sky-600 hover:text-sky-900"
+            >
+              Edit
+            </button>
           </div>
         </div>
         </div>
