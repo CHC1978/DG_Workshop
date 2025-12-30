@@ -100,11 +100,15 @@ class EquipmentLog(Base, TimestampMixin):
     )
     creator: Mapped[Optional["User"]] = relationship(
         "User",
-        foreign_keys=[created_by]
+        foreign_keys=[created_by],
+        viewonly=True,
+        overlaps="editor"
     )
     editor: Mapped[Optional["User"]] = relationship(
         "User",
-        foreign_keys=[edited_by]
+        foreign_keys=[edited_by],
+        viewonly=True,
+        overlaps="creator"
     )
     attachments: Mapped[list["LogAttachment"]] = relationship(
         "LogAttachment",
