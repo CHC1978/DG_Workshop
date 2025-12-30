@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -116,6 +116,13 @@ import type { Setup2FAResponse } from '@/types'
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+// Debug: Check tempToken on mount
+onMounted(() => {
+  console.log('Setup2FAView mounted')
+  console.log('tempToken exists:', !!authStore.tempToken)
+  console.log('tempToken value:', authStore.tempToken?.substring(0, 50) + '...')
+})
 
 const loading = ref(false)
 const qrCodeData = ref<Setup2FAResponse | null>(null)
@@ -131,12 +138,34 @@ async function handleSetup() {
   loading.value = true
   errorMessage.value = ''
 
+  // Check if we have tempToken
+  if (!authStore.tempToken) {
+    console.error('No tempToken found, redirecting to login')
+    errorMessage.value = 'Session expired. Please login again.'
+    setTimeout(() => {
+      router.push('/login')
+    }, 2000)
+    loading.value = false
+    return
+  }
+
   try {
+    console.log('Starting 2FA setup with tempToken...')
     const response = await authStore.setup2FA()
+    console.log('2FA setup successful, got QR code')
     qrCodeData.value = response
   } catch (error: any) {
     console.error('2FA setup failed:', error)
-    errorMessage.value = error.response?.data?.detail || '2FA setup failed'
+    console.error('Error response:', error.response)
+
+    if (error.response?.status === 401) {
+      errorMessage.value = 'Session expired. Please login again.'
+      setTimeout(() => {
+        router.push('/login')
+      }, 2000)
+    } else {
+      errorMessage.value = error.response?.data?.detail || error.message || '2FA setup failed'
+    }
   } finally {
     loading.value = false
   }

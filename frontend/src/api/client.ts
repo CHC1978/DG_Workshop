@@ -55,11 +55,19 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Handle 401 Unauthorized
       if (error.response.status === 401) {
-        // Clear auth data
-        localStorage.removeItem('auth')
-        // Redirect to login if not already there
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login'
+        // Don't auto-logout for 2FA setup endpoints - let component handle it
+        const is2FAEndpoint = error.config?.url?.includes('/auth/2fa/')
+        const isLoginEndpoint = error.config?.url?.includes('/auth/login/')
+
+        if (!is2FAEndpoint && !isLoginEndpoint) {
+          // Clear auth data and redirect only for protected endpoints
+          console.log('401 on protected endpoint, logging out')
+          localStorage.removeItem('auth')
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
+        } else {
+          console.log('401 on auth endpoint, not auto-redirecting')
         }
       }
 
