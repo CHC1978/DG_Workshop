@@ -23,14 +23,26 @@ export const equipmentApi = {
    * List equipment with filters
    */
   list(filters?: EquipmentFilters) {
-    console.log('[equipmentApi.list] Calling with filters:', filters)
-    return apiClient.get<EquipmentListResponse>('/equipment', { params: filters })
+    // Remove empty string parameters to avoid validation errors
+    const cleanFilters: any = {}
+    if (filters) {
+      if (filters.skip !== undefined) cleanFilters.skip = filters.skip
+      if (filters.limit !== undefined) cleanFilters.limit = filters.limit
+      if (filters.search && filters.search.trim()) cleanFilters.search = filters.search
+      if (filters.category && filters.category.trim()) cleanFilters.category = filters.category
+      if (filters.status && filters.status.trim()) cleanFilters.status = filters.status
+      if (filters.location_id) cleanFilters.location_id = filters.location_id
+    }
+
+    console.log('[equipmentApi.list] Calling with clean filters:', cleanFilters)
+    return apiClient.get<EquipmentListResponse>('/equipment', { params: cleanFilters })
       .then(response => {
         console.log('[equipmentApi.list] Response:', response.data)
         return response
       })
       .catch(error => {
         console.error('[equipmentApi.list] Error:', error)
+        console.error('[equipmentApi.list] Error response:', error.response?.data)
         throw error
       })
   },
