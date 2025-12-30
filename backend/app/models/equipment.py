@@ -84,6 +84,11 @@ class Equipment(Base, TimestampMixin):
         back_populates="equipments",
         foreign_keys=[current_location_id]
     )
+    logs: Mapped[list["EquipmentLog"]] = relationship(
+        "EquipmentLog",
+        back_populates="equipment",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Equipment(id={self.id}, asset_code='{self.asset_code}', status='{self.status.value}')>"

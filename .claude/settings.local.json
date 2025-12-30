@@ -17,7 +17,11 @@
       "Bash(timeout 10 ./venv/Scripts/python:*)",
       "Bash(timeout 15 bun dev:*)",
       "Bash(./venv/Scripts/python:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
     ]
   }
 }

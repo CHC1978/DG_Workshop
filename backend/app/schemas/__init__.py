@@ -19,6 +19,24 @@ from app.schemas.user import (
     UserResponse,
     UserListResponse,
 )
+from app.schemas.equipment import (
+    EquipmentBase,
+    EquipmentCreate,
+    EquipmentUpdate,
+    EquipmentResponse,
+    EquipmentListResponse,
+    EquipmentDetailResponse,
+    QRCodeResponse,
+    EquipmentLogResponse,
+)
+from app.schemas.location import (
+    LocationBase,
+    LocationCreate,
+    LocationUpdate,
+    LocationResponse,
+    LocationListResponse,
+    LocationDetailResponse,
+)
 
 __all__ = [
     # Auth
@@ -39,4 +57,20 @@ __all__ = [
     "UserPasswordUpdate",
     "UserResponse",
     "UserListResponse",
+    # Equipment
+    "EquipmentBase",
+    "EquipmentCreate",
+    "EquipmentUpdate",
+    "EquipmentResponse",
+    "EquipmentListResponse",
+    "EquipmentDetailResponse",
+    "QRCodeResponse",
+    "EquipmentLogResponse",
+    # Location
+    "LocationBase",
+    "LocationCreate",
+    "LocationUpdate",
+    "LocationResponse",
+    "LocationListResponse",
+    "LocationDetailResponse",
 ]
