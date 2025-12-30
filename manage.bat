@@ -165,38 +165,47 @@ pause
 goto MENU
 
 :STOP_ALL
+echo.
+echo Stopping all services...
 call :STOP_ALL_SILENT
-echo All stopped
+echo.
+echo All services stopped
 pause
 goto MENU
 
 :STOP_BACKEND
+echo.
+echo Stopping backend...
 call :STOP_BACKEND_SILENT
 echo Backend stopped
 pause
 goto MENU
 
 :STOP_FRONTEND
+echo.
+echo Stopping frontend...
 call :STOP_FRONTEND_SILENT
 echo Frontend stopped
 pause
 goto MENU
 
 :STOP_ALL_SILENT
-taskkill /F /IM python.exe >nul 2>&1
-taskkill /F /IM uvicorn.exe >nul 2>&1
-taskkill /F /IM bun.exe >nul 2>&1
-taskkill /F /IM node.exe >nul 2>&1
+echo Stopping processes...
+taskkill /F /IM python.exe 2>nul
+taskkill /F /IM bun.exe 2>nul
+taskkill /F /IM node.exe 2>nul
+timeout /t 1 >nul 2>&1
 goto :EOF
 
 :STOP_BACKEND_SILENT
-taskkill /F /IM python.exe >nul 2>&1
-taskkill /F /IM uvicorn.exe >nul 2>&1
+taskkill /F /IM python.exe 2>nul
+timeout /t 1 >nul 2>&1
 goto :EOF
 
 :STOP_FRONTEND_SILENT
-taskkill /F /IM bun.exe >nul 2>&1
-taskkill /F /IM node.exe >nul 2>&1
+taskkill /F /IM bun.exe 2>nul
+taskkill /F /IM node.exe 2>nul
+timeout /t 1 >nul 2>&1
 goto :EOF
 
 :CLOSE_SERVER_WINDOWS
@@ -225,7 +234,11 @@ pause
 goto MENU
 
 :EXIT
+echo.
+echo Stopping all services before exit...
 call :STOP_ALL_SILENT
-echo Stopped all services
-timeout /t 1 >nul 2>&1
+echo.
+echo All services stopped
+echo Exiting...
+timeout /t 2 >nul 2>&1
 exit /b 0
