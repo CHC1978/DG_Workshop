@@ -23,7 +23,16 @@ export const equipmentApi = {
    * List equipment with filters
    */
   list(filters?: EquipmentFilters) {
+    console.log('[equipmentApi.list] Calling with filters:', filters)
     return apiClient.get<EquipmentListResponse>('/equipment', { params: filters })
+      .then(response => {
+        console.log('[equipmentApi.list] Response:', response.data)
+        return response
+      })
+      .catch(error => {
+        console.error('[equipmentApi.list] Error:', error)
+        throw error
+      })
   },
 
   /**

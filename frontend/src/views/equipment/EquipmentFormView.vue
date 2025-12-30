@@ -62,6 +62,28 @@
             placeholder="Optional"
           />
 
+          <!-- Status (Edit mode only) -->
+          <div v-if="isEdit">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Equipment Status
+            </label>
+            <select
+              v-model="formData.status"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+            >
+              <option value="ordering">Ordering</option>
+              <option value="in_stock">In Stock</option>
+              <option value="deployed">Deployed</option>
+              <option value="rented">Rented</option>
+              <option value="repair">Repair</option>
+              <option value="disposed">Disposed</option>
+              <option value="lost">Lost</option>
+            </select>
+            <p class="mt-1 text-sm text-gray-500">
+              New equipment default to 'Ordering' status
+            </p>
+          </div>
+
           <!-- Purchase Date -->
           <AppInput
             v-model="formData.purchase_date"
@@ -117,6 +139,36 @@
             </p>
           </div>
 
+          <!-- Maintenance Records -->
+          <div v-if="isEdit" class="space-y-4 p-4 bg-yellow-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-700">Maintenance Records</h3>
+
+            <div class="grid grid-cols-2 gap-4">
+              <AppInput
+                v-model="formData.last_maintenance_date"
+                type="date"
+                label="Last Maintenance Date"
+              />
+              <AppInput
+                v-model="formData.next_maintenance_date"
+                type="date"
+                label="Next Maintenance Due"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Maintenance Notes
+              </label>
+              <textarea
+                v-model="formData.maintenance_notes"
+                rows="3"
+                placeholder="Enter maintenance history and notes..."
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              ></textarea>
+            </div>
+          </div>
+
           <!-- Specifications -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -133,7 +185,7 @@
           <!-- Notes -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              Notes
+              General Notes
             </label>
             <textarea
               v-model="formData.notes"
@@ -209,10 +261,14 @@ const formData = reactive({
   manufacturer: '',
   model: '',
   serial_number: '',
+  status: 'ordering',
   purchase_date: '',
   photo_url: '',
   manual_url: '',
   calibration_report_url: '',
+  last_maintenance_date: '',
+  next_maintenance_date: '',
+  maintenance_notes: '',
   specifications: '',
   notes: '',
 })
@@ -275,10 +331,14 @@ async function loadEquipment() {
     formData.manufacturer = equipment.manufacturer
     formData.model = equipment.model
     formData.serial_number = equipment.serial_number || ''
+    formData.status = equipment.status || 'ordering'
     formData.purchase_date = equipment.purchase_date || ''
     formData.photo_url = equipment.photo_url || ''
     formData.manual_url = equipment.manual_url || ''
     formData.calibration_report_url = equipment.calibration_report_url || ''
+    formData.last_maintenance_date = equipment.last_maintenance_date || ''
+    formData.next_maintenance_date = equipment.next_maintenance_date || ''
+    formData.maintenance_notes = equipment.maintenance_notes || ''
     formData.specifications = equipment.specifications || ''
     formData.notes = equipment.notes || ''
   } catch (error: any) {
@@ -312,10 +372,14 @@ async function handleSubmit() {
       manufacturer: formData.manufacturer,
       model: formData.model,
       serial_number: formData.serial_number || undefined,
+      status: isEdit.value ? formData.status : undefined,
       purchase_date: formData.purchase_date || undefined,
       photo_url: formData.photo_url || undefined,
       manual_url: formData.manual_url || undefined,
       calibration_report_url: formData.calibration_report_url || undefined,
+      last_maintenance_date: formData.last_maintenance_date || undefined,
+      next_maintenance_date: formData.next_maintenance_date || undefined,
+      maintenance_notes: formData.maintenance_notes || undefined,
       specifications: formData.specifications || undefined,
       notes: formData.notes || undefined,
     }

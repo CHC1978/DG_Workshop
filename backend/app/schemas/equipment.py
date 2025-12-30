@@ -16,6 +16,7 @@ class EquipmentBase(BaseModel):
     serial_number: Optional[str] = Field(None, max_length=100)
     specifications: Optional[str] = None
     notes: Optional[str] = None
+    maintenance_notes: Optional[str] = None
 
 
 class EquipmentCreate(EquipmentBase):
@@ -25,6 +26,8 @@ class EquipmentCreate(EquipmentBase):
     photo_url: Optional[str] = None
     manual_url: Optional[str] = None
     calibration_report_url: Optional[str] = None
+    last_maintenance_date: Optional[date] = None
+    next_maintenance_date: Optional[date] = None
 
 
 class EquipmentUpdate(BaseModel):
@@ -41,6 +44,9 @@ class EquipmentUpdate(BaseModel):
     photo_url: Optional[str] = None
     manual_url: Optional[str] = None
     calibration_report_url: Optional[str] = None
+    last_maintenance_date: Optional[date] = None
+    next_maintenance_date: Optional[date] = None
+    maintenance_notes: Optional[str] = None
 
 
 # ==================== Response Schemas ====================
@@ -60,6 +66,9 @@ class EquipmentResponse(BaseModel):
     photo_url: Optional[str]
     manual_url: Optional[str]
     calibration_report_url: Optional[str]
+    last_maintenance_date: Optional[date]
+    next_maintenance_date: Optional[date]
+    maintenance_notes: Optional[str]
     specifications: Optional[str]
     notes: Optional[str]
     is_active: bool

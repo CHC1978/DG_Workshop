@@ -74,6 +74,11 @@ class Equipment(Base, TimestampMixin):
     manual_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     calibration_report_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
+    # Maintenance records
+    last_maintenance_date: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
+    next_maintenance_date: Mapped[Optional[str]] = mapped_column(Date, nullable=True)
+    maintenance_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # 備註與規格
     specifications: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

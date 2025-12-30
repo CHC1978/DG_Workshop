@@ -17,11 +17,14 @@ export const useEquipmentStore = defineStore('equipment', () => {
   async function fetchList(filters?: EquipmentFilters) {
     loading.value = true
     try {
+      console.log('[equipmentStore.fetchList] Fetching with filters:', filters)
       const response = await equipmentApi.list(filters)
+      console.log('[equipmentStore.fetchList] Got response:', response.data)
       equipmentList.value = response.data.equipments
       total.value = response.data.total
+      console.log('[equipmentStore.fetchList] Updated list, count:', equipmentList.value.length)
     } catch (error) {
-      console.error('Failed to fetch equipment list:', error)
+      console.error('[equipmentStore.fetchList] Failed:', error)
       throw error
     } finally {
       loading.value = false
