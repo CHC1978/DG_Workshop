@@ -118,6 +118,55 @@ async def create_calibration(
     return CalibrationResponse.model_validate(new_calibration)
 
 
+@router.get("/due-soon", response_model=list[CalibrationDueSoonResponse])
+async def get_calibrations_due_soon(
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get calibrations due soon (within specified days)
+    Default: 30 days
+    """
+    print(f"[DEBUG] days parameter: {days}, type: {type(days)}")
+    today = date.today()
+    future_date = today + timedelta(days=days)
+
+    # Find calibrations due within the period
+    query = (
+        select(Calibration)
+        .where(Calibration.next_due_date <= future_date)
+        .order_by(Calibration.next_due_date)
+    )
+
+    result = await db.execute(query)
+    calibrations = result.scalars().all()
+
+    # Build response with equipment info
+    responses = []
+    for cal in calibrations:
+        # Get equipment
+        equipment_result = await db.execute(
+            select(Equipment).where(Equipment.id == cal.equipment_id)
+        )
+        equipment = equipment_result.scalar_one_or_none()
+
+        if equipment:
+            days_until_due = (cal.next_due_date - today).days
+            is_overdue = days_until_due < 0
+
+            responses.append(
+                CalibrationDueSoonResponse(
+                    calibration=CalibrationResponse.model_validate(cal),
+                    equipment_asset_code=equipment.asset_code,
+                    equipment_name=f"{equipment.manufacturer} {equipment.model}",
+                    days_until_due=days_until_due,
+                    is_overdue=is_overdue,
+                )
+            )
+
+    return responses
+
 @router.get("/{calibration_id}", response_model=CalibrationDetailResponse)
 async def get_calibration(
     calibration_id: int,
@@ -210,55 +259,6 @@ async def delete_calibration(
 
 
 # ==================== Calibration Due Date Checking ====================
-
-@router.get("/due-soon", response_model=list[CalibrationDueSoonResponse])
-async def get_calibrations_due_soon(
-    days: int = 30,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Get calibrations due soon (within specified days)
-    Default: 30 days
-    """
-    print(f"[DEBUG] days parameter: {days}, type: {type(days)}")
-    today = date.today()
-    future_date = today + timedelta(days=days)
-
-    # Find calibrations due within the period
-    query = (
-        select(Calibration)
-        .where(Calibration.next_due_date <= future_date)
-        .order_by(Calibration.next_due_date)
-    )
-
-    result = await db.execute(query)
-    calibrations = result.scalars().all()
-
-    # Build response with equipment info
-    responses = []
-    for cal in calibrations:
-        # Get equipment
-        equipment_result = await db.execute(
-            select(Equipment).where(Equipment.id == cal.equipment_id)
-        )
-        equipment = equipment_result.scalar_one_or_none()
-
-        if equipment:
-            days_until_due = (cal.next_due_date - today).days
-            is_overdue = days_until_due < 0
-
-            responses.append(
-                CalibrationDueSoonResponse(
-                    calibration=CalibrationResponse.model_validate(cal),
-                    equipment_asset_code=equipment.asset_code,
-                    equipment_name=f"{equipment.manufacturer} {equipment.model}",
-                    days_until_due=days_until_due,
-                    is_overdue=is_overdue,
-                )
-            )
-
-    return responses
 
 
 @router.get("/equipment/{equipment_id}", response_model=list[CalibrationResponse])
