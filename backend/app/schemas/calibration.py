@@ -64,5 +64,3 @@ class CalibrationDueSoonResponse(BaseModel):
     equipment_name: str
     days_until_due: int
     is_overdue: bool
-
-    model_config = {"from_attributes": True}
