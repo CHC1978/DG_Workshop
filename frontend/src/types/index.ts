@@ -75,6 +75,7 @@ export type EquipmentStatus =
   | 'deployed'
   | 'rented'
   | 'repair'
+  | 'calibrating'
   | 'disposed'
   | 'lost'
 

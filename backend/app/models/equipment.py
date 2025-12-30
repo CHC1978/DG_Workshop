@@ -24,13 +24,14 @@ class EquipmentCategory(str, enum.Enum):
 
 class EquipmentStatus(str, enum.Enum):
     """設備狀態"""
-    ORDERING = "ordering"      # 採購中
-    IN_STOCK = "in_stock"      # 庫存中
-    DEPLOYED = "deployed"      # 自用部署中
-    RENTED = "rented"          # 租賃中
-    REPAIR = "repair"          # 維修中
-    DISPOSED = "disposed"      # 已報廢
-    LOST = "lost"              # 遺失
+    ORDERING = "ordering"          # 採購中
+    IN_STOCK = "in_stock"          # 庫存中
+    DEPLOYED = "deployed"          # 自用部署中
+    RENTED = "rented"              # 租賃中
+    REPAIR = "repair"              # 維修中
+    CALIBRATING = "calibrating"    # 校正中
+    DISPOSED = "disposed"          # 已報廢
+    LOST = "lost"                  # 遺失
 
 
 class Equipment(Base, TimestampMixin):

@@ -34,7 +34,8 @@
       "Bash(start /min \"\" cmd //k \"venv\\\\Scripts\\\\activate && python -m uvicorn app.main:app --reload --port 8000\")",
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(dir \"E:\\\\QT_project\\\\DG_workshop\\\\backend\\\\alembic\\\\versions\" /b /o-d)"
     ]
   }
 }

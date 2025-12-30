@@ -51,6 +51,7 @@
             <option value="deployed">Deployed</option>
             <option value="rented">Rented</option>
             <option value="repair">Repair</option>
+            <option value="calibrating">Calibrating</option>
           </select>
 
           <AppButton variant="secondary" @click="resetFilters">
@@ -188,6 +189,7 @@ function statusLabel(status: string): string {
     deployed: 'Deployed',
     rented: 'Rented',
     repair: 'Repair',
+    calibrating: 'Calibrating',
     disposed: 'Disposed',
     lost: 'Lost',
   }
@@ -202,6 +204,7 @@ function statusBadgeClass(status: string): string {
     deployed: 'bg-blue-100 text-blue-800',
     rented: 'bg-purple-100 text-purple-800',
     repair: 'bg-orange-100 text-orange-800',
+    calibrating: 'bg-cyan-100 text-cyan-800',
     disposed: 'bg-gray-100 text-gray-800',
     lost: 'bg-red-100 text-red-800',
   }

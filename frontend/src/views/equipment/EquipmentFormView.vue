@@ -76,6 +76,7 @@
               <option value="deployed">Deployed</option>
               <option value="rented">Rented</option>
               <option value="repair">Repair</option>
+              <option value="calibrating">Calibrating</option>
               <option value="disposed">Disposed</option>
               <option value="lost">Lost</option>
             </select>

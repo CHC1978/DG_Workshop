@@ -489,6 +489,49 @@ async def send_to_repair(
     return EquipmentResponse.model_validate(equipment)
 
 
+@router.post("/{equipment_id}/send-to-calibration", response_model=EquipmentResponse)
+async def send_to_calibration(
+    equipment_id: int,
+    notes: Optional[str] = None,
+    current_user: User = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Send equipment to calibration (Operator+ only)
+    Changes status to CALIBRATING
+    """
+    result = await db.execute(
+        select(Equipment).where(Equipment.id == equipment_id)
+    )
+    equipment = result.scalar_one_or_none()
+
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found",
+        )
+
+    # Update status
+    old_status = equipment.status
+    equipment.status = EquipmentStatus.CALIBRATING
+
+    # Log the calibration send
+    await log_equipment_change(
+        db=db,
+        equipment_id=equipment.id,
+        log_type=EquipmentLogType.CALIBRATION,
+        description=notes or "Equipment sent to calibration",
+        old_value=f"Status: {old_status.value}",
+        new_value=f"Status: {EquipmentStatus.CALIBRATING.value}",
+        user_id=current_user.id,
+    )
+
+    await db.commit()
+    await db.refresh(equipment)
+
+    return EquipmentResponse.model_validate(equipment)
+
+
 @router.post("/{equipment_id}/note", response_model=dict)
 async def add_equipment_note(
     equipment_id: int,
