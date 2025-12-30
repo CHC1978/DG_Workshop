@@ -237,11 +237,11 @@ async def update_calibration(
 @router.delete("/{calibration_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_calibration(
     calibration_id: int,
-    current_user: User = Depends(require_manager),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Delete calibration record (Manager+ only)
+    Delete calibration record permanently (Admin only)
     """
     result = await db.execute(
         select(Calibration).where(Calibration.id == calibration_id)

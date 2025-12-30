@@ -100,12 +100,19 @@
                     </a>
                     <span v-else class="text-gray-400">-</span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm space-x-3">
                     <button
                       @click="editCalibration(cal)"
                       class="text-sky-600 hover:text-sky-900"
                     >
                       Edit
+                    </button>
+                    <button
+                      v-if="authStore.isAdmin"
+                      @click="handleDelete(cal)"
+                      class="text-red-600 hover:text-red-900"
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>
@@ -161,12 +168,21 @@
               📄 View Report
             </a>
             <span v-else class="text-sm text-gray-400">No report</span>
-            <button
-              @click="editCalibration(cal)"
-              class="text-sm text-sky-600 hover:text-sky-900"
-            >
-              Edit
-            </button>
+            <div class="flex gap-2">
+              <button
+                @click="editCalibration(cal)"
+                class="text-sm text-sky-600 hover:text-sky-900"
+              >
+                Edit
+              </button>
+              <button
+                v-if="authStore.isAdmin"
+                @click="handleDelete(cal)"
+                class="text-sm text-red-600 hover:text-red-900"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
         </div>
@@ -490,6 +506,20 @@ function handleReportUploaded(url: string) {
 function handleReportDeleted() {
   newCalibration.value.report_url = ''
   uiStore.showNotification('success', 'Report deleted successfully')
+}
+
+async function handleDelete(cal: any) {
+  if (!confirm(`Permanently delete calibration record for ${cal.equipment_asset_code}?\n\nCalibration Date: ${formatDate(cal.calibration_date)}\nProvider: ${cal.provider}\n\nThis action CANNOT be undone.`)) {
+    return
+  }
+
+  try {
+    await calibrationsApi.delete(cal.id)
+    uiStore.showNotification('success', 'Calibration record deleted successfully')
+    await loadCalibrations()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to delete calibration')
+  }
 }
 
 function resetForm() {
