@@ -271,6 +271,7 @@ import { calibrationsApi, type CalibrationDueSoon } from '@/api/calibrations'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import FileUpload from '@/components/common/FileUpload.vue'
 import type { Equipment } from '@/types'
 
 const router = useRouter()
