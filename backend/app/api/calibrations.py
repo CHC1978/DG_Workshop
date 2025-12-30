@@ -221,6 +221,7 @@ async def get_calibrations_due_soon(
     Get calibrations due soon (within specified days)
     Default: 30 days
     """
+    print(f"[DEBUG] days parameter: {days}, type: {type(days)}")
     today = date.today()
     future_date = today + timedelta(days=days)
 
