@@ -247,3 +247,54 @@ async def get_dashboard_alerts(
         calibration_alerts=calibration_alerts,
         overdue_rentals=rental_alerts
     )
+
+
+class RecentActivity(BaseModel):
+    """Recent activity item"""
+    id: int
+    equipment_id: int
+    asset_code: str
+    manufacturer: str
+    model: str
+    log_type: str
+    description: str
+    created_by_username: Optional[str]
+    created_at: datetime
+
+
+@router.get("/recent-activities", response_model=List[RecentActivity])
+async def get_recent_activities(
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get recent equipment activities"""
+    from app.models.equipment_log import EquipmentLog
+
+    # Query recent logs with equipment and user info
+    query = (
+        select(EquipmentLog, Equipment, User)
+        .join(Equipment, EquipmentLog.equipment_id == Equipment.id)
+        .outerjoin(User, EquipmentLog.created_by == User.id)
+        .order_by(EquipmentLog.created_at.desc())
+        .limit(limit)
+    )
+
+    result = await db.execute(query)
+    log_tuples = result.all()
+
+    activities = []
+    for log, equipment, user in log_tuples:
+        activities.append(RecentActivity(
+            id=log.id,
+            equipment_id=equipment.id,
+            asset_code=equipment.asset_code,
+            manufacturer=equipment.manufacturer,
+            model=equipment.model,
+            log_type=log.log_type.value,
+            description=log.description or "",
+            created_by_username=user.username if user else None,
+            created_at=log.created_at
+        ))
+
+    return activities
