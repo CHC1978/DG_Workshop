@@ -43,6 +43,7 @@ goto MENU
 echo.
 echo Starting all services...
 call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
 start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 timeout /t 3 /nobreak >nul
@@ -72,10 +73,19 @@ taskkill /F /IM bun.exe 2>nul
 taskkill /F /IM node.exe 2>nul
 goto :EOF
 
+:CLOSE_SERVER_WINDOWS
+REM Close windows with specific titles
+taskkill /FI "WindowTitle eq Backend Server*" 2>nul
+taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
+taskkill /FI "WindowTitle eq 後端伺服器*" 2>nul
+taskkill /FI "WindowTitle eq 前端伺服器*" 2>nul
+goto :EOF
+
 :RESTART_ALL
 echo.
 echo Restarting all services...
 call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
 start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 timeout /t 3 /nobreak >nul
@@ -136,7 +146,7 @@ echo.
 echo Checking service status...
 echo.
 echo Backend (Python/Uvicorn):
-tasklist /FI "IMAGENAME eq python.exe" 2>nul | find /I "python.exe" >nul
+tasklist 2>nul | findstr /I "python.exe" >nul
 if %errorlevel% equ 0 (
     echo   [RUNNING] Backend server is running
 ) else (
@@ -144,11 +154,11 @@ if %errorlevel% equ 0 (
 )
 echo.
 echo Frontend (Bun/Node):
-tasklist /FI "IMAGENAME eq bun.exe" 2>nul | find /I "bun.exe" >nul
+tasklist 2>nul | findstr /I "bun.exe" >nul
 if %errorlevel% equ 0 (
     echo   [RUNNING] Frontend server is running
 ) else (
-    tasklist /FI "IMAGENAME eq node.exe" 2>nul | find /I "node.exe" >nul
+    tasklist 2>nul | findstr /I "node.exe" >nul
     if %errorlevel% equ 0 (
         echo   [RUNNING] Frontend server is running (Node)
     ) else (
