@@ -31,12 +31,6 @@ from app.api.equipment import log_equipment_change
 router = APIRouter(prefix="/rentals", tags=["Rentals"])
 
 
-def calculate_rental_amount(daily_rate: float, start_date: date, end_date: date) -> float:
-    """Calculate total rental amount"""
-    days = (end_date - start_date).days + 1  # Include both start and end day
-    return daily_rate * days
-
-
 # ==================== CRUD Operations ====================
 
 @router.get("", response_model=RentalListResponse)
@@ -141,8 +135,6 @@ async def create_rental(
         customer_id=rental_data.customer_id,
         start_date=rental_data.start_date,
         expected_end_date=rental_data.expected_end_date,
-        daily_rate=rental_data.daily_rate,
-        deposit_amount=rental_data.deposit_amount,
         notes=rental_data.notes,
         status=RentalStatus.DRAFT,
     )
@@ -355,13 +347,6 @@ async def deliver_rental(
     if request.delivery_notes:
         rental.delivery_notes = request.delivery_notes
 
-    # Calculate total amount
-    rental.total_amount = calculate_rental_amount(
-        rental.daily_rate,
-        rental.start_date,
-        rental.expected_end_date
-    )
-
     # Update equipment status
     old_status = equipment.status
     equipment.status = EquipmentStatus.RENTED
@@ -429,13 +414,6 @@ async def return_rental(
     # Set actual return date
     actual_end = request.actual_end_date or date.today()
     rental.actual_end_date = actual_end
-
-    # Recalculate total amount based on actual rental period
-    rental.total_amount = calculate_rental_amount(
-        rental.daily_rate,
-        rental.start_date,
-        actual_end
-    )
 
     # Update rental status
     rental.status = RentalStatus.RETURNED

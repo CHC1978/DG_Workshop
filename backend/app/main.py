@@ -1,7 +1,9 @@
 """FastAPI 應用程式入口"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
@@ -60,6 +62,11 @@ async def health_check():
 # Register API routers
 from app.api import api_router
 app.include_router(api_router, prefix="/api")
+
+# Mount static files for uploads
+uploads_dir = Path("uploads")
+uploads_dir.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 if __name__ == "__main__":

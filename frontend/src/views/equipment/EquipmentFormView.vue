@@ -69,29 +69,53 @@
             label="Purchase Date"
           />
 
-          <!-- Photo URL -->
-          <AppInput
-            v-model="formData.photo_url"
-            label="Photo URL"
-            placeholder="URL to equipment photo"
-            hint="Upload photo and enter URL"
-          />
+          <!-- File Uploads (Edit mode only) -->
+          <div v-if="isEdit && equipmentId" class="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-700">File Attachments</h3>
 
-          <!-- Manual URL -->
-          <AppInput
-            v-model="formData.manual_url"
-            label="Manual URL"
-            placeholder="URL to equipment manual (PDF)"
-            hint="Upload manual and enter URL"
-          />
+            <!-- Photo Upload -->
+            <FileUpload
+              label="Equipment Photo"
+              file-type="photo"
+              :equipment-id="equipmentId"
+              :current-file-url="formData.photo_url"
+              accept="image/*"
+              hint="Supported: JPG, PNG, GIF, WebP (Max 10MB)"
+              @uploaded="handlePhotoUploaded"
+              @deleted="handlePhotoDeleted"
+            />
 
-          <!-- Calibration Report URL -->
-          <AppInput
-            v-model="formData.calibration_report_url"
-            label="Calibration Report URL"
-            placeholder="URL to calibration report (PDF)"
-            hint="Upload report and enter URL"
-          />
+            <!-- Manual Upload -->
+            <FileUpload
+              label="Equipment Manual"
+              file-type="manual"
+              :equipment-id="equipmentId"
+              :current-file-url="formData.manual_url"
+              accept=".pdf,.doc,.docx"
+              hint="Supported: PDF, DOC, DOCX (Max 10MB)"
+              @uploaded="handleManualUploaded"
+              @deleted="handleManualDeleted"
+            />
+
+            <!-- Calibration Report Upload -->
+            <FileUpload
+              label="Calibration Report"
+              file-type="report"
+              :equipment-id="equipmentId"
+              :current-file-url="formData.calibration_report_url"
+              accept=".pdf"
+              hint="Supported: PDF (Max 10MB)"
+              @uploaded="handleReportUploaded"
+              @deleted="handleReportDeleted"
+            />
+          </div>
+
+          <!-- Note for new equipment -->
+          <div v-if="!isEdit" class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-sm text-blue-800">
+              📝 Note: Create the equipment first, then you can upload files in edit mode.
+            </p>
+          </div>
 
           <!-- Specifications -->
           <div>
@@ -161,6 +185,7 @@ import { useUiStore } from '@/stores/ui'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import FileUpload from '@/components/common/FileUpload.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -200,10 +225,45 @@ const errors = reactive({
 function clearErrors() {
   errors.manufacturer = ''
   errors.model = ''
-  errors.purchase_price = ''
-  errors.rental_daily_rate = ''
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+// File upload handlers
+function handlePhotoUploaded(url: string) {
+  formData.photo_url = url
+  uiStore.showNotification('success', 'Photo uploaded successfully')
+  loadEquipment() // Refresh equipment data
+}
+
+function handlePhotoDeleted() {
+  formData.photo_url = ''
+  uiStore.showNotification('success', 'Photo deleted successfully')
+  loadEquipment()
+}
+
+function handleManualUploaded(url: string) {
+  formData.manual_url = url
+  uiStore.showNotification('success', 'Manual uploaded successfully')
+  loadEquipment()
+}
+
+function handleManualDeleted() {
+  formData.manual_url = ''
+  uiStore.showNotification('success', 'Manual deleted successfully')
+  loadEquipment()
+}
+
+function handleReportUploaded(url: string) {
+  formData.calibration_report_url = url
+  uiStore.showNotification('success', 'Report uploaded successfully')
+  loadEquipment()
+}
+
+function handleReportDeleted() {
+  formData.calibration_report_url = ''
+  uiStore.showNotification('success', 'Report deleted successfully')
+  loadEquipment()
 }
 
 async function loadEquipment() {

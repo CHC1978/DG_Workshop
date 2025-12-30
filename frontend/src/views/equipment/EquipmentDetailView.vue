@@ -69,35 +69,46 @@
             </dl>
           </div>
 
-          <!-- Attachments -->
+          <!-- Equipment Photo -->
+          <div v-if="equipment.photo_url" class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Equipment Photo</h2>
+            <div class="flex justify-center">
+              <img
+                :src="getFullUrl(equipment.photo_url)"
+                alt="Equipment Photo"
+                class="max-w-full h-auto max-h-96 rounded-lg border border-gray-200"
+                @error="handleImageError"
+              />
+            </div>
+          </div>
+
+          <!-- Documents & Reports -->
           <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Attachments</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Documents & Reports</h2>
             <dl class="space-y-3">
               <div v-if="equipment.purchase_date">
                 <dt class="text-sm font-medium text-gray-500">Purchase Date</dt>
                 <dd class="mt-1 text-sm text-gray-900">{{ formatDate(equipment.purchase_date) }}</dd>
               </div>
-              <div v-if="equipment.photo_url">
-                <dt class="text-sm font-medium text-gray-500">Photo</dt>
-                <dd class="mt-1">
-                  <a :href="equipment.photo_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
-                    View Photo
-                  </a>
-                </dd>
-              </div>
               <div v-if="equipment.manual_url">
-                <dt class="text-sm font-medium text-gray-500">Manual</dt>
+                <dt class="text-sm font-medium text-gray-500">Equipment Manual</dt>
                 <dd class="mt-1">
-                  <a :href="equipment.manual_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
-                    Download Manual (PDF)
+                  <a :href="getFullUrl(equipment.manual_url)" target="_blank" class="inline-flex items-center text-sm text-sky-600 hover:text-sky-800">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Download Manual
                   </a>
                 </dd>
               </div>
               <div v-if="equipment.calibration_report_url">
                 <dt class="text-sm font-medium text-gray-500">Calibration Report</dt>
                 <dd class="mt-1">
-                  <a :href="equipment.calibration_report_url" target="_blank" class="text-sm text-sky-600 hover:text-sky-800">
-                    Download Report (PDF)
+                  <a :href="getFullUrl(equipment.calibration_report_url)" target="_blank" class="inline-flex items-center text-sm text-sky-600 hover:text-sky-800">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Download Report
                   </a>
                 </dd>
               </div>
@@ -262,6 +273,18 @@ function formatDate(dateStr: string): string {
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('zh-TW')
+}
+
+function getFullUrl(url: string): string {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `http://localhost:8000${url}`
+}
+
+function handleImageError(event: Event) {
+  console.error('Failed to load image')
+  const img = event.target as HTMLImageElement
+  img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f3f4f6" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E'
 }
 
 function downloadQRCode() {

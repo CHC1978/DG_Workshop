@@ -46,11 +46,6 @@ class Rental(Base, TimestampMixin):
     expected_end_date: Mapped[date] = mapped_column(Date, nullable=False)
     actual_end_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
 
-    # Financial
-    daily_rate: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    deposit_amount: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
-    total_amount: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
-
     # Status
     status: Mapped[RentalStatus] = mapped_column(
         SQLEnum(RentalStatus),

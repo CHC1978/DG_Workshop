@@ -14,8 +14,6 @@ class RentalBase(BaseModel):
     customer_id: int
     start_date: date
     expected_end_date: date
-    daily_rate: float = Field(..., ge=0)
-    deposit_amount: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
 
 
@@ -31,9 +29,6 @@ class RentalUpdate(BaseModel):
     start_date: Optional[date] = None
     expected_end_date: Optional[date] = None
     actual_end_date: Optional[date] = None
-    daily_rate: Optional[float] = Field(None, ge=0)
-    deposit_amount: Optional[float] = Field(None, ge=0)
-    total_amount: Optional[float] = Field(None, ge=0)
     status: Optional[RentalStatus] = None
     notes: Optional[str] = None
     delivery_notes: Optional[str] = None
@@ -74,7 +69,6 @@ class RentalResponse(RentalBase):
     id: int
     rental_number: str
     actual_end_date: Optional[date]
-    total_amount: Optional[float]
     status: RentalStatus
     delivery_notes: Optional[str]
     return_notes: Optional[str]

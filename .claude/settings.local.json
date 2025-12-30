@@ -21,7 +21,13 @@
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(timeout 5 ./venv/Scripts/python:*)",
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(start \"\" cmd /k \"venv\\\\Scripts\\\\activate && python -m uvicorn app.main:app --reload --port 8000\")",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(./venv/Scripts/python.exe:*)"
     ]
   }
 }
