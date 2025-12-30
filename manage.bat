@@ -2,20 +2,29 @@
 REM Marine Equipment QR System - Control Panel
 title Marine Equipment QR System - Control Panel
 
-REM Get local IP address
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do set LOCAL_IP=%%a
-set LOCAL_IP=%LOCAL_IP:~1%
-
 :MENU
 cls
+
+REM Get all IPv4 addresses
+echo Detecting IP addresses...
+set IP_COUNT=0
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+    set /a IP_COUNT+=1
+    set IP_!IP_COUNT!=%%a
+    call set IP_!IP_COUNT!=%%IP_!IP_COUNT!:~1%%
+)
+
 echo ========================================
 echo Marine Equipment QR Management System
 echo Control Panel
 echo ========================================
 echo.
-echo Local IP: %LOCAL_IP%
+echo Detected IP addresses:
+for /L %%i in (1,1,%IP_COUNT%) do (
+    call echo   %%i. %%IP_%%i%%
+)
 echo.
-echo [1] Start All - Backend and Frontend
+echo [1] Start All - Localhost Mode
 echo [2] Stop All
 echo [3] Restart All
 echo.
@@ -27,7 +36,7 @@ echo.
 echo [8] Stop Backend Only
 echo [9] Stop Frontend Only
 echo.
-echo [N] Start All - Network Mode (IP Access)
+echo [N] Start All - Network Mode (Choose IP)
 echo [S] Check Status
 echo [H] First Time Setup
 echo.
@@ -45,11 +54,37 @@ if /I "%choice%"=="6" goto RESTART_BACKEND
 if /I "%choice%"=="7" goto RESTART_FRONTEND
 if /I "%choice%"=="8" goto STOP_BACKEND
 if /I "%choice%"=="9" goto STOP_FRONTEND
-if /I "%choice%"=="N" goto START_ALL_NETWORK
+if /I "%choice%"=="N" goto SELECT_IP_FOR_NETWORK
 if /I "%choice%"=="S" goto CHECK_STATUS
 if /I "%choice%"=="H" goto FIRST_SETUP
 if /I "%choice%"=="0" goto EXIT
 goto MENU
+
+:SELECT_IP_FOR_NETWORK
+cls
+echo ========================================
+echo Select IP Address for Network Mode
+echo ========================================
+echo.
+echo Available IP addresses:
+for /L %%i in (1,1,%IP_COUNT%) do (
+    call echo   [%%i] %%IP_%%i%%
+)
+echo.
+echo [0] Cancel and return to menu
+echo.
+set /p ip_choice="Select IP address (1-%IP_COUNT%): "
+
+if "%ip_choice%"=="0" goto MENU
+if "%ip_choice%"=="" goto SELECT_IP_FOR_NETWORK
+
+REM Validate choice
+if %ip_choice% LEQ 0 goto SELECT_IP_FOR_NETWORK
+if %ip_choice% GTR %IP_COUNT% goto SELECT_IP_FOR_NETWORK
+
+REM Get selected IP
+call set SELECTED_IP=%%IP_%ip_choice%%%
+goto START_ALL_NETWORK
 
 :START_ALL
 echo.
@@ -71,7 +106,9 @@ goto MENU
 
 :START_ALL_NETWORK
 echo.
-echo Starting all services (Network mode - IP Access)...
+echo Starting all services (Network mode)...
+echo Selected IP: %SELECTED_IP%
+echo.
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
@@ -83,16 +120,20 @@ echo ========================================
 echo Network Mode - Access from other devices
 echo ========================================
 echo.
-echo Backend API: http://%LOCAL_IP%:8000
-echo Frontend: http://%LOCAL_IP%:5173
-echo API Docs: http://%LOCAL_IP%:8000/docs
+echo Backend API: http://%SELECTED_IP%:8000
+echo Frontend: http://%SELECTED_IP%:5173
+echo API Docs: http://%SELECTED_IP%:8000/docs
 echo.
 echo From other devices on same network:
 echo   1. Open browser on phone/tablet
-echo   2. Visit: http://%LOCAL_IP%:5173
+echo   2. Visit: http://%SELECTED_IP%:5173
 echo   3. Login and use the system
 echo.
 echo NOTE: Make sure Windows Firewall allows ports 8000 and 5173
+echo.
+echo Firewall commands (Run PowerShell as Admin):
+echo   netsh advfirewall firewall add rule name="Marine Backend" dir=in action=allow protocol=TCP localport=8000
+echo   netsh advfirewall firewall add rule name="Marine Frontend" dir=in action=allow protocol=TCP localport=5173
 echo.
 pause
 goto MENU
@@ -216,6 +257,7 @@ pause
 goto MENU
 
 :CHECK_STATUS
+cls
 echo.
 echo Checking service status...
 echo.
@@ -240,12 +282,20 @@ if %errorlevel% equ 0 (
     )
 )
 echo.
-echo URLs:
-echo   Localhost: http://localhost:8000 (Backend)
-echo   Localhost: http://localhost:5173 (Frontend)
-echo   Network:   http://%LOCAL_IP%:8000 (Backend)
-echo   Network:   http://%LOCAL_IP%:5173 (Frontend)
-echo   API Docs:  http://localhost:8000/docs
+echo Access URLs:
+echo ========================================
+echo Localhost Access:
+echo   Backend:  http://localhost:8000
+echo   Frontend: http://localhost:5173
+echo   API Docs: http://localhost:8000/docs
+echo.
+echo Network Access (from other devices):
+for /L %%i in (1,1,%IP_COUNT%) do (
+    call echo   Backend:  http://%%IP_%%i%%:8000
+    call echo   Frontend: http://%%IP_%%i%%:5173
+    echo.
+)
+echo ========================================
 echo.
 pause
 goto MENU
