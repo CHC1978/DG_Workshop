@@ -98,6 +98,13 @@
                   >
                     Reset 2FA
                   </button>
+                  <button
+                    v-if="authStore.isAdmin && user.id !== authStore.user?.id"
+                    @click="handleDelete(user)"
+                    class="text-red-600 hover:text-red-900"
+                  >
+                    Delete
+                  </button>
                 </div>
               </td>
             </tr>
@@ -168,6 +175,25 @@ async function handleReset2FA(user: User) {
     await usersStore.fetchList()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to reset 2FA')
+  }
+}
+
+async function handleDelete(user: User) {
+  if (!confirm(`WARNING: Permanently delete user "${user.full_name}" (@${user.username})?\n\nThis action CANNOT be undone. All user data will be permanently removed.`)) {
+    return
+  }
+
+  // Double confirmation for safety
+  if (!confirm(`Are you absolutely sure? Type the username to confirm: ${user.username}`)) {
+    return
+  }
+
+  try {
+    await usersStore.remove(user.id)
+    uiStore.showNotification('success', `User ${user.full_name} permanently deleted`)
+    await usersStore.fetchList()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to delete user')
   }
 }
 

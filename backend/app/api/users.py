@@ -195,8 +195,8 @@ async def delete_user(
     current_user: User = Depends(require_admin)
 ):
     """
-    Delete (deactivate) user (Admin only)
-    Uses soft delete by setting is_active to False
+    Delete user permanently (Admin only)
+    WARNING: This is a hard delete - user will be permanently removed from database
     """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -214,8 +214,8 @@ async def delete_user(
             detail="Cannot delete your own account",
         )
 
-    # Soft delete
-    user.is_active = False
+    # Hard delete - permanently remove from database
+    await db.delete(user)
     await db.commit()
 
 

@@ -35,7 +35,10 @@
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
       "Bash(ls:*)",
-      "Bash(dir \"E:\\\\QT_project\\\\DG_workshop\\\\backend\\\\alembic\\\\versions\" /b /o-d)"
+      "Bash(dir \"E:\\\\QT_project\\\\DG_workshop\\\\backend\\\\alembic\\\\versions\" /b /o-d)",
+      "Bash(mkdir:*)",
+      "Bash(./venv/Scripts/alembic stamp:*)",
+      "Bash(grep:*)"
     ]
   }
 }
