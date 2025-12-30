@@ -29,7 +29,7 @@ class User(Base, TimestampMixin):
 
     # 角色與權限
     role: Mapped[UserRole] = mapped_column(
-        SQLEnum(UserRole),
+        SQLEnum(UserRole, values_callable=lambda x: [e.value for e in x]),  # Use enum values, not names
         default=UserRole.VIEWER,
         nullable=False
     )
