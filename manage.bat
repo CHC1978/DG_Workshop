@@ -15,27 +15,32 @@ echo [3] Restart All
 echo.
 echo [4] Start Backend Only
 echo [5] Start Frontend Only
-echo [6] Stop Backend Only
-echo [7] Stop Frontend Only
+echo [6] Restart Backend Only
+echo [7] Restart Frontend Only
 echo.
-echo [8] Check Status
-echo [9] First Time Setup
+echo [8] Stop Backend Only
+echo [9] Stop Frontend Only
+echo.
+echo [S] Check Status
+echo [H] First Time Setup
 echo.
 echo [0] Exit
 echo.
 echo ========================================
-set /p choice="Select option (0-9): "
+set /p choice="Select option: "
 
-if "%choice%"=="1" goto START_ALL
-if "%choice%"=="2" goto STOP_ALL
-if "%choice%"=="3" goto RESTART_ALL
-if "%choice%"=="4" goto START_BACKEND
-if "%choice%"=="5" goto START_FRONTEND
-if "%choice%"=="6" goto STOP_BACKEND
-if "%choice%"=="7" goto STOP_FRONTEND
-if "%choice%"=="8" goto CHECK_STATUS
-if "%choice%"=="9" goto FIRST_SETUP
-if "%choice%"=="0" goto EXIT
+if /I "%choice%"=="1" goto START_ALL
+if /I "%choice%"=="2" goto STOP_ALL
+if /I "%choice%"=="3" goto RESTART_ALL
+if /I "%choice%"=="4" goto START_BACKEND
+if /I "%choice%"=="5" goto START_FRONTEND
+if /I "%choice%"=="6" goto RESTART_BACKEND
+if /I "%choice%"=="7" goto RESTART_FRONTEND
+if /I "%choice%"=="8" goto STOP_BACKEND
+if /I "%choice%"=="9" goto STOP_FRONTEND
+if /I "%choice%"=="S" goto CHECK_STATUS
+if /I "%choice%"=="H" goto FIRST_SETUP
+if /I "%choice%"=="0" goto EXIT
 goto MENU
 
 :START_ALL
@@ -95,8 +100,9 @@ goto MENU
 :START_BACKEND
 echo.
 echo Starting backend server...
-call :STOP_ALL_SILENT
-call :CLOSE_SERVER_WINDOWS
+taskkill /F /IM uvicorn.exe 2>nul
+taskkill /F /IM python.exe 2>nul
+taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 1 /nobreak >nul
 start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
 echo.
@@ -111,6 +117,38 @@ echo Starting frontend server...
 start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
 echo.
 echo Frontend started in new window
+echo URL: http://localhost:5173
+pause
+goto MENU
+
+:RESTART_BACKEND
+echo.
+echo Restarting backend server...
+echo Stopping backend...
+taskkill /F /IM uvicorn.exe 2>nul
+taskkill /F /IM python.exe 2>nul
+taskkill /FI "WindowTitle eq Backend Server*" 2>nul
+timeout /t 2 /nobreak >nul
+echo Starting backend...
+start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+echo.
+echo Backend restarted
+echo URL: http://localhost:8000
+pause
+goto MENU
+
+:RESTART_FRONTEND
+echo.
+echo Restarting frontend server...
+echo Stopping frontend...
+taskkill /F /IM bun.exe 2>nul
+taskkill /F /IM node.exe 2>nul
+taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
+timeout /t 2 /nobreak >nul
+echo Starting frontend...
+start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+echo.
+echo Frontend restarted
 echo URL: http://localhost:5173
 pause
 goto MENU
