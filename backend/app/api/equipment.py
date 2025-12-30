@@ -298,7 +298,7 @@ async def get_equipment_logs(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get equipment change logs
+    Get equipment change logs with user information
     """
     # Verify equipment exists
     result = await db.execute(
@@ -312,9 +312,10 @@ async def get_equipment_logs(
             detail="Equipment not found",
         )
 
-    # Get logs
+    # Get logs with user join
     query = (
-        select(EquipmentLog)
+        select(EquipmentLog, User)
+        .outerjoin(User, EquipmentLog.created_by == User.id)
         .where(EquipmentLog.equipment_id == equipment_id)
         .order_by(EquipmentLog.created_at.desc())
         .offset(skip)
@@ -322,9 +323,16 @@ async def get_equipment_logs(
     )
 
     result = await db.execute(query)
-    logs = result.scalars().all()
+    log_user_pairs = result.all()
 
-    return [EquipmentLogResponse.model_validate(log) for log in logs]
+    # Build response with username
+    responses = []
+    for log, user in log_user_pairs:
+        log_dict = EquipmentLogResponse.model_validate(log).model_dump()
+        log_dict['created_by_username'] = user.username if user else None
+        responses.append(EquipmentLogResponse(**log_dict))
+
+    return responses
 
 
 # ==================== Status Change Operations ====================

@@ -118,6 +118,7 @@ class EquipmentLogResponse(BaseModel):
     longitude: Optional[float]
     created_at: datetime
     created_by: Optional[int]
+    created_by_username: Optional[str] = None  # Username of who created the log
 
     model_config = {"from_attributes": True}
 

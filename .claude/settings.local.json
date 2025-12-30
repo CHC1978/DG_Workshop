@@ -31,7 +31,10 @@
       "Bash(tasklist:*)",
       "Bash(findstr:*)",
       "Bash(curl:*)",
-      "Bash(start /min \"\" cmd //k \"venv\\\\Scripts\\\\activate && python -m uvicorn app.main:app --reload --port 8000\")"
+      "Bash(start /min \"\" cmd //k \"venv\\\\Scripts\\\\activate && python -m uvicorn app.main:app --reload --port 8000\")",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(ls:*)"
     ]
   }
 }

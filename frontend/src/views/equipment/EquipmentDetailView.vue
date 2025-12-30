@@ -179,22 +179,74 @@
           </div>
         </div>
 
-        <!-- Equipment Logs -->
-        <div class="bg-white rounded-lg shadow p-6">
-          <h2 class="text-lg font-semibold text-gray-900 mb-4">Activity Log</h2>
-          <div v-if="logs.length === 0" class="text-center py-8 text-gray-500">
+        <!-- Activity Log -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Activity Log</h2>
+          </div>
+
+          <div v-if="logs.length === 0" class="text-center py-12 text-gray-500">
             No activity logs yet
           </div>
-          <div v-else class="space-y-3">
-            <div
-              v-for="log in logs"
-              :key="log.id"
-              class="border-l-4 border-sky-500 pl-4 py-2"
-            >
-              <p class="text-sm font-medium text-gray-900">{{ log.description }}</p>
-              <p v-if="log.new_value" class="text-xs text-gray-600 mt-1">{{ log.new_value }}</p>
-              <p class="text-xs text-gray-500 mt-1">{{ formatDateTime(log.created_at) }}</p>
-            </div>
+
+          <div v-else class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Details
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {{ formatDateTime(log.created_at) }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span v-if="log.created_by_username" class="text-sm font-medium text-gray-900">
+                      {{ log.created_by_username }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">System</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span :class="logTypeBadge(log.log_type)" class="px-2 py-1 text-xs font-semibold rounded">
+                      {{ logTypeLabel(log.log_type) }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-900">
+                    {{ log.description }}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-600">
+                    <div v-if="log.new_value" class="max-w-xs truncate" :title="log.new_value">
+                      {{ log.new_value }}
+                    </div>
+                    <span v-else class="text-gray-400">-</span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <span v-if="log.latitude && log.longitude" class="text-gray-600">
+                      📍 {{ log.latitude.toFixed(4) }}, {{ log.longitude.toFixed(4) }}
+                    </span>
+                    <span v-else class="text-gray-400">-</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -285,6 +337,37 @@ function formatDate(dateStr: string): string {
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('zh-TW')
+}
+
+function logTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    status_change: 'Status',
+    location_change: 'Location',
+    rental_start: 'Rental Start',
+    rental_end: 'Rental End',
+    calibration: 'Calibration',
+    maintenance: 'Maintenance',
+    note: 'Note',
+    created: 'Created',
+    updated: 'Updated',
+  }
+  return labels[type] || type
+}
+
+function logTypeBadge(type: string): string {
+  const base = 'inline-block'
+  const variants: Record<string, string> = {
+    status_change: 'bg-blue-100 text-blue-800',
+    location_change: 'bg-purple-100 text-purple-800',
+    rental_start: 'bg-green-100 text-green-800',
+    rental_end: 'bg-orange-100 text-orange-800',
+    calibration: 'bg-yellow-100 text-yellow-800',
+    maintenance: 'bg-red-100 text-red-800',
+    note: 'bg-gray-100 text-gray-800',
+    created: 'bg-sky-100 text-sky-800',
+    updated: 'bg-indigo-100 text-indigo-800',
+  }
+  return `${base} ${variants[type] || 'bg-gray-100 text-gray-800'}`
 }
 
 function getFullUrl(url: string): string {
