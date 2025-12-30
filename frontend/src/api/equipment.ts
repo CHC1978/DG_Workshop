@@ -133,6 +133,13 @@ export const equipmentApi = {
   },
 
   /**
+   * Send equipment to calibration
+   */
+  sendToCalibration(id: number, notes?: string) {
+    return apiClient.post<Equipment>(`/equipment/${id}/send-to-calibration`, { notes })
+  },
+
+  /**
    * Add note to equipment
    */
   addNote(id: number, note: string, latitude?: number, longitude?: number) {

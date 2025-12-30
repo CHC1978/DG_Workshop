@@ -154,7 +154,7 @@
         <!-- Status Actions (Operator+) -->
         <div v-if="authStore.isOperator && canPerformActions" class="bg-white rounded-lg shadow p-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Status Actions</h2>
-          <div class="flex space-x-3">
+          <div class="flex flex-wrap gap-3">
             <AppButton
               v-if="equipment.status === 'in_stock'"
               variant="primary"
@@ -170,11 +170,18 @@
               Return Equipment
             </AppButton>
             <AppButton
-              v-if="equipment.status !== 'repair'"
+              v-if="equipment.status !== 'repair' && equipment.status !== 'calibrating'"
               variant="secondary"
               @click="showRepairModal = true"
             >
               Send to Repair
+            </AppButton>
+            <AppButton
+              v-if="equipment.status !== 'calibrating'"
+              variant="secondary"
+              @click="handleSendToCalibration"
+            >
+              Send to Calibration
             </AppButton>
           </div>
         </div>
@@ -405,6 +412,22 @@ async function handleDelete() {
     router.push('/equipment')
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to delete equipment')
+  }
+}
+
+async function handleSendToCalibration() {
+  if (!equipment.value) return
+
+  const notes = prompt('Notes for calibration (optional):')
+  if (notes === null) return // User cancelled
+
+  try {
+    await equipmentApi.sendToCalibration(equipment.value.id, notes || undefined)
+    uiStore.showNotification('success', 'Equipment sent to calibration')
+    await equipmentStore.fetchById(equipmentId.value)
+    await loadLogs()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to calibration')
   }
 }
 
