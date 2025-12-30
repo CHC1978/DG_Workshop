@@ -2,12 +2,18 @@
 REM Marine Equipment QR System - Control Panel
 title Marine Equipment QR System - Control Panel
 
+REM Get local IP address
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do set LOCAL_IP=%%a
+set LOCAL_IP=%LOCAL_IP:~1%
+
 :MENU
 cls
 echo ========================================
 echo Marine Equipment QR Management System
 echo Control Panel
 echo ========================================
+echo.
+echo Local IP: %LOCAL_IP%
 echo.
 echo [1] Start All - Backend and Frontend
 echo [2] Stop All
@@ -21,6 +27,7 @@ echo.
 echo [8] Stop Backend Only
 echo [9] Stop Frontend Only
 echo.
+echo [N] Start All - Network Mode (IP Access)
 echo [S] Check Status
 echo [H] First Time Setup
 echo.
@@ -38,6 +45,7 @@ if /I "%choice%"=="6" goto RESTART_BACKEND
 if /I "%choice%"=="7" goto RESTART_FRONTEND
 if /I "%choice%"=="8" goto STOP_BACKEND
 if /I "%choice%"=="9" goto STOP_FRONTEND
+if /I "%choice%"=="N" goto START_ALL_NETWORK
 if /I "%choice%"=="S" goto CHECK_STATUS
 if /I "%choice%"=="H" goto FIRST_SETUP
 if /I "%choice%"=="0" goto EXIT
@@ -45,19 +53,47 @@ goto MENU
 
 :START_ALL
 echo.
-echo Starting all services...
+echo Starting all services (Localhost mode)...
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
 timeout /t 3 /nobreak >nul
-start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
 echo.
 echo Backend: http://localhost:8000
 echo Frontend: http://localhost:5173
 echo API Docs: http://localhost:8000/docs
 echo.
 echo Services started in separate windows
+pause
+goto MENU
+
+:START_ALL_NETWORK
+echo.
+echo Starting all services (Network mode - IP Access)...
+call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
+timeout /t 2 /nobreak >nul
+start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+timeout /t 3 /nobreak >nul
+start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
+echo.
+echo ========================================
+echo Network Mode - Access from other devices
+echo ========================================
+echo.
+echo Backend API: http://%LOCAL_IP%:8000
+echo Frontend: http://%LOCAL_IP%:5173
+echo API Docs: http://%LOCAL_IP%:8000/docs
+echo.
+echo From other devices on same network:
+echo   1. Open browser on phone/tablet
+echo   2. Visit: http://%LOCAL_IP%:5173
+echo   3. Login and use the system
+echo.
+echo NOTE: Make sure Windows Firewall allows ports 8000 and 5173
+echo.
 pause
 goto MENU
 
@@ -89,9 +125,9 @@ echo Restarting all services...
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
 timeout /t 3 /nobreak >nul
-start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
 echo.
 echo Services restarted
 pause
@@ -104,7 +140,7 @@ taskkill /F /IM uvicorn.exe 2>nul
 taskkill /F /IM python.exe 2>nul
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 1 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
 echo.
 echo Backend started in new window
 echo URL: http://localhost:8000
@@ -114,7 +150,7 @@ goto MENU
 :START_FRONTEND
 echo.
 echo Starting frontend server...
-start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
 echo.
 echo Frontend started in new window
 echo URL: http://localhost:5173
@@ -130,7 +166,7 @@ taskkill /F /IM python.exe 2>nul
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting backend...
-start /min "Backend Server" cmd /k "cd /d %~dp0 && start_backend.bat"
+start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
 echo.
 echo Backend restarted
 echo URL: http://localhost:8000
@@ -146,7 +182,7 @@ taskkill /F /IM node.exe 2>nul
 taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting frontend...
-start /min "Frontend Server" cmd /k "cd /d %~dp0 && start_frontend.bat"
+start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
 echo.
 echo Frontend restarted
 echo URL: http://localhost:5173
@@ -205,9 +241,11 @@ if %errorlevel% equ 0 (
 )
 echo.
 echo URLs:
-echo   Backend:  http://localhost:8000
-echo   Frontend: http://localhost:5173
-echo   API Docs: http://localhost:8000/docs
+echo   Localhost: http://localhost:8000 (Backend)
+echo   Localhost: http://localhost:5173 (Frontend)
+echo   Network:   http://%LOCAL_IP%:8000 (Backend)
+echo   Network:   http://%LOCAL_IP%:5173 (Frontend)
+echo   API Docs:  http://localhost:8000/docs
 echo.
 pause
 goto MENU
