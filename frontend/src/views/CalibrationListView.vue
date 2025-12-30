@@ -198,6 +198,13 @@
               label="Cost (optional)"
             />
 
+            <AppInput
+              v-model="newCalibration.report_url"
+              label="Calibration Report URL (optional)"
+              placeholder="URL to calibration report file"
+              hint="Upload file and paste URL, or leave empty to add later"
+            />
+
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
@@ -260,6 +267,7 @@ const newCalibration = ref({
   provider: '',
   certificate_number: '',
   cost: 0,
+  report_url: '',
   notes: '',
 })
 
@@ -369,6 +377,7 @@ async function handleAddCalibration() {
       provider: newCalibration.value.provider,
       certificate_number: newCalibration.value.certificate_number || undefined,
       cost: newCalibration.value.cost > 0 ? newCalibration.value.cost : undefined,
+      report_url: newCalibration.value.report_url || undefined,
       notes: newCalibration.value.notes || undefined,
     })
 
@@ -393,6 +402,7 @@ function resetForm() {
     provider: '',
     certificate_number: '',
     cost: 0,
+    report_url: '',
     notes: '',
   }
 }

@@ -14,6 +14,7 @@ class CalibrationBase(BaseModel):
     provider: str = Field(..., min_length=1, max_length=200)
     certificate_number: Optional[str] = Field(None, max_length=100)
     cost: Optional[float] = Field(None, ge=0)
+    report_url: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -30,14 +31,23 @@ class CalibrationUpdate(BaseModel):
     provider: Optional[str] = Field(None, min_length=1, max_length=200)
     certificate_number: Optional[str] = Field(None, max_length=100)
     cost: Optional[float] = Field(None, ge=0)
+    report_url: Optional[str] = None
     notes: Optional[str] = None
 
 
 # ==================== Response Schemas ====================
 
-class CalibrationResponse(CalibrationBase):
+class CalibrationResponse(BaseModel):
     """Calibration response schema"""
     id: int
+    equipment_id: int
+    calibration_date: date
+    next_due_date: date
+    provider: str
+    certificate_number: Optional[str]
+    cost: Optional[float]
+    report_url: Optional[str]
+    notes: Optional[str]
     created_at: datetime
     updated_at: datetime
 

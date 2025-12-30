@@ -33,6 +33,9 @@ class Calibration(Base, TimestampMixin):
     # Cost
     cost: Mapped[Optional[float]] = mapped_column(nullable=True)
 
+    # Report file
+    report_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     # Notes
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
