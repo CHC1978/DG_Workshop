@@ -48,8 +48,8 @@
         <h2 class="text-xl font-semibold mb-4">Network Info</h2>
         <div class="space-y-2 text-sm">
           <p><strong>API Base URL:</strong> /api</p>
-          <p><strong>Full URL:</strong> {{ window.location.origin }}/api</p>
-          <p><strong>Current Path:</strong> {{ window.location.pathname }}</p>
+          <p><strong>Full URL:</strong> {{ currentOrigin }}/api</p>
+          <p><strong>Current Path:</strong> {{ currentPath }}</p>
         </div>
       </div>
     </div>
@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import axios from 'axios'
 import AppButton from '@/components/common/AppButton.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -69,6 +69,10 @@ const loginResult = ref<any>(null)
 const loginError = ref<any>(null)
 const testUsername = ref('admin')
 const testPassword = ref('admin123')
+
+// Network info
+const currentOrigin = computed(() => window.location.origin)
+const currentPath = computed(() => window.location.pathname)
 
 async function checkBackend() {
   checking.value = true
