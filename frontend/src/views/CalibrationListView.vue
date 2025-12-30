@@ -123,6 +123,7 @@
             <span class="text-gray-600">{{ cal.provider }}</span>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </MainLayout>
