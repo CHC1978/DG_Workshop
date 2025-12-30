@@ -123,34 +123,27 @@ call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
 
 if "!NETWORK_MODE!"=="1" (
-    REM Network mode - bind to 0.0.0.0
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    REM Network mode
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
     timeout /t 3 /nobreak >nul
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
+    start /min "Frontend" cmd /k "cd frontend && bun dev --host 0.0.0.0"
     echo.
-    echo ========================================
     echo Network Mode - Access from other devices
-    echo ========================================
-    echo.
-    echo Backend API: http://!SELECTED_IP!:8000
+    echo Backend: http://!SELECTED_IP!:8000
     echo Frontend: http://!SELECTED_IP!:5173
-    echo API Docs: http://!SELECTED_IP!:8000/docs
-    echo.
-    echo From other devices: Visit http://!SELECTED_IP!:5173
     echo.
 ) else (
-    REM Localhost mode - default binding
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    REM Localhost mode
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
     timeout /t 3 /nobreak >nul
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+    start /min "Frontend" cmd /k "cd frontend && bun dev"
     echo.
+    echo Localhost Mode
     echo Backend: http://localhost:8000
     echo Frontend: http://localhost:5173
-    echo API Docs: http://localhost:8000/docs
     echo.
 )
-echo Services started in separate windows
-echo.
+echo Services started
 pause
 goto MENU
 
@@ -189,12 +182,12 @@ taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 1 /nobreak >nul
 
 if "!NETWORK_MODE!"=="1" (
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
-    echo Backend started (Network mode - IP: !SELECTED_IP!)
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    echo Backend started - Network mode
     echo URL: http://!SELECTED_IP!:8000
 ) else (
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
-    echo Backend started (Localhost mode)
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    echo Backend started - Localhost mode
     echo URL: http://localhost:8000
 )
 echo.
@@ -206,12 +199,12 @@ echo.
 echo Starting frontend server...
 
 if "!NETWORK_MODE!"=="1" (
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
-    echo Frontend started (Network mode - IP: !SELECTED_IP!)
+    start /min "Frontend" cmd /k "cd frontend && bun dev --host 0.0.0.0"
+    echo Frontend started - Network mode
     echo URL: http://!SELECTED_IP!:5173
 ) else (
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
-    echo Frontend started (Localhost mode)
+    start /min "Frontend" cmd /k "cd frontend && bun dev"
+    echo Frontend started - Localhost mode
     echo URL: http://localhost:5173
 )
 echo.
@@ -229,12 +222,12 @@ timeout /t 2 /nobreak >nul
 echo Starting backend...
 
 if "!NETWORK_MODE!"=="1" (
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
-    echo Backend restarted (Network mode)
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    echo Backend restarted - Network mode
     echo URL: http://!SELECTED_IP!:8000
 ) else (
-    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
-    echo Backend restarted (Localhost mode)
+    start /min "Backend" cmd /k "cd backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    echo Backend restarted - Localhost mode
     echo URL: http://localhost:8000
 )
 echo.
@@ -252,12 +245,12 @@ timeout /t 2 /nobreak >nul
 echo Starting frontend...
 
 if "!NETWORK_MODE!"=="1" (
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
-    echo Frontend restarted (Network mode)
+    start /min "Frontend" cmd /k "cd frontend && bun dev --host 0.0.0.0"
+    echo Frontend restarted - Network mode
     echo URL: http://!SELECTED_IP!:5173
 ) else (
-    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
-    echo Frontend restarted (Localhost mode)
+    start /min "Frontend" cmd /k "cd frontend && bun dev"
+    echo Frontend restarted - Localhost mode
     echo URL: http://localhost:5173
 )
 echo.
