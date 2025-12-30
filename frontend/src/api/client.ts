@@ -20,8 +20,17 @@ apiClient.interceptors.request.use(
     if (authData) {
       try {
         const auth = JSON.parse(authData)
-        // Use tempToken for setup-2fa endpoints, otherwise use token
-        const token = auth.token || auth.tempToken
+
+        // Don't add token to login endpoints
+        if (config.url?.includes('/auth/login/step1')) {
+          return config
+        }
+
+        // Use tempToken for 2FA setup endpoints, otherwise use token
+        const token = config.url?.includes('/auth/2fa/')
+          ? (auth.tempToken || auth.token)
+          : auth.token
+
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }

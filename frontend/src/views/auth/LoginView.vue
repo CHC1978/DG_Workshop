@@ -98,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -109,6 +109,12 @@ import AppButton from '@/components/common/AppButton.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+// Clear old tempToken when entering login page
+onMounted(() => {
+  console.log('LoginView mounted, clearing old tempToken')
+  authStore.tempToken = null
+})
 
 const step = ref(1)
 const loading = ref(false)
