@@ -3,6 +3,10 @@ setlocal enabledelayedexpansion
 REM Marine Equipment QR System - Control Panel
 title Marine Equipment QR System - Control Panel
 
+REM Default to localhost mode
+set NETWORK_MODE=0
+set SELECTED_IP=
+
 :MENU
 cls
 
@@ -28,6 +32,12 @@ if %IP_COUNT%==0 (
     )
 )
 echo.
+if %NETWORK_MODE%==1 (
+    echo Current Mode: Network Mode (IP: %SELECTED_IP%)
+) else (
+    echo Current Mode: Localhost Mode
+)
+echo.
 echo [1] Start All - Localhost Mode
 echo [2] Stop All
 echo [3] Restart All
@@ -49,7 +59,7 @@ echo.
 echo ========================================
 set /p choice="Select option: "
 
-if /I "%choice%"=="1" goto START_ALL
+if /I "%choice%"=="1" goto START_ALL_LOCALHOST
 if /I "%choice%"=="2" goto STOP_ALL
 if /I "%choice%"=="3" goto RESTART_ALL
 if /I "%choice%"=="4" goto START_BACKEND
@@ -90,59 +100,56 @@ if "%ip_choice%"=="" goto SELECT_IP_FOR_NETWORK
 if %ip_choice% LEQ 0 goto SELECT_IP_FOR_NETWORK
 if %ip_choice% GTR %IP_COUNT% goto SELECT_IP_FOR_NETWORK
 
-REM Get selected IP
+REM Get selected IP and set network mode
 set SELECTED_IP=!IP_%ip_choice%!
-goto START_ALL_NETWORK
+set NETWORK_MODE=1
+goto START_ALL
+
+:START_ALL_LOCALHOST
+REM Explicitly set localhost mode
+set NETWORK_MODE=0
+set SELECTED_IP=
+goto START_ALL
 
 :START_ALL
 echo.
-echo Starting all services (Localhost mode)...
+if %NETWORK_MODE%==1 (
+    echo Starting all services (Network mode - IP: %SELECTED_IP%)...
+) else (
+    echo Starting all services (Localhost mode)...
+)
 call :STOP_ALL_SILENT
 call :CLOSE_SERVER_WINDOWS
 timeout /t 2 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
-timeout /t 3 /nobreak >nul
-start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
-echo.
-echo Backend: http://localhost:8000
-echo Frontend: http://localhost:5173
-echo API Docs: http://localhost:8000/docs
-echo.
-echo Services started in separate windows
-pause
-goto MENU
 
-:START_ALL_NETWORK
-echo.
-echo Starting all services (Network mode)...
-echo Selected IP: !SELECTED_IP!
-echo.
-call :STOP_ALL_SILENT
-call :CLOSE_SERVER_WINDOWS
-timeout /t 2 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
-timeout /t 3 /nobreak >nul
-start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
-echo.
-echo ========================================
-echo Network Mode - Access from other devices
-echo ========================================
-echo.
-echo Backend API: http://!SELECTED_IP!:8000
-echo Frontend: http://!SELECTED_IP!:5173
-echo API Docs: http://!SELECTED_IP!:8000/docs
-echo.
-echo From other devices on same network:
-echo   1. Open browser on phone/tablet
-echo   2. Visit: http://!SELECTED_IP!:5173
-echo   3. Login and use the system
-echo.
-echo NOTE: Make sure Windows Firewall allows ports 8000 and 5173
-echo.
-echo Firewall commands (Run PowerShell as Admin):
-echo   netsh advfirewall firewall add rule name="Marine Backend" dir=in action=allow protocol=TCP localport=8000
-echo   netsh advfirewall firewall add rule name="Marine Frontend" dir=in action=allow protocol=TCP localport=5173
-echo.
+if %NETWORK_MODE%==1 (
+    REM Network mode - bind to 0.0.0.0
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    timeout /t 3 /nobreak >nul
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
+    echo.
+    echo ========================================
+    echo Network Mode - Access from other devices
+    echo ========================================
+    echo.
+    echo Backend API: http://%SELECTED_IP%:8000
+    echo Frontend: http://%SELECTED_IP%:5173
+    echo API Docs: http://%SELECTED_IP%:8000/docs
+    echo.
+    echo From other devices: Visit http://%SELECTED_IP%:5173
+    echo.
+) else (
+    REM Localhost mode - default binding
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    timeout /t 3 /nobreak >nul
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+    echo.
+    echo Backend: http://localhost:8000
+    echo Frontend: http://localhost:5173
+    echo API Docs: http://localhost:8000/docs
+    echo.
+)
+echo Services started in separate windows
 pause
 goto MENU
 
@@ -169,18 +176,8 @@ taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
 goto :EOF
 
 :RESTART_ALL
-echo.
-echo Restarting all services...
-call :STOP_ALL_SILENT
-call :CLOSE_SERVER_WINDOWS
-timeout /t 2 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
-timeout /t 3 /nobreak >nul
-start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
-echo.
-echo Services restarted
-pause
-goto MENU
+REM Use the same mode as before
+goto START_ALL
 
 :START_BACKEND
 echo.
@@ -189,20 +186,34 @@ taskkill /F /IM uvicorn.exe 2>nul
 taskkill /F /IM python.exe 2>nul
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 1 /nobreak >nul
-start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+
+if %NETWORK_MODE%==1 (
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    echo Backend started (Network mode - IP: %SELECTED_IP%)
+    echo URL: http://%SELECTED_IP%:8000
+) else (
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    echo Backend started (Localhost mode)
+    echo URL: http://localhost:8000
+)
 echo.
-echo Backend started in new window
-echo URL: http://localhost:8000
 pause
 goto MENU
 
 :START_FRONTEND
 echo.
 echo Starting frontend server...
-start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+
+if %NETWORK_MODE%==1 (
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
+    echo Frontend started (Network mode - IP: %SELECTED_IP%)
+    echo URL: http://%SELECTED_IP%:5173
+) else (
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+    echo Frontend started (Localhost mode)
+    echo URL: http://localhost:5173
+)
 echo.
-echo Frontend started in new window
-echo URL: http://localhost:5173
 pause
 goto MENU
 
@@ -215,10 +226,17 @@ taskkill /F /IM python.exe 2>nul
 taskkill /FI "WindowTitle eq Backend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting backend...
-start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+
+if %NETWORK_MODE%==1 (
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --host 0.0.0.0 --reload --port 8000"
+    echo Backend restarted (Network mode)
+    echo URL: http://%SELECTED_IP%:8000
+) else (
+    start /min "Backend Server" cmd /k "cd /d %~dp0backend && venv\Scripts\activate && python -m uvicorn app.main:app --reload --port 8000"
+    echo Backend restarted (Localhost mode)
+    echo URL: http://localhost:8000
+)
 echo.
-echo Backend restarted
-echo URL: http://localhost:8000
 pause
 goto MENU
 
@@ -231,10 +249,17 @@ taskkill /F /IM node.exe 2>nul
 taskkill /FI "WindowTitle eq Frontend Server*" 2>nul
 timeout /t 2 /nobreak >nul
 echo Starting frontend...
-start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+
+if %NETWORK_MODE%==1 (
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev --host 0.0.0.0"
+    echo Frontend restarted (Network mode)
+    echo URL: http://%SELECTED_IP%:5173
+) else (
+    start /min "Frontend Server" cmd /k "cd /d %~dp0frontend && bun dev"
+    echo Frontend restarted (Localhost mode)
+    echo URL: http://localhost:5173
+)
 echo.
-echo Frontend restarted
-echo URL: http://localhost:5173
 pause
 goto MENU
 
@@ -265,7 +290,6 @@ pause
 goto MENU
 
 :CHECK_STATUS
-cls
 echo.
 echo Checking service status...
 echo.
@@ -310,8 +334,9 @@ goto MENU
 
 :FIRST_SETUP
 echo.
-echo Running first time setup...
-call setup_first_time.bat
+echo First time setup requires setup_first_time.bat
+echo Please run setup_first_time.bat manually if needed
+echo.
 pause
 goto MENU
 
