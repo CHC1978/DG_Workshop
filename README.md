@@ -49,12 +49,18 @@
 manage.bat
 ```
 提供互動式選單：
-- [1] Start All - 啟動後端+前端
-- [2] Stop All - 停止所有服務
-- [3] Restart All - 重新啟動
-- [4-7] 單獨啟動/停止後端或前端
-- [8] Check Status - 檢查運行狀態
-- [9] First Time Setup - 首次設定
+- [1] Start All
+- [2] Stop All
+- [3] Restart All
+- [4] Start Backend Only
+- [5] Start Frontend Only
+- [6] Restart Backend Only ⭐ NEW
+- [7] Restart Frontend Only ⭐ NEW
+- [8] Stop Backend Only
+- [9] Stop Frontend Only
+- [S] Check Status
+- [H] First Time Setup
+- [0] Exit
 
 #### 方式 2: 直接執行批次檔
 
@@ -66,11 +72,11 @@ setup_first_time.bat
 
 **快速啟動**:
 ```cmd
-快速啟動.bat
+quick_start.bat
 或
 start_all.bat
 ```
-同時啟動後端和前端服務
+同時啟動後端和前端服務（視窗自動最小化）
 
 **重新啟動**:
 ```cmd
@@ -87,6 +93,14 @@ stop_all.bat
 **單獨控制**:
 - `start_backend.bat` - 僅啟動後端
 - `start_frontend.bat` - 僅啟動前端
+
+**開發建議**:
+- 修改後端代碼後：`manage.bat → [6] Restart Backend Only`
+- 修改前端配置後：`manage.bat → [7] Restart Frontend Only`
+- 檢查服務狀態：`manage.bat → [S] Check Status`
+
+> ⚠️ **系統需求**: 所有 Windows 批次檔 (.bat) 必須使用純英文/ASCII 字元。
+> 詳見 [SYSTEM_REQUIREMENTS.md](./SYSTEM_REQUIREMENTS.md)
 
 ### 後端設定
 
