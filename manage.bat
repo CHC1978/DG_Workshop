@@ -6,12 +6,16 @@ title Marine Equipment QR System - Control Panel
 cls
 
 REM Get all IPv4 addresses
-echo Detecting IP addresses...
 set IP_COUNT=0
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
     set /a IP_COUNT+=1
-    set IP_!IP_COUNT!=%%a
-    call set IP_!IP_COUNT!=%%IP_!IP_COUNT!:~1%%
+    set "IP_!IP_COUNT!=%%a"
+)
+
+REM Clean up IP addresses (remove leading space)
+for /L %%i in (1,1,%IP_COUNT%) do (
+    call set "temp=%%IP_%%i%%"
+    call set "IP_%%i=%%temp:~1%%"
 )
 
 echo ========================================
@@ -309,5 +313,11 @@ goto MENU
 
 :EXIT
 echo.
+echo Stopping all services before exit...
+call :STOP_ALL_SILENT
+call :CLOSE_SERVER_WINDOWS
+echo All services stopped
+echo.
 echo Exiting...
+timeout /t 2 /nobreak >nul
 exit /b 0
