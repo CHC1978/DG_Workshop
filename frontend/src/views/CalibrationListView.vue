@@ -190,15 +190,21 @@ async function loadCalibrations() {
     if (filter.value === 'overdue') days = 0
     if (filter.value === 'all') days = 365
 
+    console.log('[CalibrationListView] Loading with days:', days)
     const response = await calibrationsApi.getDueSoon(days)
+    console.log('[CalibrationListView] Response:', response.data)
     calibrationsRaw.value = response.data
 
     // Filter overdue if selected
     if (filter.value === 'overdue') {
       calibrationsRaw.value = calibrationsRaw.value.filter(c => c.is_overdue)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to load calibrations:', error)
+    console.error('Error status:', error.response?.status)
+    console.error('Error detail:', error.response?.data)
+    // Set empty array to show "No calibrations found"
+    calibrationsRaw.value = []
   } finally {
     loading.value = false
   }
