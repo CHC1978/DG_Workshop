@@ -219,10 +219,13 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Location
                   </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Attachments
+                  </th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50">
+                <tr v-for="log in logs" :key="log.id" class="hover:bg-gray-50 cursor-pointer" @click="viewLogAttachments(log)">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {{ formatDateTime(log.created_at) }}
                   </td>
@@ -252,9 +255,115 @@
                     </span>
                     <span v-else class="text-gray-400">-</span>
                   </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <button
+                      @click.stop="viewLogAttachments(log)"
+                      class="text-sky-600 hover:text-sky-900"
+                    >
+                      📎 View
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Log Attachments Modal -->
+        <div
+          v-if="showAttachmentsModal"
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+          @click.self="showAttachmentsModal = false"
+        >
+          <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">Log Attachments</h3>
+              <button @click="showAttachmentsModal = false" class="text-gray-400 hover:text-gray-600">
+                ✕
+              </button>
+            </div>
+
+            <div v-if="selectedLog" class="mb-4 p-3 bg-gray-50 rounded">
+              <p class="text-sm font-medium">{{ selectedLog.description }}</p>
+              <p class="text-xs text-gray-500 mt-1">{{ formatDateTime(selectedLog.created_at) }}</p>
+            </div>
+
+            <!-- Attachments List -->
+            <div v-if="loadingAttachments" class="text-center py-8">
+              <p class="text-gray-500">Loading attachments...</p>
+            </div>
+
+            <div v-else-if="currentAttachments.length === 0" class="text-center py-8">
+              <p class="text-gray-500">No attachments yet</p>
+            </div>
+
+            <div v-else class="space-y-3 mb-4">
+              <div
+                v-for="att in currentAttachments"
+                :key="att.id"
+                class="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+              >
+                <div class="flex-1">
+                  <a
+                    :href="`http://localhost:8000${att.file_url}`"
+                    target="_blank"
+                    class="text-sm font-medium text-sky-600 hover:text-sky-800"
+                  >
+                    {{ att.file_name }}
+                  </a>
+                  <p class="text-xs text-gray-500">
+                    {{ (att.file_size / 1024).toFixed(1) }} KB • {{ att.file_type }}
+                  </p>
+                  <p v-if="att.description" class="text-xs text-gray-600 mt-1">{{ att.description }}</p>
+                </div>
+                <button
+                  @click="deleteAttachment(att.id)"
+                  class="ml-4 text-red-600 hover:text-red-800 text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="border-t pt-4">
+              <h4 class="text-sm font-semibold mb-3">Upload New Attachment</h4>
+              <div class="space-y-3">
+                <select
+                  v-model="uploadAttachmentType"
+                  class="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="calibration_report">Calibration Report</option>
+                  <option value="damage_photo">Damage Photo</option>
+                  <option value="repair_document">Repair Document</option>
+                  <option value="maintenance_record">Maintenance Record</option>
+                  <option value="other">Other</option>
+                </select>
+
+                <input
+                  v-model="uploadDescription"
+                  type="text"
+                  placeholder="Description (optional)"
+                  class="w-full px-3 py-2 border rounded-lg"
+                />
+
+                <div class="flex items-center gap-2">
+                  <input
+                    ref="attachmentFileInput"
+                    type="file"
+                    @change="handleAttachmentFileChange"
+                    class="flex-1 text-sm"
+                  />
+                  <AppButton
+                    v-if="selectedAttachmentFile"
+                    @click="uploadAttachment"
+                    :loading="uploadingAttachment"
+                  >
+                    Upload
+                  </AppButton>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -275,6 +384,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useUiStore } from '@/stores/ui'
 import { equipmentApi } from '@/api/equipment'
+import axios from 'axios'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 
@@ -292,6 +402,17 @@ const logs = ref<any[]>([])
 const showDeployModal = ref(false)
 const showReturnModal = ref(false)
 const showRepairModal = ref(false)
+
+// Log Attachments
+const showAttachmentsModal = ref(false)
+const selectedLog = ref<any>(null)
+const currentAttachments = ref<any[]>([])
+const loadingAttachments = ref(false)
+const uploadingAttachment = ref(false)
+const uploadAttachmentType = ref('other')
+const uploadDescription = ref('')
+const selectedAttachmentFile = ref<File | null>(null)
+const attachmentFileInput = ref<HTMLInputElement | null>(null)
 
 const canPerformActions = computed(() => {
   return equipment.value?.status !== 'disposed' && equipment.value?.status !== 'lost'
@@ -467,6 +588,95 @@ async function loadQRCode() {
     qrCodeUrl.value = response.data.qr_code_base64
   } catch (error) {
     console.error('Failed to load QR code:', error)
+  }
+}
+
+async function viewLogAttachments(log: any) {
+  selectedLog.value = log
+  showAttachmentsModal.value = true
+  await loadLogAttachments(log.id)
+}
+
+async function loadLogAttachments(logId: number) {
+  loadingAttachments.value = true
+  try {
+    const response = await axios.get(`/api/equipment-logs/${logId}/attachments`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('auth') ? JSON.parse(localStorage.getItem('auth')!).token : ''}`
+      }
+    })
+    currentAttachments.value = response.data
+  } catch (error) {
+    console.error('Failed to load attachments:', error)
+    currentAttachments.value = []
+  } finally {
+    loadingAttachments.value = false
+  }
+}
+
+function handleAttachmentFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  selectedAttachmentFile.value = target.files?.[0] || null
+}
+
+async function uploadAttachment() {
+  if (!selectedAttachmentFile.value || !selectedLog.value) return
+
+  uploadingAttachment.value = true
+
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedAttachmentFile.value)
+    formData.append('attachment_type', uploadAttachmentType.value)
+    if (uploadDescription.value) {
+      formData.append('description', uploadDescription.value)
+    }
+
+    const authData = localStorage.getItem('auth')
+    const token = authData ? JSON.parse(authData).token : ''
+
+    await axios.post(
+      `/api/equipment-logs/${selectedLog.value.id}/attachments`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`
+        }
+      }
+    )
+
+    uiStore.showNotification('success', 'Attachment uploaded successfully')
+    selectedAttachmentFile.value = null
+    uploadDescription.value = ''
+    if (attachmentFileInput.value) {
+      attachmentFileInput.value.value = ''
+    }
+    await loadLogAttachments(selectedLog.value.id)
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Upload failed')
+  } finally {
+    uploadingAttachment.value = false
+  }
+}
+
+async function deleteAttachment(attachmentId: number) {
+  if (!confirm('Delete this attachment?')) return
+
+  try {
+    const authData = localStorage.getItem('auth')
+    const token = authData ? JSON.parse(authData).token : ''
+
+    await axios.delete(`/api/log-attachments/${attachmentId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+
+    uiStore.showNotification('success', 'Attachment deleted')
+    if (selectedLog.value) {
+      await loadLogAttachments(selectedLog.value.id)
+    }
+  } catch (error: any) {
+    uiStore.showNotification('error', 'Delete failed')
   }
 }
 
