@@ -40,6 +40,24 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/equipment/EquipmentListView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/equipment/new',
+    name: 'equipment-create',
+    component: () => import('@/views/equipment/EquipmentFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/equipment/:id',
+    name: 'equipment-detail',
+    component: () => import('@/views/equipment/EquipmentDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/equipment/:id/edit',
+    name: 'equipment-edit',
+    component: () => import('@/views/equipment/EquipmentFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
 
   // Admin routes
   {
