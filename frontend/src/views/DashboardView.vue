@@ -66,7 +66,7 @@
             <h2 class="text-lg font-semibold text-gray-900">Maintenance Due</h2>
             <span class="text-2xl">⚠️</span>
           </div>
-          <p class="text-3xl font-bold text-orange-600">{{ alerts.maintenance_alerts?.length || 0 }}</p>
+          <p class="text-3xl font-bold text-orange-600">{{ stats.maintenance_due_soon || 0 }}</p>
           <p class="text-sm text-gray-600 mt-2">需要維護</p>
         </div>
 
@@ -79,7 +79,7 @@
             <h2 class="text-lg font-semibold text-gray-900">Calibration Due</h2>
             <span class="text-2xl">📊</span>
           </div>
-          <p class="text-3xl font-bold text-yellow-600">{{ alerts.calibration_alerts?.length || 0 }}</p>
+          <p class="text-3xl font-bold text-yellow-600">{{ stats.calibration_due_soon || 0 }}</p>
           <p class="text-sm text-gray-600 mt-2">需要校正</p>
         </div>
 
@@ -92,7 +92,7 @@
             <h2 class="text-lg font-semibold text-gray-900">Overdue Rentals</h2>
             <span class="text-2xl">⏰</span>
           </div>
-          <p class="text-3xl font-bold text-red-600">{{ alerts.overdue_rentals?.length || 0 }}</p>
+          <p class="text-3xl font-bold text-red-600">{{ stats.overdue_rentals || 0 }}</p>
           <p class="text-sm text-gray-600 mt-2">逾期未還</p>
         </div>
       </div>
@@ -100,21 +100,42 @@
       <!-- Recent Activities -->
       <div class="bg-white rounded-lg shadow overflow-hidden">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
-          <h2 class="text-xl font-semibold text-gray-900">Recent Activities</h2>
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-900">Recent Activities</h2>
+            <!-- Log Type Filter -->
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-600">Filter:</label>
+              <select
+                v-model="selectedLogType"
+                class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              >
+                <option value="">All Types</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="calibration">Calibration</option>
+                <option value="status_change">Status Change</option>
+                <option value="location_change">Location Change</option>
+                <option value="rental_start">Rental Start</option>
+                <option value="rental_end">Rental End</option>
+                <option value="note">Note</option>
+                <option value="created">Created</option>
+                <option value="updated">Updated</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div v-if="loading" class="text-center py-12">
           <p class="text-gray-500">Loading...</p>
         </div>
 
-        <div v-else-if="recentActivities.length === 0" class="text-center py-12">
-          <p class="text-gray-500">No recent activities</p>
+        <div v-else-if="filteredActivities.length === 0" class="text-center py-12">
+          <p class="text-gray-500">{{ selectedLogType ? 'No activities found for this type' : 'No recent activities' }}</p>
         </div>
 
         <div v-else>
           <!-- Mobile: Card view -->
           <div class="block md:hidden divide-y divide-gray-200">
-            <div v-for="activity in recentActivities" :key="activity.id" class="p-4">
+            <div v-for="activity in filteredActivities" :key="activity.id" class="p-4">
               <div class="flex justify-between items-start mb-2">
                 <router-link
                   :to="`/equipment/${activity.equipment_id}`"
@@ -158,7 +179,7 @@
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="activity in recentActivities" :key="activity.id" class="hover:bg-gray-50">
+                <tr v-for="activity in filteredActivities" :key="activity.id" class="hover:bg-gray-50">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {{ formatDateTime(activity.created_at) }}
                   </td>
@@ -203,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { dashboardApi, type DashboardAlerts, type DashboardStats, type RecentActivity } from '@/api/dashboard'
 import MainLayout from '@/layouts/MainLayout.vue'
@@ -228,6 +249,15 @@ const alerts = ref<DashboardAlerts>({
   overdue_rentals: [],
 })
 const recentActivities = ref<RecentActivity[]>([])
+const selectedLogType = ref('')
+
+// Filtered activities based on selected log type
+const filteredActivities = computed(() => {
+  if (!selectedLogType.value) {
+    return recentActivities.value
+  }
+  return recentActivities.value.filter(activity => activity.log_type === selectedLogType.value)
+})
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('zh-TW')
