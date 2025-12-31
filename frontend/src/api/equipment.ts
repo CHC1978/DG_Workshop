@@ -168,6 +168,22 @@ export const equipmentApi = {
   },
 
   /**
+   * Add maintenance record to equipment
+   */
+  addMaintenanceRecord(
+    id: number,
+    maintenance_notes: string,
+    last_maintenance_date?: string,
+    next_maintenance_date?: string
+  ) {
+    return apiClient.post<{ message: string; log_id: number }>(`/equipment/${id}/maintenance`, {
+      maintenance_notes,
+      last_maintenance_date,
+      next_maintenance_date,
+    })
+  },
+
+  /**
    * Get QR code image URL
    */
   getQRCodeImageUrl(id: number) {

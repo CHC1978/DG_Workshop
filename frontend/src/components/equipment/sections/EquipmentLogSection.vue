@@ -1,18 +1,41 @@
 <template>
   <div class="bg-white rounded-lg shadow overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200">
-      <h2 class="text-lg font-semibold text-gray-900">Activity Log</h2>
-      <p class="text-xs text-gray-500 mt-1">Double-click a log to quick-edit status</p>
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Activity Log</h2>
+          <p class="text-xs text-gray-500 mt-1">Double-click a log to quick-edit status</p>
+        </div>
+        <!-- Log Type Filter -->
+        <div>
+          <label class="text-xs text-gray-600 mr-2">Filter:</label>
+          <select
+            v-model="selectedLogType"
+            class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+          >
+            <option value="">All Types</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="calibration">Calibration</option>
+            <option value="status_change">Status Change</option>
+            <option value="location_change">Location Change</option>
+            <option value="rental_start">Rental Start</option>
+            <option value="rental_end">Rental End</option>
+            <option value="note">Note</option>
+            <option value="created">Created</option>
+            <option value="updated">Updated</option>
+          </select>
+        </div>
+      </div>
     </div>
 
-    <div v-if="logs.length === 0" class="text-center py-12 text-gray-500">
-      No activity logs yet
+    <div v-if="filteredLogs.length === 0" class="text-center py-12 text-gray-500">
+      {{ selectedLogType ? 'No logs found for this type' : 'No activity logs yet' }}
     </div>
 
     <!-- Desktop: Card-style Log -->
     <div v-else class="hidden md:block divide-y divide-gray-200">
       <div
-        v-for="log in logs"
+        v-for="log in filteredLogs"
         :key="log.id"
         class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
         @dblclick="$emit('logDoubleClicked', log)"
@@ -81,9 +104,9 @@
     </div>
 
     <!-- Mobile: Simplified Card Log -->
-    <div v-if="logs.length > 0" class="block md:hidden divide-y divide-gray-200">
+    <div v-if="filteredLogs.length > 0" class="block md:hidden divide-y divide-gray-200">
       <div
-        v-for="log in logs"
+        v-for="log in filteredLogs"
         :key="log.id"
         class="p-4 active:bg-gray-100"
         @dblclick="$emit('logDoubleClicked', log)"
@@ -119,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { equipmentApi } from '@/api/equipment'
 
 interface Props {
@@ -135,6 +158,15 @@ const props = defineProps<Props>()
 defineEmits<Emits>()
 
 const logs = ref<any[]>([])
+const selectedLogType = ref('')
+
+// Filtered logs based on selected type
+const filteredLogs = computed(() => {
+  if (!selectedLogType.value) {
+    return logs.value
+  }
+  return logs.value.filter(log => log.log_type === selectedLogType.value)
+})
 
 // Watch equipmentId and auto-load logs
 watch(() => props.equipmentId, async (newId) => {

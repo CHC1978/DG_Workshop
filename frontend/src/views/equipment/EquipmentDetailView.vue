@@ -1106,50 +1106,40 @@ async function handleReturned() {
 
 async function handleMaintenanceSaved(data: any) {
   try {
-    // Step 1: Update equipment with new maintenance record
-    await equipmentStore.update(equipmentId.value, {
-      last_maintenance_date: data.last_maintenance_date || undefined,
-      next_maintenance_date: data.next_maintenance_date || undefined,
-      maintenance_notes: data.maintenance_notes,
-    })
+    // Step 1: Add maintenance record (updates equipment and creates MAINTENANCE log)
+    const response = await equipmentApi.addMaintenanceRecord(
+      equipmentId.value,
+      data.maintenance_notes,
+      data.last_maintenance_date || undefined,
+      data.next_maintenance_date || undefined
+    )
 
-    // Step 2: Add a note to create a log entry for this maintenance
-    const noteText = `Maintenance Record: ${data.maintenance_notes}`
-    await equipmentApi.addNote(equipmentId.value, noteText)
+    const logId = response.data.log_id
 
-    // Step 3: If there are attachments, upload them to the latest log
+    // Step 2: If there are attachments, upload them to the maintenance log
     if (data.attachments && data.attachments.length > 0) {
-      // Get the latest log (which we just created)
-      const logsResponse = await equipmentApi.getLogs(equipmentId.value)
-      const logs = logsResponse.data
+      const authData = localStorage.getItem('auth')
+      const token = authData ? JSON.parse(authData).token : ''
 
-      if (logs && logs.length > 0) {
-        const latestLog = logs[0] // Logs should be sorted by created_at desc
+      for (const file of data.attachments) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('attachment_type', 'maintenance_record')
+        formData.append('description', file.name)
 
-        // Upload each attachment
-        const authData = localStorage.getItem('auth')
-        const token = authData ? JSON.parse(authData).token : ''
-
-        for (const file of data.attachments) {
-          const formData = new FormData()
-          formData.append('file', file)
-          formData.append('attachment_type', 'maintenance_record')
-          formData.append('description', file.name)
-
-          await axios.post(
-            `/api/uploads/equipment-logs/${latestLog.id}/attachments`,
-            formData,
-            {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-                Authorization: `Bearer ${token}`
-              }
+        await axios.post(
+          `/api/uploads/equipment-logs/${logId}/attachments`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              Authorization: `Bearer ${token}`
             }
-          )
-        }
-
-        uiStore.showNotification('success', `Maintenance record saved with ${data.attachments.length} attachment(s)`)
+          }
+        )
       }
+
+      uiStore.showNotification('success', `Maintenance record saved with ${data.attachments.length} attachment(s)`)
     } else {
       uiStore.showNotification('success', 'Maintenance record saved successfully')
     }
@@ -1161,7 +1151,7 @@ async function handleMaintenanceSaved(data: any) {
     logSection.value?.loadLogs()
   } catch (error: any) {
     console.error('Failed to save maintenance record:', error)
-    uiStore.showNotification('error', 'Failed to save maintenance record')
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to save maintenance record')
   }
 }
 

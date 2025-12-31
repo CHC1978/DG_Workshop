@@ -1012,6 +1012,61 @@ async def add_equipment_note(
     return {"message": "Note added successfully"}
 
 
+@router.post("/{equipment_id}/maintenance", response_model=dict)
+async def add_maintenance_record(
+    equipment_id: int,
+    maintenance_notes: str,
+    last_maintenance_date: Optional[str] = None,
+    next_maintenance_date: Optional[str] = None,
+    current_user: User = Depends(require_operator),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Add maintenance record to equipment (Operator+ only)
+    Updates equipment maintenance fields and creates a MAINTENANCE log entry
+    Returns the log_id for attaching files
+    """
+    from datetime import date as date_type
+
+    # Verify equipment exists
+    result = await db.execute(
+        select(Equipment).where(Equipment.id == equipment_id)
+    )
+    equipment = result.scalar_one_or_none()
+
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found",
+        )
+
+    # Update equipment maintenance fields
+    if last_maintenance_date:
+        equipment.last_maintenance_date = date_type.fromisoformat(last_maintenance_date)
+    if next_maintenance_date:
+        equipment.next_maintenance_date = date_type.fromisoformat(next_maintenance_date)
+    equipment.maintenance_notes = maintenance_notes
+
+    # Create MAINTENANCE log entry
+    log = EquipmentLog(
+        equipment_id=equipment.id,
+        log_type=EquipmentLogType.MAINTENANCE,
+        description=f"Maintenance Record: {maintenance_notes}",
+        new_value=f"Last: {last_maintenance_date or 'N/A'}, Next: {next_maintenance_date or 'N/A'}",
+        created_by=current_user.id,
+    )
+    db.add(log)
+    await db.flush()  # Flush to get the log ID
+
+    await db.commit()
+    await db.refresh(log)
+
+    return {
+        "message": "Maintenance record added successfully",
+        "log_id": log.id
+    }
+
+
 # ==================== Parent-Child Equipment Management ====================
 
 @router.get("/{equipment_id}/children", response_model=list[EquipmentResponse])
