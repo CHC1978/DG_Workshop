@@ -1114,6 +1114,8 @@ async function handleMaintenanceSaved(data: any) {
       data.next_maintenance_date || undefined
     )
 
+    console.log('Maintenance record response:', response.data)
+
     const logId = response.data.log_id
 
     // Step 2: If there are attachments, upload them to the maintenance log

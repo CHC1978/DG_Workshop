@@ -20,6 +20,7 @@ from app.schemas.equipment import (
     EquipmentDetailResponse,
     EquipmentLogResponse,
     EquipmentLogUpdateRequest,
+    MaintenanceRecordRequest,
     DetachFromParentRequest,
     GroupMoveRequest,
     SyncChildrenStatusRequest,
@@ -1015,9 +1016,7 @@ async def add_equipment_note(
 @router.post("/{equipment_id}/maintenance", response_model=dict)
 async def add_maintenance_record(
     equipment_id: int,
-    maintenance_notes: str,
-    last_maintenance_date: Optional[str] = None,
-    next_maintenance_date: Optional[str] = None,
+    request: MaintenanceRecordRequest,
     current_user: User = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ):
@@ -1026,8 +1025,6 @@ async def add_maintenance_record(
     Updates equipment maintenance fields and creates a MAINTENANCE log entry
     Returns the log_id for attaching files
     """
-    from datetime import date as date_type
-
     # Verify equipment exists
     result = await db.execute(
         select(Equipment).where(Equipment.id == equipment_id)
@@ -1041,18 +1038,20 @@ async def add_maintenance_record(
         )
 
     # Update equipment maintenance fields
-    if last_maintenance_date:
-        equipment.last_maintenance_date = date_type.fromisoformat(last_maintenance_date)
-    if next_maintenance_date:
-        equipment.next_maintenance_date = date_type.fromisoformat(next_maintenance_date)
-    equipment.maintenance_notes = maintenance_notes
+    equipment.last_maintenance_date = request.last_maintenance_date
+    equipment.next_maintenance_date = request.next_maintenance_date
+    equipment.maintenance_notes = request.maintenance_notes
+
+    # Format dates for display in log
+    last_date_str = request.last_maintenance_date.isoformat() if request.last_maintenance_date else 'N/A'
+    next_date_str = request.next_maintenance_date.isoformat() if request.next_maintenance_date else 'N/A'
 
     # Create MAINTENANCE log entry
     log = EquipmentLog(
         equipment_id=equipment.id,
         log_type=EquipmentLogType.MAINTENANCE,
-        description=f"Maintenance Record: {maintenance_notes}",
-        new_value=f"Last: {last_maintenance_date or 'N/A'}, Next: {next_maintenance_date or 'N/A'}",
+        description=f"Maintenance Record: {request.maintenance_notes}",
+        new_value=f"Last: {last_date_str}, Next: {next_date_str}",
         created_by=current_user.id,
     )
     db.add(log)

@@ -176,11 +176,17 @@ export const equipmentApi = {
     last_maintenance_date?: string,
     next_maintenance_date?: string
   ) {
-    return apiClient.post<{ message: string; log_id: number }>(`/equipment/${id}/maintenance`, {
+    const payload: any = {
       maintenance_notes,
-      last_maintenance_date,
-      next_maintenance_date,
-    })
+    }
+    // Only include dates if they are not empty
+    if (last_maintenance_date) {
+      payload.last_maintenance_date = last_maintenance_date
+    }
+    if (next_maintenance_date) {
+      payload.next_maintenance_date = next_maintenance_date
+    }
+    return apiClient.post<{ message: string; log_id: number }>(`/equipment/${id}/maintenance`, payload)
   },
 
   /**

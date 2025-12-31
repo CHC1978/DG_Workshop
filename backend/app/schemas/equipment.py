@@ -171,6 +171,13 @@ class EquipmentLogUpdateRequest(BaseModel):
     longitude: Optional[float] = None
 
 
+class MaintenanceRecordRequest(BaseModel):
+    """Request to add maintenance record to equipment"""
+    maintenance_notes: str = Field(..., min_length=1, description="Maintenance details and notes")
+    last_maintenance_date: Optional[date] = Field(None, description="Date of last maintenance")
+    next_maintenance_date: Optional[date] = Field(None, description="Next scheduled maintenance date")
+
+
 class EquipmentLogResponse(BaseModel):
     """Equipment log response schema"""
     id: int
