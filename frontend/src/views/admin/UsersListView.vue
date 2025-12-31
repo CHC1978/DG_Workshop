@@ -77,42 +77,17 @@
                 <span v-else class="text-red-600 text-sm">Inactive</span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <div class="flex space-x-2">
-                  <button
-                    @click="viewUser(user.id)"
-                    class="text-sky-600 hover:text-sky-900"
-                  >
-                    View
-                  </button>
-                  <button
-                    v-if="authStore.isAdmin || authStore.user?.id === user.id"
-                    @click="editUser(user.id)"
-                    class="text-blue-600 hover:text-blue-900"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    v-if="authStore.isAdmin && user.id !== authStore.user?.id"
-                    @click="handleResetPassword(user)"
-                    class="text-purple-600 hover:text-purple-900"
-                  >
-                    Reset Password
-                  </button>
-                  <button
-                    v-if="authStore.isAdmin && user.totp_enabled"
-                    @click="handleToggle2FA(user)"
-                    class="text-orange-600 hover:text-orange-900"
-                  >
-                    Reset 2FA
-                  </button>
-                  <button
-                    v-if="authStore.isAdmin && user.id !== authStore.user?.id"
-                    @click="handleDelete(user)"
-                    class="text-red-600 hover:text-red-900"
-                  >
-                    Delete
-                  </button>
-                </div>
+                <select
+                  @change="handleUserAction($event, user)"
+                  class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent cursor-pointer"
+                >
+                  <option value="">-- Select Action --</option>
+                  <option value="view">View</option>
+                  <option v-if="authStore.isAdmin || authStore.user?.id === user.id" value="edit">Edit</option>
+                  <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="reset_password">Reset Password</option>
+                  <option v-if="authStore.isAdmin && user.totp_enabled" value="reset_2fa">Reset 2FA</option>
+                  <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="delete" class="text-red-600">Delete</option>
+                </select>
               </td>
             </tr>
           </tbody>
@@ -161,6 +136,35 @@ function roleBadgeClass(role: string): string {
     viewer: 'bg-gray-100 text-gray-800',
   }
   return `${base} ${variants[role] || 'bg-gray-100 text-gray-800'}`
+}
+
+function handleUserAction(event: Event, user: User) {
+  const target = event.target as HTMLSelectElement
+  const action = target.value
+
+  if (!action) return
+
+  // Execute action
+  switch (action) {
+    case 'view':
+      viewUser(user.id)
+      break
+    case 'edit':
+      editUser(user.id)
+      break
+    case 'reset_password':
+      handleResetPassword(user)
+      break
+    case 'reset_2fa':
+      handleToggle2FA(user)
+      break
+    case 'delete':
+      handleDelete(user)
+      break
+  }
+
+  // Reset select to default
+  target.value = ''
 }
 
 function viewUser(id: number) {
