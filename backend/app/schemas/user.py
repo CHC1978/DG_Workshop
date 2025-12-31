@@ -35,6 +35,16 @@ class UserPasswordUpdate(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
+class AdminPasswordResetRequest(BaseModel):
+    """Admin reset user password schema (no old password required)"""
+    new_password: str = Field(..., min_length=8, max_length=128, description="New password to set")
+
+
+class AdminToggle2FARequest(BaseModel):
+    """Admin toggle 2FA for user schema"""
+    enabled: bool = Field(..., description="Enable or disable 2FA")
+
+
 # ==================== Response Schemas ====================
 
 class UserResponse(UserBase):

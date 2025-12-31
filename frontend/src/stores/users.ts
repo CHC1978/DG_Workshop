@@ -117,6 +117,36 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  async function toggle2FA(id: number, enabled: boolean) {
+    loading.value = true
+    try {
+      await usersApi.toggle2FA(id, enabled)
+      // Refresh user data in list
+      const index = usersList.value.findIndex((u) => u.id === id)
+      if (index !== -1) {
+        const response = await usersApi.get(id)
+        usersList.value[index] = response.data
+      }
+    } catch (error) {
+      console.error('Failed to toggle 2FA:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function resetPassword(id: number, newPassword: string) {
+    loading.value = true
+    try {
+      await usersApi.resetPassword(id, newPassword)
+    } catch (error) {
+      console.error('Failed to reset password:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   function clearCurrent() {
     currentUser.value = null
   }
@@ -135,6 +165,8 @@ export const useUsersStore = defineStore('users', () => {
     remove,
     updatePassword,
     reset2FA,
+    toggle2FA,
+    resetPassword,
     clearCurrent,
   }
 })

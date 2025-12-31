@@ -11,6 +11,8 @@ from app.schemas.user import (
     UserCreate,
     UserUpdate,
     UserPasswordUpdate,
+    AdminPasswordResetRequest,
+    AdminToggle2FARequest,
     UserResponse,
     UserListResponse,
 )
@@ -280,3 +282,76 @@ async def reset_user_2fa(
     await db.commit()
 
     return {"message": f"2FA reset for user {user.username}"}
+
+
+@router.put("/{user_id}/toggle-2fa", response_model=dict)
+async def toggle_user_2fa(
+    user_id: int,
+    request: AdminToggle2FARequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Enable or disable 2FA for a user (Admin only)
+    - When disabling: Removes user's 2FA setup completely
+    - When enabling: Clears existing 2FA and allows user to set up fresh on next login
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if request.enabled:
+        # "Enable" means clearing existing 2FA so user can set it up fresh
+        # This is essentially the same as reset - user will set up on next login
+        user.totp_enabled = False
+        user.totp_secret = None
+        message = f"2FA cleared for user {user.username}. User can set up 2FA on next login."
+    else:
+        # Disable 2FA - remove completely
+        user.totp_enabled = False
+        user.totp_secret = None
+        message = f"2FA disabled for user {user.username}"
+
+    await db.commit()
+    await db.refresh(user)
+
+    return {"message": message, "totp_enabled": user.totp_enabled}
+
+
+@router.post("/{user_id}/reset-password", response_model=dict)
+async def admin_reset_password(
+    user_id: int,
+    request: AdminPasswordResetRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Reset user password (Admin only)
+    Admin can reset any user's password without knowing old password
+    """
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Prevent admin from resetting their own password this way
+    if user.id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reset your own password. Use the normal password change flow.",
+        )
+
+    # Reset password
+    user.hashed_password = hash_password(request.new_password)
+    await db.commit()
+
+    return {"message": f"Password reset successfully for user {user.username}"}

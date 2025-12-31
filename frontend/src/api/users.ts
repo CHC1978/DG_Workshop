@@ -80,4 +80,18 @@ export const usersApi = {
   reset2FA(id: number) {
     return apiClient.post(`/users/${id}/reset-2fa`)
   },
+
+  /**
+   * Toggle 2FA (Admin only)
+   */
+  toggle2FA(id: number, enabled: boolean) {
+    return apiClient.put(`/users/${id}/toggle-2fa`, { enabled })
+  },
+
+  /**
+   * Reset user password (Admin only)
+   */
+  resetPassword(id: number, newPassword: string) {
+    return apiClient.post(`/users/${id}/reset-password`, { new_password: newPassword })
+  },
 }

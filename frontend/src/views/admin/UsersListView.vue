@@ -92,8 +92,15 @@
                     Edit
                   </button>
                   <button
+                    v-if="authStore.isAdmin && user.id !== authStore.user?.id"
+                    @click="handleResetPassword(user)"
+                    class="text-purple-600 hover:text-purple-900"
+                  >
+                    Reset Password
+                  </button>
+                  <button
                     v-if="authStore.isAdmin && user.totp_enabled"
-                    @click="handleReset2FA(user)"
+                    @click="handleToggle2FA(user)"
                     class="text-orange-600 hover:text-orange-900"
                   >
                     Reset 2FA
@@ -164,17 +171,45 @@ function editUser(id: number) {
   router.push(`/admin/users/${id}/edit`)
 }
 
-async function handleReset2FA(user: User) {
+async function handleToggle2FA(user: User) {
   if (!confirm(`Reset 2FA for ${user.full_name}? They will need to set up 2FA again on next login.`)) {
     return
   }
 
   try {
-    await usersStore.reset2FA(user.id)
+    // Always disable when resetting
+    await usersStore.toggle2FA(user.id, false)
     uiStore.showNotification('success', `2FA reset for ${user.full_name}`)
     await usersStore.fetchList()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to reset 2FA')
+  }
+}
+
+async function handleResetPassword(user: User) {
+  const newPassword = prompt(
+    `Reset password for ${user.full_name} (@${user.username})\n\nEnter new password (minimum 8 characters):`
+  )
+
+  if (!newPassword) {
+    return
+  }
+
+  if (newPassword.length < 8) {
+    uiStore.showNotification('error', 'Password must be at least 8 characters')
+    return
+  }
+
+  // Confirm action
+  if (!confirm(`Confirm password reset for ${user.full_name}?`)) {
+    return
+  }
+
+  try {
+    await usersStore.resetPassword(user.id, newPassword)
+    uiStore.showNotification('success', `Password reset successfully for ${user.full_name}`)
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to reset password')
   }
 }
 
