@@ -1,6 +1,6 @@
 <template>
   <div class="bg-white rounded-lg shadow overflow-hidden">
-    <div class="px-6 py-4 border-b border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200 sticky top-0 bg-white z-10">
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">Activity Log</h2>
@@ -28,18 +28,20 @@
       </div>
     </div>
 
-    <div v-if="filteredLogs.length === 0" class="text-center py-12 text-gray-500">
-      {{ selectedLogType ? 'No logs found for this type' : 'No activity logs yet' }}
-    </div>
+    <!-- Logs Container with fixed min-height to prevent jumping -->
+    <div class="logs-container" style="min-height: 400px;">
+      <div v-if="filteredLogs.length === 0" class="text-center py-12 text-gray-500">
+        {{ selectedLogType ? 'No logs found for this type' : 'No activity logs yet' }}
+      </div>
 
-    <!-- Desktop: Card-style Log -->
-    <div v-else class="hidden md:block divide-y divide-gray-200">
-      <div
-        v-for="log in filteredLogs"
-        :key="log.id"
-        class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-        @dblclick="$emit('logDoubleClicked', log)"
-      >
+      <!-- Desktop: Card-style Log -->
+      <div v-else class="hidden md:block divide-y divide-gray-200">
+        <div
+          v-for="log in filteredLogs"
+          :key="log.id"
+          class="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+          @dblclick="$emit('logDoubleClicked', log)"
+        >
         <div class="flex gap-4">
           <!-- Left: Date & Time (Vertical) -->
           <div class="flex-shrink-0 w-32 text-center border-r border-gray-200 pr-4">
@@ -101,39 +103,40 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
 
-    <!-- Mobile: Simplified Card Log -->
-    <div v-if="filteredLogs.length > 0" class="block md:hidden divide-y divide-gray-200">
-      <div
-        v-for="log in filteredLogs"
-        :key="log.id"
-        class="p-4 active:bg-gray-100"
-        @dblclick="$emit('logDoubleClicked', log)"
-      >
-        <div class="flex items-start justify-between mb-2">
-          <div class="flex-1">
-            <div class="text-xs text-gray-500 mb-1">
-              {{ formatDateTime(log.created_at) }}
+      <!-- Mobile: Simplified Card Log -->
+      <div v-if="filteredLogs.length > 0" class="block md:hidden divide-y divide-gray-200">
+        <div
+          v-for="log in filteredLogs"
+          :key="log.id"
+          class="p-4 active:bg-gray-100"
+          @dblclick="$emit('logDoubleClicked', log)"
+        >
+          <div class="flex items-start justify-between mb-2">
+            <div class="flex-1">
+              <div class="text-xs text-gray-500 mb-1">
+                {{ formatDateTime(log.created_at) }}
+              </div>
+              <span :class="logTypeBadge(log.log_type)" class="px-2 py-1 text-xs font-semibold rounded">
+                {{ logTypeLabel(log.log_type) }}
+              </span>
             </div>
-            <span :class="logTypeBadge(log.log_type)" class="px-2 py-1 text-xs font-semibold rounded">
-              {{ logTypeLabel(log.log_type) }}
-            </span>
+            <button
+              @click.stop="$emit('viewAttachments', log)"
+              class="text-xs px-2 py-1 text-sky-600 hover:text-sky-800"
+            >
+              View
+            </button>
           </div>
-          <button
-            @click.stop="$emit('viewAttachments', log)"
-            class="text-xs px-2 py-1 text-sky-600 hover:text-sky-800"
-          >
-            View
-          </button>
-        </div>
-        <p class="text-sm text-gray-900 mb-1">{{ log.description }}</p>
-        <div v-if="log.current_location_name || log.project_code" class="text-xs text-gray-600 space-y-0.5">
-          <div v-if="log.current_location_name">
-            📍 {{ locationTypeLabel(log.current_location_type) }}: {{ log.current_location_name }}
-          </div>
-          <div v-if="log.project_code" class="text-sky-700">
-            📋 {{ log.project_code }}
+          <p class="text-sm text-gray-900 mb-1">{{ log.description }}</p>
+          <div v-if="log.current_location_name || log.project_code" class="text-xs text-gray-600 space-y-0.5">
+            <div v-if="log.current_location_name">
+              📍 {{ locationTypeLabel(log.current_location_type) }}: {{ log.current_location_name }}
+            </div>
+            <div v-if="log.project_code" class="text-sky-700">
+              📋 {{ log.project_code }}
+            </div>
           </div>
         </div>
       </div>
@@ -239,3 +242,9 @@ defineExpose({
   loadLogs
 })
 </script>
+
+<style scoped>
+.logs-container {
+  transition: all 0.2s ease-in-out;
+}
+</style>
