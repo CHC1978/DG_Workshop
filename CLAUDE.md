@@ -189,3 +189,4 @@ Admin > Manager > Operator > Viewer
 
 ## 環境注意事項
 - 目前開發環境是Windows 11 , PowerShell 命令下. 
+- 所有前端與後端重新啟動都由我手動運行.

@@ -1,7 +1,7 @@
 """位置/船舶模型"""
 import enum
 from typing import Optional, List
-from sqlalchemy import String, Boolean, Enum as SQLEnum
+from sqlalchemy import String, Boolean, Enum as SQLEnum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -12,6 +12,7 @@ class LocationType(str, enum.Enum):
     """位置類型"""
     WAREHOUSE = "warehouse"    # 倉庫
     VESSEL = "vessel"          # 船舶
+    PERSON = "person"          # 人員
     PLATFORM = "platform"      # 平台
     VEHICLE = "vehicle"        # 車輛
     EXTERNAL = "external"      # 外部（租賃客戶處）
@@ -33,10 +34,32 @@ class Location(Base, TimestampMixin):
     )
     code: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
 
-    # 船舶專用欄位
+    # 船舶專用欄位 - 識別碼
     imo_number: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    vessel_mmsi: Mapped[Optional[str]] = mapped_column(String(9), nullable=True)
+    vessel_national_id: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    vessel_internal_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     call_sign: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+
+    # 船舶專用欄位 - 詳細資訊
+    vessel_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    vessel_flag: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    vessel_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    vessel_owner: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     owner_company: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Person 專用欄位
+    person_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    person_contact: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    employee_id: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # Project 關聯
+    current_project_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
 
     # 狀態
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -46,6 +69,12 @@ class Location(Base, TimestampMixin):
         "Equipment",
         back_populates="current_location",
         foreign_keys="Equipment.current_location_id"
+    )
+
+    current_project: Mapped[Optional["Project"]] = relationship(
+        "Project",
+        back_populates="vessels",
+        foreign_keys=[current_project_id]
     )
 
     def __repr__(self) -> str:

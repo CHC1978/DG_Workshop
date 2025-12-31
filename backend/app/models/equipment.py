@@ -34,6 +34,13 @@ class EquipmentStatus(str, enum.Enum):
     LOST = "lost"                  # 遺失
 
 
+class InstallationType(str, enum.Enum):
+    """安裝類型"""
+    PERMANENT = "permanent"        # 永久安裝
+    PROJECT = "project"            # 專案臨時安裝
+    TEMPORARY = "temporary"        # 暫時安裝
+
+
 class Equipment(Base, TimestampMixin):
     """設備表"""
 
@@ -53,6 +60,7 @@ class Equipment(Base, TimestampMixin):
     )
     manufacturer: Mapped[str] = mapped_column(String(100), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
     serial_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # 狀態與位置
@@ -70,6 +78,21 @@ class Equipment(Base, TimestampMixin):
     # Deployment information
     deployed_to: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # Vessel name or person name
     deployed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Who deployed it
+
+    # Project 關聯
+    project_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
+    # Installation information
+    installation_type: Mapped[Optional[InstallationType]] = mapped_column(
+        SQLEnum(InstallationType),
+        nullable=True
+    )
+    installation_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    installation_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Purchase information
     purchase_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
@@ -96,6 +119,11 @@ class Equipment(Base, TimestampMixin):
         "Location",
         back_populates="equipments",
         foreign_keys=[current_location_id]
+    )
+    project: Mapped[Optional["Project"]] = relationship(
+        "Project",
+        back_populates="equipment",
+        foreign_keys=[project_id]
     )
     logs: Mapped[list["EquipmentLog"]] = relationship(
         "EquipmentLog",

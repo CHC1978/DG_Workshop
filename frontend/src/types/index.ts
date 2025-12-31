@@ -79,6 +79,8 @@ export type EquipmentStatus =
   | 'disposed'
   | 'lost'
 
+export type InstallationType = 'permanent' | 'project' | 'temporary'
+
 export interface Equipment {
   id: number
   asset_code: string
@@ -95,9 +97,19 @@ export interface Equipment {
   calibration_report_url?: string
   specifications?: string
   notes?: string
+  model_code?: string
+  project_id?: number
+  installation_type?: InstallationType
+  installation_date?: string
+  installation_notes?: string
   is_active: boolean
   created_at: string
   updated_at: string
+  // Display fields for Location and Project
+  current_location_name?: string
+  current_location_type?: string
+  project_code?: string
+  project_name?: string
 }
 
 export interface EquipmentCreateRequest {
@@ -112,28 +124,124 @@ export interface EquipmentCreateRequest {
   current_location_id?: number
   specifications?: string
   notes?: string
+  model_code?: string
+  project_id?: number
+  installation_type?: InstallationType
+  installation_date?: string
+  installation_notes?: string
 }
 
 // ==================== Location ====================
 
-export type LocationType =
-  | 'warehouse'
-  | 'vessel'
-  | 'platform'
-  | 'vehicle'
-  | 'external'
+export type LocationType = 'warehouse' | 'vessel' | 'person' | 'external'
 
 export interface Location {
   id: number
   name: string
   location_type: LocationType
   code?: string
+
+  // Vessel identifiers (legacy)
   imo_number?: string
   call_sign?: string
   owner_company?: string
+
+  // Vessel identifiers (new - multiple options)
+  vessel_mmsi?: string
+  vessel_national_id?: string
+  vessel_internal_code?: string
+
+  // Vessel information
+  vessel_name?: string
+  vessel_flag?: string
+  vessel_type?: string
+  vessel_owner?: string
+
+  // Person fields
+  person_name?: string
+  person_contact?: string
+  employee_id?: string
+  department?: string
+
+  // Project association
+  current_project_id?: number
+
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+export interface LocationDetail extends Location {
+  equipment_count: number
+  project_name?: string
+  project_code?: string
+}
+
+export interface LocationCreateRequest {
+  name: string
+  location_type: LocationType
+  code?: string
+  imo_number?: string
+  call_sign?: string
+  owner_company?: string
+  vessel_mmsi?: string
+  vessel_national_id?: string
+  vessel_internal_code?: string
+  vessel_name?: string
+  vessel_flag?: string
+  vessel_type?: string
+  vessel_owner?: string
+  person_name?: string
+  person_contact?: string
+  employee_id?: string
+  department?: string
+  current_project_id?: number
+}
+
+export interface LocationListResponse {
+  locations: Location[]
+  total: number
+}
+
+// ==================== Project ====================
+
+export type ProjectStatus = 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled'
+
+export interface Project {
+  id: number
+  code: string
+  name: string
+  description?: string
+  client_name?: string
+  client_contact?: string
+  client_phone?: string
+  client_email?: string
+  start_date?: string
+  end_date?: string
+  status: ProjectStatus
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  vessel_count: number
+  equipment_count: number
+}
+
+export interface ProjectCreateRequest {
+  code: string
+  name: string
+  description?: string
+  client_name?: string
+  client_contact?: string
+  client_phone?: string
+  client_email?: string
+  start_date?: string
+  end_date?: string
+  status: ProjectStatus
+}
+
+export interface ProjectListResponse {
+  projects: Project[]
+  total: number
 }
 
 // ==================== Customer ====================

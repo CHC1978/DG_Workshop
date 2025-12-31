@@ -1,4 +1,5 @@
 """Asset code generation utilities"""
+import re
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -47,6 +48,96 @@ async def generate_asset_code(
 
     # Format: CATEGORY-YEAR-SEQUENCE (3 digits)
     asset_code = f"{category_prefix}-{year}-{next_sequence:03d}"
+
+    return asset_code
+
+
+def clean_model_code(model: str) -> str:
+    """
+    Clean model name to create a compact model code
+
+    Rules:
+    - Remove special characters except hyphen and underscore
+    - Remove spaces
+    - Convert to uppercase
+    - Limit to 20 characters
+
+    Args:
+        model: Equipment model name
+
+    Returns:
+        Cleaned model code string
+
+    Examples:
+        "EM 2040C" -> "EM2040C"
+        "Seapath 330+" -> "SEAPATH330"
+        "EdgeTech 4200" -> "EDGETECH4200"
+    """
+    # Remove special characters except hyphen and underscore
+    cleaned = re.sub(r'[^a-zA-Z0-9\-_]', '', model)
+
+    # Convert to uppercase
+    cleaned = cleaned.upper()
+
+    # Limit to 20 characters
+    if len(cleaned) > 20:
+        cleaned = cleaned[:20]
+
+    return cleaned
+
+
+async def generate_asset_code_v2(
+    category: EquipmentCategory,
+    model_code: str,
+    db: AsyncSession,
+    serial_number: str = None
+) -> str:
+    """
+    Generate unique asset code for equipment (v2 format)
+
+    Format:
+    - With serial number: {CATEGORY}-{MODEL_CODE}-SN{SERIAL}
+    - Without serial number: {CATEGORY}-{MODEL_CODE}-{SEQUENCE}
+
+    Examples:
+        MBES-EM2040C-SN12345
+        GNSS-SEAPATH330-0001
+
+    Args:
+        category: Equipment category
+        model_code: Cleaned model code (use clean_model_code() first)
+        db: Database session
+        serial_number: Serial number (optional)
+
+    Returns:
+        Asset code string
+    """
+    # Get category prefix (uppercase)
+    category_prefix = category.value.upper()
+
+    # Clean model code
+    model_code_clean = clean_model_code(model_code)
+
+    # If serial number is provided, use it directly
+    if serial_number:
+        asset_code = f"{category_prefix}-{model_code_clean}-SN{serial_number}"
+        return asset_code
+
+    # Otherwise, generate sequence number
+    # Pattern: {CATEGORY}-{MODEL_CODE}-%
+    pattern = f"{category_prefix}-{model_code_clean}-%"
+
+    result = await db.execute(
+        select(func.count(Equipment.id))
+        .where(Equipment.asset_code.like(pattern))
+    )
+    count = result.scalar()
+
+    # Next sequence number (0001, 0002, 0003, ...)
+    next_sequence = count + 1
+
+    # Format: CATEGORY-MODELCODE-SEQUENCE (4 digits)
+    asset_code = f"{category_prefix}-{model_code_clean}-{next_sequence:04d}"
 
     return asset_code
 

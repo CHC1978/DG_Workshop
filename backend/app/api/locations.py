@@ -9,6 +9,7 @@ from app.core.deps import get_current_user, require_manager, require_admin
 from app.models.user import User
 from app.models.location import Location, LocationType
 from app.models.equipment import Equipment
+from app.models.project import Project
 from app.schemas.location import (
     LocationCreate,
     LocationUpdate,
@@ -76,16 +77,9 @@ async def create_location(
                 detail="Location code already exists",
             )
 
-    # Create location
-    new_location = Location(
-        name=location_data.name,
-        location_type=location_data.location_type,
-        code=location_data.code,
-        imo_number=location_data.imo_number,
-        call_sign=location_data.call_sign,
-        owner_company=location_data.owner_company,
-        is_active=True,
-    )
+    # Create location using all fields from schema
+    location_dict = location_data.model_dump()
+    new_location = Location(**location_dict, is_active=True)
 
     db.add(new_location)
     await db.commit()
@@ -101,7 +95,7 @@ async def get_location(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get location by ID with equipment count
+    Get location by ID with equipment count and project info
     """
     result = await db.execute(
         select(Location).where(Location.id == location_id)
@@ -122,11 +116,25 @@ async def get_location(
     )
     equipment_count = count_result.scalar()
 
-    # Build response
-    response = LocationDetailResponse.model_validate(location)
-    response.equipment_count = equipment_count
+    # Get project info if associated
+    project_name = None
+    project_code = None
+    if location.current_project_id:
+        project_result = await db.execute(
+            select(Project).where(Project.id == location.current_project_id)
+        )
+        project = project_result.scalar_one_or_none()
+        if project:
+            project_name = project.name
+            project_code = project.code
 
-    return response
+    # Build response
+    response_dict = LocationDetailResponse.model_validate(location).model_dump()
+    response_dict['equipment_count'] = equipment_count
+    response_dict['project_name'] = project_name
+    response_dict['project_code'] = project_code
+
+    return LocationDetailResponse(**response_dict)
 
 
 @router.put("/{location_id}", response_model=LocationResponse)

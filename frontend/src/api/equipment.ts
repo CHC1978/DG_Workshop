@@ -114,11 +114,13 @@ export const equipmentApi = {
     latitude?: number,
     longitude?: number
   ) {
-    return apiClient.post<Equipment>(`/equipment/${id}/deploy`, {
-      location_id: locationId,
-      notes,
-      latitude,
-      longitude,
+    return apiClient.post<Equipment>(`/equipment/${id}/deploy`, null, {
+      params: {
+        location_id: locationId,
+        notes,
+        latitude,
+        longitude,
+      }
     })
   },
 
@@ -132,11 +134,13 @@ export const equipmentApi = {
     latitude?: number,
     longitude?: number
   ) {
-    return apiClient.post<Equipment>(`/equipment/${id}/return`, {
-      location_id: locationId,
-      notes,
-      latitude,
-      longitude,
+    return apiClient.post<Equipment>(`/equipment/${id}/return`, null, {
+      params: {
+        location_id: locationId,
+        notes,
+        latitude,
+        longitude,
+      }
     })
   },
 

@@ -102,6 +102,20 @@
                 <strong>Purchased:</strong> {{ new Date(equipment.purchase_date).toLocaleDateString() }}
               </p>
             </div>
+
+            <!-- Location and Project Info -->
+            <div v-if="equipment.current_location_name || equipment.project_code" class="mt-3 pt-3 border-t border-gray-200">
+              <div class="flex flex-col gap-1 text-sm">
+                <div v-if="equipment.current_location_name" class="flex items-center gap-1 text-gray-700">
+                  <span class="text-base">📍</span>
+                  <span><strong>{{ locationTypeLabel(equipment.current_location_type) }}:</strong> {{ equipment.current_location_name }}</span>
+                </div>
+                <div v-if="equipment.project_code" class="flex items-center gap-1 text-sky-700">
+                  <span class="text-base">📋</span>
+                  <span><strong>Project:</strong> {{ equipment.project_code }}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -118,20 +132,21 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const equipmentStore = useEquipmentStore()
 
 const filters = reactive({
   search: '',
   category: '',
-  status: '',
+  status: route.query.status as string || '',  // Auto-fill from URL query
   skip: 0,
   limit: 50,
 })
@@ -209,6 +224,19 @@ function statusBadgeClass(status: string): string {
     lost: 'bg-red-100 text-red-800',
   }
   return `${base} ${variants[status] || 'bg-gray-100 text-gray-800'}`
+}
+
+function locationTypeLabel(type?: string): string {
+  if (!type) return ''
+  const labels: Record<string, string> = {
+    warehouse: 'Warehouse',
+    vessel: 'Vessel',
+    person: 'Person',
+    external: 'External',
+    platform: 'Platform',
+    vehicle: 'Vehicle',
+  }
+  return labels[type] || type
 }
 
 onMounted(() => {

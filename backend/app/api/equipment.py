@@ -19,7 +19,7 @@ from app.schemas.equipment import (
     EquipmentLogResponse,
     EquipmentLogUpdateRequest,
 )
-from app.utils.asset_code import generate_asset_code, generate_qr_code_url
+from app.utils.asset_code import generate_asset_code, generate_asset_code_v2, generate_qr_code_url, clean_model_code
 
 router = APIRouter(prefix="/equipment", tags=["Equipment"])
 
@@ -65,6 +65,10 @@ async def list_equipment(
     """
     List all equipment with filtering and pagination
     """
+    from sqlalchemy.orm import selectinload
+    from app.models.location import Location
+    from app.models.project import Project
+
     query = select(Equipment).where(Equipment.is_active == True)
 
     # Apply filters
@@ -90,13 +94,37 @@ async def list_equipment(
     total_result = await db.execute(count_query)
     total = total_result.scalar()
 
-    # Get paginated results
-    query = query.offset(skip).limit(limit).order_by(Equipment.created_at.desc())
+    # Get paginated results with eager loading
+    query = (
+        query
+        .options(selectinload(Equipment.current_location))
+        .options(selectinload(Equipment.project))
+        .offset(skip)
+        .limit(limit)
+        .order_by(Equipment.created_at.desc())
+    )
     result = await db.execute(query)
     equipment_list = result.scalars().all()
 
+    # Build response with location and project info
+    equipments_response = []
+    for eq in equipment_list:
+        eq_dict = EquipmentResponse.model_validate(eq).model_dump()
+
+        # Add location info
+        if eq.current_location:
+            eq_dict['current_location_name'] = eq.current_location.name
+            eq_dict['current_location_type'] = eq.current_location.location_type.value
+
+        # Add project info
+        if eq.project:
+            eq_dict['project_code'] = eq.project.code
+            eq_dict['project_name'] = eq.project.name
+
+        equipments_response.append(EquipmentResponse(**eq_dict))
+
     return EquipmentListResponse(
-        equipments=[EquipmentResponse.model_validate(eq) for eq in equipment_list],
+        equipments=equipments_response,
         total=total
     )
 
@@ -109,32 +137,40 @@ async def create_equipment(
 ):
     """
     Create new equipment (Manager+ only)
-    Auto-generates asset code and QR code
+    Auto-generates asset code and QR code using new v2 format
+
+    Asset Code format:
+    - With serial number: {CATEGORY}-{MODEL_CODE}-SN{SERIAL}
+    - Without serial number: {CATEGORY}-{MODEL_CODE}-{SEQ:04d}
     """
-    # Generate asset code
-    asset_code = await generate_asset_code(equipment_data.category, db)
+    # Determine model_code
+    model_code = equipment_data.model_code
+    if not model_code:
+        # Auto-generate from model name
+        model_code = clean_model_code(equipment_data.model)
+
+    # Generate asset code using v2 format
+    asset_code = await generate_asset_code_v2(
+        equipment_data.category,
+        model_code,
+        db,
+        equipment_data.serial_number
+    )
 
     # Generate QR code URL
     qr_code = generate_qr_code_url(asset_code)
 
-    # Create equipment
-    new_equipment = Equipment(
-        asset_code=asset_code,
-        qr_code=qr_code,
-        category=equipment_data.category,
-        manufacturer=equipment_data.manufacturer,
-        model=equipment_data.model,
-        serial_number=equipment_data.serial_number,
-        status=EquipmentStatus.ORDERING,
-        current_location_id=equipment_data.current_location_id,
-        purchase_date=equipment_data.purchase_date,
-        photo_url=equipment_data.photo_url,
-        manual_url=equipment_data.manual_url,
-        calibration_report_url=equipment_data.calibration_report_url,
-        specifications=equipment_data.specifications,
-        notes=equipment_data.notes,
-        is_active=True,
-    )
+    # Create equipment using all fields
+    equipment_dict = equipment_data.model_dump()
+    equipment_dict.update({
+        'asset_code': asset_code,
+        'qr_code': qr_code,
+        'model_code': model_code,
+        'status': EquipmentStatus.ORDERING,
+        'is_active': True,
+    })
+
+    new_equipment = Equipment(**equipment_dict)
 
     db.add(new_equipment)
     await db.flush()  # Get ID before logging
@@ -187,8 +223,13 @@ async def get_equipment(
     """
     Get equipment by ID
     """
+    from sqlalchemy.orm import selectinload
+    from app.models.location import Location
+
     result = await db.execute(
-        select(Equipment).where(Equipment.id == equipment_id)
+        select(Equipment)
+        .options(selectinload(Equipment.current_location))
+        .where(Equipment.id == equipment_id)
     )
     equipment = result.scalar_one_or_none()
 
@@ -332,13 +373,41 @@ async def get_equipment_logs(
     result = await db.execute(query)
     log_rows = result.all()
 
-    # Build response with usernames
+    # Get current equipment location and project info
+    from app.models.location import Location
+    from app.models.project import Project
+
+    current_location = None
+    current_project = None
+
+    if equipment.current_location_id:
+        loc_result = await db.execute(
+            select(Location).where(Location.id == equipment.current_location_id)
+        )
+        current_location = loc_result.scalar_one_or_none()
+
+    if equipment.project_id:
+        proj_result = await db.execute(
+            select(Project).where(Project.id == equipment.project_id)
+        )
+        current_project = proj_result.scalar_one_or_none()
+
+    # Build response with usernames and current location/project
     responses = []
     for log, creator, editor in log_rows:
         log_dict = EquipmentLogResponse.model_validate(log).model_dump()
         log_dict['created_by_username'] = creator.username if creator else None
         log_dict['edited_by_username'] = editor.username if editor else None
         log_dict['is_edited'] = log.edit_count > 0
+
+        # Add current equipment location and project info
+        if current_location:
+            log_dict['current_location_name'] = current_location.name
+            log_dict['current_location_type'] = current_location.location_type.value
+        if current_project:
+            log_dict['project_code'] = current_project.code
+            log_dict['project_name'] = current_project.name
+
         responses.append(EquipmentLogResponse(**log_dict))
 
     return responses

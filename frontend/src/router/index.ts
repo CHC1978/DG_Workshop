@@ -81,6 +81,82 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
 
+  // Location routes
+  {
+    path: '/locations',
+    name: 'locations-list',
+    component: () => import('@/views/locations/LocationListView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/locations/new/vessel',
+    name: 'location-create-vessel',
+    component: () => import('@/views/locations/VesselFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/locations/new/person',
+    name: 'location-create-person',
+    component: () => import('@/views/locations/PersonFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/locations/new/warehouse',
+    name: 'location-create-warehouse',
+    component: () => import('@/views/locations/WarehouseFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/locations/:id',
+    name: 'location-detail',
+    component: () => import('@/views/locations/LocationDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/locations/:id/edit/vessel',
+    name: 'location-edit-vessel',
+    component: () => import('@/views/locations/VesselFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/locations/:id/edit/person',
+    name: 'location-edit-person',
+    component: () => import('@/views/locations/PersonFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/locations/:id/edit/warehouse',
+    name: 'location-edit-warehouse',
+    component: () => import('@/views/locations/WarehouseFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+
+  // Project routes
+  {
+    path: '/projects',
+    name: 'projects-list',
+    component: () => import('@/views/projects/ProjectListView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/projects/new',
+    name: 'project-create',
+    component: () => import('@/views/projects/ProjectFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+  {
+    path: '/projects/:id',
+    name: 'project-detail',
+    component: () => import('@/views/projects/ProjectDetailView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/projects/:id/edit',
+    name: 'project-edit',
+    component: () => import('@/views/projects/ProjectFormView.vue'),
+    meta: { requiresAuth: true, requiresManager: true },
+  },
+
   // Admin routes
   {
     path: '/admin/users',

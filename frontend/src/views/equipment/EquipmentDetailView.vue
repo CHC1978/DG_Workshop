@@ -258,10 +258,22 @@
                     </div>
                     <span v-else class="text-gray-400">-</span>
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm">
-                    <span v-if="log.latitude && log.longitude" class="text-gray-600">
+                  <td class="px-6 py-4 text-sm">
+                    <div v-if="log.current_location_name || log.project_code" class="space-y-0.5">
+                      <div v-if="log.current_location_name" class="text-gray-700">
+                        <span class="font-medium">{{ locationTypeLabel(log.current_location_type) }}:</span>
+                        {{ log.current_location_name }}
+                      </div>
+                      <div v-if="log.project_code" class="text-sky-700 text-xs">
+                        📋 {{ log.project_code }}
+                      </div>
+                      <div v-if="log.latitude && log.longitude" class="text-gray-500 text-xs">
+                        📍 {{ log.latitude.toFixed(4) }}, {{ log.longitude.toFixed(4) }}
+                      </div>
+                    </div>
+                    <div v-else-if="log.latitude && log.longitude" class="text-gray-500 text-xs">
                       📍 {{ log.latitude.toFixed(4) }}, {{ log.longitude.toFixed(4) }}
-                    </span>
+                    </div>
                     <span v-else class="text-gray-400">-</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-center">
@@ -284,6 +296,88 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Deploy Equipment Modal -->
+        <div
+          v-if="showDeployModal"
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+          @click.self="showDeployModal = false"
+        >
+          <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Deploy Equipment</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Deploy to Location
+                </label>
+                <select
+                  v-model="deployForm.locationId"
+                  class="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option :value="null">Select location...</option>
+                  <option v-for="location in locations" :key="location.id" :value="location.id">
+                    {{ location.name }} ({{ location.location_type }})
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  v-model="deployForm.notes"
+                  class="w-full px-3 py-2 border rounded-lg"
+                  rows="3"
+                  placeholder="Enter deployment notes..."
+                ></textarea>
+              </div>
+              <div class="flex justify-end gap-2 pt-4 border-t">
+                <AppButton variant="secondary" @click="showDeployModal = false">Cancel</AppButton>
+                <AppButton @click="handleDeploy" :disabled="!deployForm.locationId">Deploy</AppButton>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Return Equipment Modal -->
+        <div
+          v-if="showReturnModal"
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+          @click.self="showReturnModal = false"
+        >
+          <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Return Equipment</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Return to Location
+                </label>
+                <select
+                  v-model="returnForm.locationId"
+                  class="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option :value="null">Select location...</option>
+                  <option v-for="location in warehouses" :key="location.id" :value="location.id">
+                    {{ location.name }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea
+                  v-model="returnForm.notes"
+                  class="w-full px-3 py-2 border rounded-lg"
+                  rows="3"
+                  placeholder="Enter return notes..."
+                ></textarea>
+              </div>
+              <div class="flex justify-end gap-2 pt-4 border-t">
+                <AppButton variant="secondary" @click="showReturnModal = false">Cancel</AppButton>
+                <AppButton @click="handleReturn" :disabled="!returnForm.locationId">Return</AppButton>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -482,6 +576,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
 import { useUiStore } from '@/stores/ui'
 import { equipmentApi } from '@/api/equipment'
+import { locationApi } from '@/api/locations'
 import axios from 'axios'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -501,6 +596,21 @@ const logs = ref<any[]>([])
 const showDeployModal = ref(false)
 const showReturnModal = ref(false)
 const showRepairModal = ref(false)
+
+// Locations for deploy/return
+const locations = ref<any[]>([])
+const warehouses = computed(() => locations.value.filter(l => l.location_type === 'warehouse'))
+
+// Deploy/Return forms
+const deployForm = ref({
+  locationId: null as number | null,
+  notes: ''
+})
+
+const returnForm = ref({
+  locationId: null as number | null,
+  notes: ''
+})
 
 // Log Attachments
 const showAttachmentsModal = ref(false)
@@ -678,6 +788,57 @@ async function handleSendToCalibration() {
   }
 }
 
+async function handleDeploy() {
+  if (!equipment.value || !deployForm.value.locationId) return
+
+  try {
+    await equipmentApi.deploy(
+      equipment.value.id,
+      deployForm.value.locationId,
+      deployForm.value.notes || undefined
+    )
+    uiStore.showNotification('success', 'Equipment deployed successfully')
+    showDeployModal.value = false
+    deployForm.value = { locationId: null, notes: '' }
+    await equipmentStore.fetchById(equipmentId.value)
+    await loadLogs()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to deploy equipment')
+  }
+}
+
+async function handleReturn() {
+  if (!equipment.value || !returnForm.value.locationId) return
+
+  try {
+    await equipmentApi.return(
+      equipment.value.id,
+      returnForm.value.locationId,
+      returnForm.value.notes || undefined
+    )
+    uiStore.showNotification('success', 'Equipment returned successfully')
+    showReturnModal.value = false
+    returnForm.value = { locationId: null, notes: '' }
+    await equipmentStore.fetchById(equipmentId.value)
+    await loadLogs()
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to return equipment')
+  }
+}
+
+function locationTypeLabel(type?: string): string {
+  if (!type) return ''
+  const labels: Record<string, string> = {
+    warehouse: 'Warehouse',
+    vessel: 'Vessel',
+    person: 'Person',
+    external: 'External',
+    platform: 'Platform',
+    vehicle: 'Vehicle',
+  }
+  return labels[type] || type
+}
+
 async function loadLogs() {
   if (!equipmentId.value) return
 
@@ -836,9 +997,19 @@ async function deleteAttachment(attachmentId: number) {
   }
 }
 
+async function loadLocations() {
+  try {
+    const response = await locationApi.getAll({ limit: 100, is_active: true })
+    locations.value = response.data.locations || []
+  } catch (error) {
+    console.error('Failed to load locations:', error)
+  }
+}
+
 onMounted(async () => {
   await equipmentStore.fetchById(equipmentId.value)
   loadLogs()
   loadQRCode()
+  loadLocations()
 })
 </script>

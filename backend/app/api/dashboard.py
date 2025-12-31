@@ -260,6 +260,12 @@ class RecentActivity(BaseModel):
     description: str
     created_by_username: Optional[str]
     created_at: datetime
+    # Location information
+    current_location_name: Optional[str] = None
+    current_location_type: Optional[str] = None
+    # Project information
+    project_code: Optional[str] = None
+    project_name: Optional[str] = None
 
 
 @router.get("/recent-activities", response_model=List[RecentActivity])
@@ -270,13 +276,17 @@ async def get_recent_activities(
 ):
     """Get recent equipment activities"""
     from app.models.equipment_log import EquipmentLog
+    from app.models.location import Location
+    from app.models.project import Project
 
     try:
-        # Query recent logs with equipment and user info
+        # Query recent logs with equipment, user, location, and project info
         query = (
-            select(EquipmentLog, Equipment, User)
+            select(EquipmentLog, Equipment, User, Location, Project)
             .join(Equipment, EquipmentLog.equipment_id == Equipment.id)
             .outerjoin(User, EquipmentLog.created_by == User.id)
+            .outerjoin(Location, Equipment.current_location_id == Location.id)
+            .outerjoin(Project, Equipment.project_id == Project.id)
             .order_by(EquipmentLog.created_at.desc())
             .limit(limit)
         )
@@ -285,7 +295,7 @@ async def get_recent_activities(
         log_tuples = result.all()
 
         activities = []
-        for log, equipment, user in log_tuples:
+        for log, equipment, user, location, project in log_tuples:
             # Handle potential None values
             if not equipment or not log:
                 continue
@@ -299,7 +309,13 @@ async def get_recent_activities(
                 log_type=log.log_type.value if hasattr(log.log_type, 'value') else str(log.log_type),
                 description=log.description or "",
                 created_by_username=user.username if user else None,
-                created_at=log.created_at
+                created_at=log.created_at,
+                # Location information
+                current_location_name=location.name if location else None,
+                current_location_type=location.location_type.value if location else None,
+                # Project information
+                project_code=project.code if project else None,
+                project_name=project.name if project else None
             ))
 
         return activities

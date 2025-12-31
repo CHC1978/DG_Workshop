@@ -42,6 +42,20 @@
               Equipment
             </router-link>
             <router-link
+              to="/locations"
+              class="text-sm text-gray-700 hover:text-sky-600"
+              active-class="text-sky-600 font-semibold"
+            >
+              Locations
+            </router-link>
+            <router-link
+              to="/projects"
+              class="text-sm text-gray-700 hover:text-sky-600"
+              active-class="text-sky-600 font-semibold"
+            >
+              Projects
+            </router-link>
+            <router-link
               to="/calibrations"
               class="text-sm text-gray-700 hover:text-sky-600"
               active-class="text-sky-600 font-semibold"
@@ -98,6 +112,22 @@
               active-class="bg-sky-50 text-sky-600 font-semibold"
             >
               Equipment
+            </router-link>
+            <router-link
+              to="/locations"
+              @click="mobileMenuOpen = false"
+              class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded"
+              active-class="bg-sky-50 text-sky-600 font-semibold"
+            >
+              Locations
+            </router-link>
+            <router-link
+              to="/projects"
+              @click="mobileMenuOpen = false"
+              class="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded"
+              active-class="bg-sky-50 text-sky-600 font-semibold"
+            >
+              Projects
             </router-link>
             <router-link
               to="/calibrations"

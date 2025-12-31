@@ -1,56 +1,57 @@
 /**
- * Location API
+ * Location API Client
  */
 import apiClient from './client'
-import type { Location } from '@/types'
+import type {
+  Location,
+  LocationDetail,
+  LocationCreateRequest,
+  LocationListResponse,
+} from '@/types'
 
-export interface LocationListResponse {
-  locations: Location[]
-  total: number
+export interface LocationFilters {
+  skip?: number
+  limit?: number
+  location_type?: string
+  search?: string
+  is_active?: boolean
+  project_id?: number
 }
 
 export const locationApi = {
   /**
-   * List locations
+   * Get all locations with filters
    */
-  list(skip = 0, limit = 100, locationType?: string) {
-    return apiClient.get<LocationListResponse>('/locations', {
-      params: { skip, limit, location_type: locationType },
-    })
-  },
+  getAll: (params?: LocationFilters) =>
+    apiClient.get<LocationListResponse>('/locations', { params }),
 
   /**
-   * Get location by ID
+   * Get location by ID with details (includes equipment_count and project info)
    */
-  get(id: number) {
-    return apiClient.get<Location>(`/locations/${id}`)
-  },
+  getById: (id: number) =>
+    apiClient.get<LocationDetail>(`/locations/${id}`),
 
   /**
-   * Create location
+   * Create a new location
    */
-  create(data: Partial<Location>) {
-    return apiClient.post<Location>('/locations', data)
-  },
+  create: (data: LocationCreateRequest) =>
+    apiClient.post<Location>('/locations', data),
 
   /**
-   * Update location
+   * Update an existing location
    */
-  update(id: number, data: Partial<Location>) {
-    return apiClient.put<Location>(`/locations/${id}`, data)
-  },
+  update: (id: number, data: Partial<LocationCreateRequest>) =>
+    apiClient.put<Location>(`/locations/${id}`, data),
 
   /**
-   * Delete location
+   * Delete a location (soft delete)
    */
-  delete(id: number) {
-    return apiClient.delete(`/locations/${id}`)
-  },
+  delete: (id: number) =>
+    apiClient.delete(`/locations/${id}`),
 
   /**
    * Get equipment at location
    */
-  getEquipment(id: number) {
-    return apiClient.get(`/locations/${id}/equipment`)
-  },
+  getEquipment: (id: number) =>
+    apiClient.get(`/locations/${id}/equipment`),
 }

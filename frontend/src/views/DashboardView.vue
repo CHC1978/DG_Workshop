@@ -3,51 +3,97 @@
     <div class="space-y-6">
       <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
 
-      <!-- Time-Sensitive Alerts -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Maintenance Alerts -->
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+      <!-- Dashboard Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <!-- In Stock -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="navigateToEquipment('in_stock')"
+        >
           <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Maintenance Due</h2>
-            <span class="text-2xl">🔧</span>
+            <h2 class="text-lg font-semibold text-gray-900">In Stock</h2>
+            <span class="text-2xl">📦</span>
           </div>
-          <p class="text-3xl font-bold text-orange-600">{{ alerts.maintenance_alerts?.length || 0 }}</p>
-          <p class="text-sm text-gray-600 mt-2">Equipment需要維護</p>
-          <div v-if="alerts.maintenance_alerts && alerts.maintenance_alerts.length > 0" class="mt-4">
-            <router-link to="/equipment" class="text-sm text-sky-600 hover:text-sky-800">
-              View details →
-            </router-link>
-          </div>
+          <p class="text-3xl font-bold text-green-600">{{ stats.in_stock || 0 }}</p>
+          <p class="text-sm text-gray-600 mt-2">庫存設備</p>
         </div>
 
-        <!-- Calibration Alerts -->
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+        <!-- Deployed -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="navigateToEquipment('deployed')"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Deployed</h2>
+            <span class="text-2xl">🚢</span>
+          </div>
+          <p class="text-3xl font-bold text-blue-600">{{ stats.deployed || 0 }}</p>
+          <p class="text-sm text-gray-600 mt-2">已部署設備</p>
+        </div>
+
+        <!-- In Repair -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="navigateToEquipment('repair')"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">In Repair</h2>
+            <span class="text-2xl">🔧</span>
+          </div>
+          <p class="text-3xl font-bold text-orange-600">{{ stats.in_repair || 0 }}</p>
+          <p class="text-sm text-gray-600 mt-2">維修中設備</p>
+        </div>
+
+        <!-- Rented -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="navigateToEquipment('rented')"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Rented</h2>
+            <span class="text-2xl">📋</span>
+          </div>
+          <p class="text-3xl font-bold text-purple-600">{{ stats.rented || 0 }}</p>
+          <p class="text-sm text-gray-600 mt-2">租賃中設備</p>
+        </div>
+
+        <!-- Maintenance Due -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="router.push('/equipment')"
+        >
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">Maintenance Due</h2>
+            <span class="text-2xl">⚠️</span>
+          </div>
+          <p class="text-3xl font-bold text-orange-600">{{ alerts.maintenance_alerts?.length || 0 }}</p>
+          <p class="text-sm text-gray-600 mt-2">需要維護</p>
+        </div>
+
+        <!-- Calibration Due -->
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="router.push('/calibrations')"
+        >
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Calibration Due</h2>
             <span class="text-2xl">📊</span>
           </div>
           <p class="text-3xl font-bold text-yellow-600">{{ alerts.calibration_alerts?.length || 0 }}</p>
           <p class="text-sm text-gray-600 mt-2">需要校正</p>
-          <div v-if="alerts.calibration_alerts && alerts.calibration_alerts.length > 0" class="mt-4">
-            <router-link to="/calibrations" class="text-sm text-sky-600 hover:text-sky-800">
-              View details →
-            </router-link>
-          </div>
         </div>
 
         <!-- Overdue Rentals -->
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+        <div
+          class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          @click="router.push('/rentals')"
+        >
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Overdue Rentals</h2>
             <span class="text-2xl">⏰</span>
           </div>
           <p class="text-3xl font-bold text-red-600">{{ alerts.overdue_rentals?.length || 0 }}</p>
           <p class="text-sm text-gray-600 mt-2">逾期未還</p>
-          <div v-if="alerts.overdue_rentals && alerts.overdue_rentals.length > 0" class="mt-4">
-            <router-link to="/rentals" class="text-sm text-sky-600 hover:text-sky-800">
-              View details →
-            </router-link>
-          </div>
         </div>
       </div>
 
@@ -84,6 +130,15 @@
               <p class="text-xs text-gray-600 mt-1">
                 {{ activity.manufacturer }} {{ activity.model }}
               </p>
+              <!-- Location and Project -->
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span v-if="activity.current_location_name" class="text-xs text-gray-600">
+                  📍 {{ locationTypeLabel(activity.current_location_type) }}: {{ activity.current_location_name }}
+                </span>
+                <span v-if="activity.project_code" class="text-xs text-sky-700">
+                  📋 {{ activity.project_code }}
+                </span>
+              </div>
               <p v-if="activity.created_by_username" class="text-xs text-gray-500 mt-1">
                 By: {{ activity.created_by_username }}
               </p>
@@ -107,7 +162,7 @@
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {{ formatDateTime(activity.created_at) }}
                   </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
+                  <td class="px-6 py-4">
                     <router-link
                       :to="`/equipment/${activity.equipment_id}`"
                       class="text-sm font-medium text-sky-600 hover:text-sky-800"
@@ -115,6 +170,15 @@
                       {{ activity.asset_code }}
                     </router-link>
                     <p class="text-xs text-gray-500">{{ activity.manufacturer }} {{ activity.model }}</p>
+                    <!-- Location and Project -->
+                    <div class="flex flex-col gap-0.5 mt-1">
+                      <span v-if="activity.current_location_name" class="text-xs text-gray-600">
+                        📍 {{ locationTypeLabel(activity.current_location_type) }}: {{ activity.current_location_name }}
+                      </span>
+                      <span v-if="activity.project_code" class="text-xs text-sky-700">
+                        📋 {{ activity.project_code }}
+                      </span>
+                    </div>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
                     <span :class="logTypeBadge(activity.log_type)" class="px-2 py-1 text-xs font-semibold rounded">
@@ -134,24 +198,6 @@
         </div>
       </div>
 
-      <!-- Quick Actions -->
-      <div class="bg-white rounded-lg shadow p-4 sm:p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <AppButton
-            variant="primary"
-            @click="router.push('/equipment')"
-          >
-            View Equipment
-          </AppButton>
-          <AppButton
-            variant="secondary"
-            @click="router.push('/rentals')"
-          >
-            View Rentals
-          </AppButton>
-        </div>
-      </div>
     </div>
   </MainLayout>
 </template>
@@ -159,13 +205,23 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { dashboardApi, type DashboardAlerts, type RecentActivity } from '@/api/dashboard'
+import { dashboardApi, type DashboardAlerts, type DashboardStats, type RecentActivity } from '@/api/dashboard'
 import MainLayout from '@/layouts/MainLayout.vue'
-import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 
 const loading = ref(true)
+const stats = ref<DashboardStats>({
+  total_equipment: 0,
+  in_stock: 0,
+  deployed: 0,
+  rented: 0,
+  in_repair: 0,
+  active_rentals: 0,
+  maintenance_due_soon: 0,
+  calibration_due_soon: 0,
+  overdue_rentals: 0,
+})
 const alerts = ref<DashboardAlerts>({
   maintenance_alerts: [],
   calibration_alerts: [],
@@ -208,14 +264,36 @@ function logTypeBadge(type: string): string {
   return `${base} ${variants[type] || 'bg-gray-100 text-gray-800'}`
 }
 
+function locationTypeLabel(type?: string): string {
+  if (!type) return ''
+  const labels: Record<string, string> = {
+    warehouse: 'Warehouse',
+    vessel: 'Vessel',
+    person: 'Person',
+    external: 'External',
+    platform: 'Platform',
+    vehicle: 'Vehicle',
+  }
+  return labels[type] || type
+}
+
+function navigateToEquipment(status: string) {
+  router.push({
+    path: '/equipment',
+    query: { status }
+  })
+}
+
 async function loadDashboard() {
   loading.value = true
   try {
-    const [alertsRes, activitiesRes] = await Promise.all([
+    const [statsRes, alertsRes, activitiesRes] = await Promise.all([
+      dashboardApi.getStats(),
       dashboardApi.getAlerts(),
       dashboardApi.getRecentActivities(10),
     ])
 
+    stats.value = statsRes.data
     alerts.value = alertsRes.data
     recentActivities.value = activitiesRes.data
   } catch (error) {

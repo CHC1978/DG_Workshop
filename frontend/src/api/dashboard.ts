@@ -61,6 +61,12 @@ export interface RecentActivity {
   description: string
   created_by_username: string | null
   created_at: string
+  // Location information
+  current_location_name?: string
+  current_location_type?: string
+  // Project information
+  project_code?: string
+  project_name?: string
 }
 
 export const dashboardApi = {

@@ -47,19 +47,43 @@
           />
 
           <!-- Model -->
-          <AppInput
-            v-model="formData.model"
-            label="Model"
-            placeholder="e.g., EM2040C, R12"
-            required
-            :error="errors.model"
-          />
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Model <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model="formData.model"
+              type="text"
+              required
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              placeholder="e.g., EM2040C, R12"
+              @input="autoGenerateModelCode"
+            />
+          </div>
+
+          <!-- Model Code -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Model Code <span class="text-red-500">*</span>
+            </label>
+            <input
+              v-model="formData.model_code"
+              type="text"
+              required
+              maxlength="50"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              placeholder="e.g., EM2040C, SEAPATH330"
+            />
+            <p class="mt-1 text-sm text-gray-500">
+              Used to generate Asset Code. Auto-filled from Model but can be customized.
+            </p>
+          </div>
 
           <!-- Serial Number -->
           <AppInput
             v-model="formData.serial_number"
             label="Serial Number"
-            placeholder="Optional"
+            placeholder="Optional - used in Asset Code if provided"
           />
 
           <!-- Status (Edit mode only) -->
@@ -91,6 +115,95 @@
             type="date"
             label="Purchase Date"
           />
+
+          <!-- Location & Project Section -->
+          <div class="space-y-4 p-4 bg-sky-50 rounded-lg border border-sky-200">
+            <h3 class="text-sm font-semibold text-gray-700">Location & Project</h3>
+
+            <!-- Current Location -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Current Location
+              </label>
+              <select
+                v-model="formData.current_location_id"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+                @change="handleLocationChange"
+              >
+                <option :value="null">None (In Stock)</option>
+                <optgroup v-if="vesselLocations.length > 0" label="Vessels">
+                  <option v-for="loc in vesselLocations" :key="loc.id" :value="loc.id">
+                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
+                  </option>
+                </optgroup>
+                <optgroup v-if="personLocations.length > 0" label="Persons">
+                  <option v-for="loc in personLocations" :key="loc.id" :value="loc.id">
+                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
+                  </option>
+                </optgroup>
+                <optgroup v-if="warehouseLocations.length > 0" label="Warehouses">
+                  <option v-for="loc in warehouseLocations" :key="loc.id" :value="loc.id">
+                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
+                  </option>
+                </optgroup>
+              </select>
+            </div>
+
+            <!-- Project -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Project
+              </label>
+              <select
+                v-model="formData.project_id"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              >
+                <option :value="null">None</option>
+                <option v-for="project in projects" :key="project.id" :value="project.id">
+                  {{ project.code }} - {{ project.name }}
+                </option>
+              </select>
+              <p v-if="suggestedProject" class="mt-1 text-sm text-sky-600">
+                💡 Suggested: {{ suggestedProject.code }} (from selected Vessel)
+              </p>
+            </div>
+
+            <!-- Installation Type -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Installation Type
+              </label>
+              <select
+                v-model="formData.installation_type"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              >
+                <option :value="null">Not Specified</option>
+                <option value="permanent">Permanent Installation</option>
+                <option value="project">Project-Based</option>
+                <option value="temporary">Temporary</option>
+              </select>
+            </div>
+
+            <!-- Installation Date -->
+            <AppInput
+              v-model="formData.installation_date"
+              type="date"
+              label="Installation Date"
+            />
+
+            <!-- Installation Notes -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Installation Notes
+              </label>
+              <textarea
+                v-model="formData.installation_notes"
+                rows="2"
+                placeholder="Installation details, configuration notes, etc."
+                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              ></textarea>
+            </div>
+          </div>
 
           <!-- File Uploads (Edit mode only) -->
           <div v-if="isEdit && equipmentId" class="space-y-4 p-4 bg-gray-50 rounded-lg">
@@ -234,16 +347,21 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
+import { useLocationStore } from '@/stores/locations'
+import { useProjectStore } from '@/stores/projects'
 import { useUiStore } from '@/stores/ui'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import FileUpload from '@/components/common/FileUpload.vue'
+import type { Location, Project } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const equipmentStore = useEquipmentStore()
+const locationStore = useLocationStore()
+const projectStore = useProjectStore()
 const uiStore = useUiStore()
 
 const equipmentId = computed(() => {
@@ -261,9 +379,15 @@ const formData = reactive({
   category: '',
   manufacturer: '',
   model: '',
+  model_code: '',
   serial_number: '',
   status: 'ordering',
   purchase_date: '',
+  current_location_id: null as number | null,
+  project_id: null as number | null,
+  installation_type: null as string | null,
+  installation_date: '',
+  installation_notes: '',
   photo_url: '',
   manual_url: '',
   calibration_report_url: '',
@@ -273,6 +397,22 @@ const formData = reactive({
   specifications: '',
   notes: '',
 })
+
+// Location and Project data
+const locations = ref<Location[]>([])
+const projects = ref<Project[]>([])
+const suggestedProject = ref<Project | null>(null)
+
+// Computed: Group locations by type
+const vesselLocations = computed(() =>
+  locations.value.filter(loc => loc.location_type === 'vessel' && loc.is_active)
+)
+const personLocations = computed(() =>
+  locations.value.filter(loc => loc.location_type === 'person' && loc.is_active)
+)
+const warehouseLocations = computed(() =>
+  locations.value.filter(loc => loc.location_type === 'warehouse' && loc.is_active)
+)
 
 const errors = reactive({
   manufacturer: '',
@@ -284,6 +424,66 @@ function clearErrors() {
   errors.model = ''
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+// Auto-generate model code from model name
+const previousModelValue = ref('')
+function autoGenerateModelCode() {
+  const currentCleanedModel = cleanModelName(formData.model)
+  const previousCleanedModel = cleanModelName(previousModelValue.value)
+
+  // Only auto-update if model_code was auto-generated (matches previous cleaned model) or is empty
+  if (!formData.model_code || formData.model_code === previousCleanedModel) {
+    formData.model_code = currentCleanedModel
+  }
+
+  previousModelValue.value = formData.model
+}
+
+function cleanModelName(model: string): string {
+  if (!model) return ''
+  // Remove special characters except - and _, uppercase, trim
+  return model
+    .replace(/[^a-zA-Z0-9\-_]/g, '')
+    .toUpperCase()
+    .substring(0, 20)
+}
+
+// Handle location change - suggest project if vessel selected
+async function handleLocationChange() {
+  suggestedProject.value = null
+
+  if (!formData.current_location_id) return
+
+  // Find selected location
+  const selectedLocation = locations.value.find(loc => loc.id === formData.current_location_id)
+
+  if (!selectedLocation) return
+
+  // If it's a vessel with a project, suggest the project
+  if (selectedLocation.location_type === 'vessel' && selectedLocation.current_project_id) {
+    const vesselProject = projects.value.find(p => p.id === selectedLocation.current_project_id)
+    if (vesselProject) {
+      suggestedProject.value = vesselProject
+      // Auto-select the suggested project
+      formData.project_id = vesselProject.id
+    }
+  }
+}
+
+// Load locations and projects
+async function loadLocationsAndProjects() {
+  try {
+    // Load locations
+    const locResponse = await locationStore.fetchLocations({ skip: 0, limit: 1000, is_active: true })
+    locations.value = locationStore.locations
+
+    // Load projects
+    const projResponse = await projectStore.fetchProjects({ skip: 0, limit: 100, is_active: true })
+    projects.value = projectStore.projects
+  } catch (error) {
+    console.error('Failed to load locations/projects:', error)
+  }
 }
 
 // File upload handlers
@@ -331,9 +531,15 @@ async function loadEquipment() {
     formData.category = equipment.category
     formData.manufacturer = equipment.manufacturer
     formData.model = equipment.model
+    formData.model_code = equipment.model_code || ''
     formData.serial_number = equipment.serial_number || ''
     formData.status = equipment.status || 'ordering'
     formData.purchase_date = equipment.purchase_date || ''
+    formData.current_location_id = equipment.current_location_id || null
+    formData.project_id = equipment.project_id || null
+    formData.installation_type = equipment.installation_type || null
+    formData.installation_date = equipment.installation_date || ''
+    formData.installation_notes = equipment.installation_notes || ''
     formData.photo_url = equipment.photo_url || ''
     formData.manual_url = equipment.manual_url || ''
     formData.calibration_report_url = equipment.calibration_report_url || ''
@@ -372,9 +578,15 @@ async function handleSubmit() {
       category: formData.category,
       manufacturer: formData.manufacturer,
       model: formData.model,
+      model_code: formData.model_code || undefined,
       serial_number: formData.serial_number || undefined,
       status: isEdit.value ? formData.status : undefined,
       purchase_date: formData.purchase_date || undefined,
+      current_location_id: formData.current_location_id || undefined,
+      project_id: formData.project_id || undefined,
+      installation_type: formData.installation_type || undefined,
+      installation_date: formData.installation_date || undefined,
+      installation_notes: formData.installation_notes || undefined,
       photo_url: formData.photo_url || undefined,
       manual_url: formData.manual_url || undefined,
       calibration_report_url: formData.calibration_report_url || undefined,
@@ -409,9 +621,17 @@ async function handleSubmit() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // Load locations and projects first
+  await loadLocationsAndProjects()
+
+  // Then load equipment if editing
   if (isEdit.value) {
-    loadEquipment()
+    await loadEquipment()
+    // Trigger location change to check for suggested project
+    if (formData.current_location_id) {
+      handleLocationChange()
+    }
   }
 })
 </script>
