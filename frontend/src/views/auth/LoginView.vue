@@ -199,9 +199,11 @@ async function handleStep1() {
       console.log('2FA required, moving to step 2')
       step.value = 2
     } else {
-      console.log('2FA not set up, redirecting to setup')
-      // 2FA not set up, redirect to 2FA setup
-      await router.push('/setup-2fa')
+      console.log('2FA not enabled, logging in directly')
+      // 2FA not enabled, login directly without requiring 2FA setup
+      // User can enable 2FA later from settings if desired
+      uiStore.showNotification('success', 'Login successful')
+      await router.push('/dashboard')
     }
   } catch (error: any) {
     console.error('Login step 1 failed:', error)
