@@ -346,36 +346,6 @@
             />
           </div>
 
-          <!-- Maintenance Records -->
-          <div v-if="isEdit" class="space-y-4 p-4 bg-yellow-50 rounded-lg">
-            <h3 class="text-sm font-semibold text-gray-700">Maintenance Records</h3>
-
-            <div class="grid grid-cols-2 gap-4">
-              <AppInput
-                v-model="formData.last_maintenance_date"
-                type="date"
-                label="Last Maintenance Date"
-              />
-              <AppInput
-                v-model="formData.next_maintenance_date"
-                type="date"
-                label="Next Maintenance Due"
-              />
-            </div>
-
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Maintenance Notes
-              </label>
-              <textarea
-                v-model="formData.maintenance_notes"
-                rows="3"
-                placeholder="Enter maintenance history and notes..."
-                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              ></textarea>
-            </div>
-          </div>
-
           <!-- Specifications -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -804,9 +774,8 @@ async function handleSubmit() {
       photo_url: formData.photo_url || undefined,
       manual_url: formData.manual_url || undefined,
       calibration_report_url: formData.calibration_report_url || undefined,
-      last_maintenance_date: formData.last_maintenance_date || undefined,
-      next_maintenance_date: formData.next_maintenance_date || undefined,
-      maintenance_notes: formData.maintenance_notes || undefined,
+      // Maintenance records are now managed through Equipment Detail > Status Actions
+      // last_maintenance_date, next_maintenance_date, and maintenance_notes are excluded
       specifications: formData.specifications || undefined,
       notes: formData.notes || undefined,
       parent_equipment_id: formData.parent_equipment_id || undefined,  // Add parent_equipment_id

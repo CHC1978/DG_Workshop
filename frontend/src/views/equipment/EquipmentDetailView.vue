@@ -102,6 +102,31 @@
               >
                 Execute Action
               </AppButton>
+
+              <!-- Maintenance Records -->
+              <div class="pt-4 border-t border-gray-200">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-sm font-medium text-gray-700">Maintenance Records</h3>
+                </div>
+                <div v-if="equipment.last_maintenance_date || equipment.maintenance_notes" class="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div v-if="equipment.last_maintenance_date" class="text-xs text-gray-600 mb-1">
+                    <span class="font-medium">Last Maintenance:</span> {{ new Date(equipment.last_maintenance_date).toLocaleDateString('zh-TW') }}
+                  </div>
+                  <div v-if="equipment.next_maintenance_date" class="text-xs text-gray-600 mb-1">
+                    <span class="font-medium">Next Due:</span> {{ new Date(equipment.next_maintenance_date).toLocaleDateString('zh-TW') }}
+                  </div>
+                  <div v-if="equipment.maintenance_notes" class="text-xs text-gray-700 mt-2">
+                    <span class="font-medium">Notes:</span> {{ equipment.maintenance_notes }}
+                  </div>
+                </div>
+                <AppButton
+                  variant="secondary"
+                  size="sm"
+                  @click="showMaintenanceModal = true"
+                >
+                  {{ equipment.last_maintenance_date ? 'Update' : 'Add' }} Maintenance Record
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>
@@ -318,6 +343,14 @@
           :locations="locations"
           @close="handleDetachModalClose"
           @detached="handleDetached"
+        />
+
+        <!-- Add Maintenance Record Modal -->
+        <AddMaintenanceRecordModal
+          :show="showMaintenanceModal"
+          :equipment="equipment"
+          @close="showMaintenanceModal = false"
+          @saved="handleMaintenanceSaved"
         />
 
         <!-- Edit Log Modal -->
@@ -790,6 +823,7 @@ import AppButton from '@/components/common/AppButton.vue'
 import DeployEquipmentModal from '@/components/equipment/modals/DeployEquipmentModal.vue'
 import ReturnEquipmentModal from '@/components/equipment/modals/ReturnEquipmentModal.vue'
 import DetachFromParentModal from '@/components/equipment/modals/DetachFromParentModal.vue'
+import AddMaintenanceRecordModal from '@/components/equipment/modals/AddMaintenanceRecordModal.vue'
 import EquipmentLogSection from '@/components/equipment/sections/EquipmentLogSection.vue'
 import ChildrenEquipmentSection from '@/components/equipment/sections/ChildrenEquipmentSection.vue'
 import type { Equipment } from '@/types'
@@ -806,6 +840,7 @@ const equipment = computed(() => equipmentStore.currentEquipment)
 const qrCodeUrl = ref('')
 const showDeployModal = ref(false)
 const showReturnModal = ref(false)
+const showMaintenanceModal = ref(false)
 
 // Section refs
 const logSection = ref<InstanceType<typeof EquipmentLogSection> | null>(null)
@@ -1088,6 +1123,27 @@ async function handleReturned() {
   await equipmentStore.fetchById(equipmentId.value)
   logSection.value?.loadLogs()
   childrenSection.value?.loadChildren()
+}
+
+async function handleMaintenanceSaved(data: any) {
+  try {
+    // Update equipment with new maintenance record
+    await equipmentStore.update(equipmentId.value, {
+      last_maintenance_date: data.last_maintenance_date || undefined,
+      next_maintenance_date: data.next_maintenance_date || undefined,
+      maintenance_notes: data.maintenance_notes,
+    })
+
+    uiStore.showNotification('success', 'Maintenance record saved successfully')
+    showMaintenanceModal.value = false
+
+    // Refresh equipment data
+    await equipmentStore.fetchById(equipmentId.value)
+    logSection.value?.loadLogs()
+  } catch (error: any) {
+    console.error('Failed to save maintenance record:', error)
+    uiStore.showNotification('error', 'Failed to save maintenance record')
+  }
 }
 
 async function handleChildrenUpdated() {
