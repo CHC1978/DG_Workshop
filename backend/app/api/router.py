@@ -1,7 +1,7 @@
 """API Router"""
 from fastapi import APIRouter
 
-from app.api import auth, users, equipment, sub_equipment, locations, projects, qrcode, customers, rentals, calibrations, uploads, dashboard
+from app.api import auth, users, equipment, sub_equipment, locations, projects, qrcode, customers, rentals, calibrations, maintenance, uploads, dashboard
 
 # Create main API router
 api_router = APIRouter()
@@ -17,5 +17,6 @@ api_router.include_router(qrcode.router)
 api_router.include_router(customers.router)
 api_router.include_router(rentals.router)
 api_router.include_router(calibrations.router)
+api_router.include_router(maintenance.router)
 api_router.include_router(uploads.router)
 api_router.include_router(dashboard.router)

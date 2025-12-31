@@ -60,7 +60,7 @@
         <!-- Maintenance Due -->
         <div
           class="bg-white rounded-lg shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          @click="router.push('/equipment')"
+          @click="router.push('/maintenance')"
         >
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-gray-900">Maintenance Due</h2>
