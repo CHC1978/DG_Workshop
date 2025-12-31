@@ -21,7 +21,7 @@
 
             <!-- Logo -->
             <h1 class="text-lg sm:text-xl font-bold text-sky-900">
-              海洋設備管理系統
+              Marine Equipment Management System
             </h1>
           </div>
 

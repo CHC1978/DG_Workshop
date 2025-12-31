@@ -4,10 +4,10 @@
       <!-- Logo and Title -->
       <div class="text-center">
         <h1 class="text-3xl font-bold text-sky-900">
-          海洋設備管理系統
+          Marine Equipment Management System
         </h1>
         <p class="mt-2 text-sm text-gray-600">
-          Marine Equipment QR Management System
+          QR-Based Asset Tracking & Management
         </p>
       </div>
 
