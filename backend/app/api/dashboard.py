@@ -70,17 +70,21 @@ async def get_dashboard_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """Get dashboard statistics"""
-    # Total equipment
+    # Total equipment (only parent equipment, excluding sub-components)
     total_result = await db.execute(
-        select(func.count(Equipment.id)).where(Equipment.is_active == True)
+        select(func.count(Equipment.id)).where(
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
+        )
     )
     total_equipment = total_result.scalar()
 
-    # Count by status
+    # Count by status (only parent equipment)
     in_stock_result = await db.execute(
         select(func.count(Equipment.id)).where(
             Equipment.status == EquipmentStatus.IN_STOCK,
-            Equipment.is_active == True
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
         )
     )
     in_stock = in_stock_result.scalar()
@@ -88,7 +92,8 @@ async def get_dashboard_stats(
     deployed_result = await db.execute(
         select(func.count(Equipment.id)).where(
             Equipment.status == EquipmentStatus.DEPLOYED,
-            Equipment.is_active == True
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
         )
     )
     deployed = deployed_result.scalar()
@@ -96,7 +101,8 @@ async def get_dashboard_stats(
     rented_result = await db.execute(
         select(func.count(Equipment.id)).where(
             Equipment.status == EquipmentStatus.RENTED,
-            Equipment.is_active == True
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
         )
     )
     rented = rented_result.scalar()
@@ -104,44 +110,55 @@ async def get_dashboard_stats(
     in_repair_result = await db.execute(
         select(func.count(Equipment.id)).where(
             Equipment.status == EquipmentStatus.REPAIR,
-            Equipment.is_active == True
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
         )
     )
     in_repair = in_repair_result.scalar()
 
-    # Active rentals
+    # Active rentals - only for parent equipment
     active_rentals_result = await db.execute(
-        select(func.count(Rental.id)).where(
-            Rental.status.in_([RentalStatus.CONFIRMED, RentalStatus.ACTIVE])
+        select(func.count(Rental.id))
+        .join(Equipment, Rental.equipment_id == Equipment.id)
+        .where(
+            Rental.status.in_([RentalStatus.CONFIRMED, RentalStatus.ACTIVE]),
+            Equipment.parent_equipment_id == None
         )
     )
     active_rentals = active_rentals_result.scalar()
 
-    # Maintenance due soon (30 days)
+    # Maintenance due soon (30 days) - only parent equipment
     thirty_days_from_now = date.today() + timedelta(days=30)
     maintenance_due_result = await db.execute(
         select(func.count(Equipment.id)).where(
             Equipment.next_maintenance_date <= thirty_days_from_now,
             Equipment.next_maintenance_date.isnot(None),
-            Equipment.is_active == True
+            Equipment.is_active == True,
+            Equipment.parent_equipment_id == None
         )
     )
     maintenance_due_soon = maintenance_due_result.scalar()
 
-    # Calibration due soon (30 days)
+    # Calibration due soon (30 days) - only for parent equipment
     calibration_due_result = await db.execute(
-        select(func.count(Calibration.id)).where(
-            Calibration.next_due_date <= thirty_days_from_now
+        select(func.count(Calibration.id))
+        .join(Equipment, Calibration.equipment_id == Equipment.id)
+        .where(
+            Calibration.next_due_date <= thirty_days_from_now,
+            Equipment.parent_equipment_id == None
         )
     )
     calibration_due_soon = calibration_due_result.scalar()
 
-    # Overdue rentals
+    # Overdue rentals - only for parent equipment
     today = date.today()
     overdue_result = await db.execute(
-        select(func.count(Rental.id)).where(
+        select(func.count(Rental.id))
+        .join(Equipment, Rental.equipment_id == Equipment.id)
+        .where(
             Rental.status == RentalStatus.ACTIVE,
-            Rental.expected_end_date < today
+            Rental.expected_end_date < today,
+            Equipment.parent_equipment_id == None
         )
     )
     overdue_rentals = overdue_result.scalar()
@@ -168,11 +185,12 @@ async def get_dashboard_alerts(
     today = date.today()
     thirty_days = today + timedelta(days=30)
 
-    # Maintenance alerts
+    # Maintenance alerts - only parent equipment
     maintenance_query = select(Equipment).where(
         Equipment.next_maintenance_date <= thirty_days,
         Equipment.next_maintenance_date.isnot(None),
-        Equipment.is_active == True
+        Equipment.is_active == True,
+        Equipment.parent_equipment_id == None
     ).order_by(Equipment.next_maintenance_date)
 
     maintenance_result = await db.execute(maintenance_query)
@@ -191,11 +209,12 @@ async def get_dashboard_alerts(
             is_overdue=days_until < 0
         ))
 
-    # Calibration alerts
+    # Calibration alerts - only for parent equipment
     calibration_query = select(Calibration, Equipment).join(
         Equipment, Calibration.equipment_id == Equipment.id
     ).where(
-        Calibration.next_due_date <= thirty_days
+        Calibration.next_due_date <= thirty_days,
+        Equipment.parent_equipment_id == None
     ).order_by(Calibration.next_due_date)
 
     calibration_result = await db.execute(calibration_query)
@@ -215,7 +234,7 @@ async def get_dashboard_alerts(
             is_overdue=days_until < 0
         ))
 
-    # Overdue rentals
+    # Overdue rentals - only for parent equipment
     from app.models.customer import Customer
 
     overdue_query = select(Rental, Equipment, Customer).join(
@@ -224,7 +243,8 @@ async def get_dashboard_alerts(
         Customer, Rental.customer_id == Customer.id
     ).where(
         Rental.status == RentalStatus.ACTIVE,
-        Rental.expected_end_date < today
+        Rental.expected_end_date < today,
+        Equipment.parent_equipment_id == None
     ).order_by(Rental.expected_end_date)
 
     overdue_result = await db.execute(overdue_query)
