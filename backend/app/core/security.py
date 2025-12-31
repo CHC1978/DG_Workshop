@@ -1,6 +1,7 @@
 """安全性相關功能: JWT, TOTP, 密碼雜湊"""
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+import logging
 import pyotp
 from jose import JWTError, jwt
 import bcrypt
@@ -9,6 +10,8 @@ import io
 import base64
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def hash_password(password: str) -> str:
@@ -78,10 +81,8 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
     except JWTError as e:
-        print(f"[ERROR] JWT decode failed: {type(e).__name__}: {str(e)}")
-        print(f"[ERROR] Token: {token[:50]}...")
-        print(f"[ERROR] SECRET_KEY: {settings.SECRET_KEY[:20]}...")
-        print(f"[ERROR] ALGORITHM: {settings.ALGORITHM}")
+        # 不記錄敏感資訊 (token, secret_key)
+        logger.warning(f"JWT decode failed: {type(e).__name__}")
         return None
 
 

@@ -1,5 +1,5 @@
 """Authentication API endpoints"""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -30,11 +30,16 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+# 從 main.py 獲取 limiter
+from app.main import limiter
+
 
 # ==================== Login Endpoints ====================
 
 @router.post("/login/step1", response_model=LoginStep1Response)
+@limiter.limit("5/minute")  # 每分鐘最多 5 次嘗試
 async def login_step1(
+    request: Request,
     credentials: LoginStep1Request,
     db: AsyncSession = Depends(get_db)
 ):
@@ -133,7 +138,9 @@ async def login_step1(
 
 
 @router.post("/login/step2", response_model=LoginStep2Response)
+@limiter.limit("10/minute")  # 每分鐘最多 10 次嘗試 (較 step1 寬鬆，因為已有 temp token)
 async def login_step2(
+    request: Request,
     credentials: LoginStep2Request,
     db: AsyncSession = Depends(get_db)
 ):

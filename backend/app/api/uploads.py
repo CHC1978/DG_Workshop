@@ -1,5 +1,6 @@
 """File upload API endpoints"""
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Optional
@@ -49,6 +50,44 @@ def validate_file_extension(filename: str, file_type: str) -> str:
             )
 
     return ext
+
+
+def safe_delete_file(file_url: str) -> None:
+    """
+    安全刪除檔案,防止路徑遍歷攻擊
+
+    Args:
+        file_url: 檔案 URL 路徑
+
+    Raises:
+        HTTPException: 如果路徑不安全
+    """
+    if not file_url:
+        return
+
+    # 解析路徑
+    file_path = Path(file_url.lstrip('/'))
+
+    # 解析為絕對路徑
+    try:
+        file_path_resolved = file_path.resolve()
+        uploads_dir_resolved = UPLOAD_DIR.resolve()
+
+        # 驗證路徑在 uploads 目錄內
+        if not str(file_path_resolved).startswith(str(uploads_dir_resolved)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file path detected"
+            )
+
+        # 安全刪除
+        if file_path_resolved.exists():
+            file_path_resolved.unlink()
+    except (ValueError, OSError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to delete file: {str(e)}"
+        )
 
 
 @router.post("/equipment/{equipment_id}/photo")
@@ -264,10 +303,8 @@ async def delete_equipment_photo(
             detail="Photo not found"
         )
 
-    # Delete file
-    file_path = Path(equipment.photo_url.lstrip('/'))
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file (使用安全刪除函數)
+    safe_delete_file(equipment.photo_url)
 
     # Clear URL from database
     equipment.photo_url = None
@@ -294,10 +331,8 @@ async def delete_equipment_manual(
             detail="Manual not found"
         )
 
-    # Delete file
-    file_path = Path(equipment.manual_url.lstrip('/'))
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file (使用安全刪除函數)
+    safe_delete_file(equipment.manual_url)
 
     # Clear URL from database
     equipment.manual_url = None
@@ -324,10 +359,8 @@ async def delete_calibration_report(
             detail="Report not found"
         )
 
-    # Delete file
-    file_path = Path(equipment.calibration_report_url.lstrip('/'))
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file (使用安全刪除函數)
+    safe_delete_file(equipment.calibration_report_url)
 
     # Clear URL from database
     equipment.calibration_report_url = None
@@ -342,13 +375,38 @@ async def list_equipment_files(
     current_user: User = Depends(get_current_user)
 ):
     """List all files for an equipment"""
+    # 驗證 asset_code 格式 (例如: MBES-2024-001)
+    if not re.match(r'^[A-Z]+-\d{4}-\d{3}$', asset_code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid asset code format"
+        )
+
+    # 使用白名單驗證
     upload_dir = UPLOAD_DIR / asset_code
 
-    if not upload_dir.exists():
+    # 解析並驗證路徑
+    try:
+        upload_dir_resolved = upload_dir.resolve()
+        uploads_dir_resolved = UPLOAD_DIR.resolve()
+
+        # 確保路徑在 UPLOAD_DIR 內
+        if not str(upload_dir_resolved).startswith(str(uploads_dir_resolved)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid path"
+            )
+    except (ValueError, OSError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid path"
+        )
+
+    if not upload_dir_resolved.exists():
         return {"files": []}
 
     files = []
-    for file_path in upload_dir.iterdir():
+    for file_path in upload_dir_resolved.iterdir():
         if file_path.is_file():
             stat = file_path.stat()
             files.append({
@@ -613,10 +671,8 @@ async def delete_log_attachment(
             detail="Attachment not found"
         )
 
-    # Delete file
-    file_path = Path(attachment.file_url.lstrip('/'))
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file (使用安全刪除函數)
+    safe_delete_file(attachment.file_url)
 
     # Delete record
     await db.delete(attachment)
