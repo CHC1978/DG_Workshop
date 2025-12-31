@@ -92,6 +92,7 @@
                   <option value="calibration">Send to Calibration</option>
                   <option value="in_stock">Set to In Stock</option>
                   <option value="rented">Set to Rented</option>
+                  <option value="maintenance">Add Maintenance Record</option>
                 </select>
               </div>
 
@@ -102,31 +103,6 @@
               >
                 Execute Action
               </AppButton>
-
-              <!-- Maintenance Records -->
-              <div class="pt-4 border-t border-gray-200">
-                <div class="flex items-center justify-between mb-2">
-                  <h3 class="text-sm font-medium text-gray-700">Maintenance Records</h3>
-                </div>
-                <div v-if="equipment.last_maintenance_date || equipment.maintenance_notes" class="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div v-if="equipment.last_maintenance_date" class="text-xs text-gray-600 mb-1">
-                    <span class="font-medium">Last Maintenance:</span> {{ new Date(equipment.last_maintenance_date).toLocaleDateString('zh-TW') }}
-                  </div>
-                  <div v-if="equipment.next_maintenance_date" class="text-xs text-gray-600 mb-1">
-                    <span class="font-medium">Next Due:</span> {{ new Date(equipment.next_maintenance_date).toLocaleDateString('zh-TW') }}
-                  </div>
-                  <div v-if="equipment.maintenance_notes" class="text-xs text-gray-700 mt-2">
-                    <span class="font-medium">Notes:</span> {{ equipment.maintenance_notes }}
-                  </div>
-                </div>
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  @click="showMaintenanceModal = true"
-                >
-                  {{ equipment.last_maintenance_date ? 'Update' : 'Add' }} Maintenance Record
-                </AppButton>
-              </div>
             </div>
           </div>
         </div>
@@ -1055,6 +1031,9 @@ async function executeStatusAction() {
       break
     case 'rented':
       await handleSetStatus('rented')
+      break
+    case 'maintenance':
+      showMaintenanceModal.value = true
       break
   }
 
