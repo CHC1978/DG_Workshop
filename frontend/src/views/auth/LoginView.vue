@@ -184,26 +184,31 @@ async function handleStep1() {
     })
     console.log('Login step 1 response:', response)
 
-    // Check if trusted device (skip 2FA)
-    if (response.trusted_device && response.access_token) {
-      console.log('Trusted device detected, logging in directly')
+    // Check if access token is returned (2FA not required or trusted device)
+    if (response.access_token) {
+      console.log('Access token received, logging in directly')
       // Save access token and proceed
       authStore.token = response.access_token
       await authStore.fetchCurrentUser()
-      uiStore.showNotification('success', 'Login successful (trusted device)')
+
+      if (response.trusted_device) {
+        uiStore.showNotification('success', 'Login successful (trusted device)')
+      } else {
+        uiStore.showNotification('success', 'Login successful')
+      }
+
       await router.push('/dashboard')
       return
     }
 
+    // If no access token, check if 2FA is required
     if (response.totp_required) {
       console.log('2FA required, moving to step 2')
       step.value = 2
     } else {
-      console.log('2FA not enabled, logging in directly')
-      // 2FA not enabled, login directly without requiring 2FA setup
-      // User can enable 2FA later from settings if desired
-      uiStore.showNotification('success', 'Login successful')
-      await router.push('/dashboard')
+      // This should not happen - either access_token or totp_required should be set
+      console.error('Unexpected response: no access_token and totp_required=false')
+      errorMessage.value = 'Unexpected login response. Please contact support.'
     }
   } catch (error: any) {
     console.error('Login step 1 failed:', error)

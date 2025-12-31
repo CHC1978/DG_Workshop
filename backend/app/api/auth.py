@@ -66,8 +66,26 @@ async def login_step1(
             detail="User account is disabled",
         )
 
+    # If 2FA is not enabled, login directly without temp token
+    if not user.totp_enabled:
+        print(f"[INFO] 2FA not enabled for user {user.username}, logging in directly")
+
+        # Generate access token directly
+        access_token = create_access_token({
+            "sub": str(user.id),
+            "username": user.username,
+            "role": user.role.value,
+        })
+
+        return LoginStep1Response(
+            access_token=access_token,
+            totp_required=False,
+            trusted_device=False,
+            message="Login successful"
+        )
+
     # Check if this is a trusted device (only if 2FA is enabled)
-    if user.totp_enabled and credentials.device_fingerprint:
+    if credentials.device_fingerprint:
         result = await db.execute(
             select(TrustedDevice).where(
                 TrustedDevice.user_id == user.id,
@@ -98,6 +116,7 @@ async def login_step1(
                 message="Login successful (trusted device)"
             )
 
+    # 2FA is enabled and not a trusted device - require TOTP
     # Generate temporary token (short-lived)
     temp_token = create_temp_token({
         "sub": str(user.id),
@@ -107,9 +126,9 @@ async def login_step1(
 
     return LoginStep1Response(
         temp_token=temp_token,
-        totp_required=user.totp_enabled,
+        totp_required=True,
         trusted_device=False,
-        message="2FA required" if user.totp_enabled else "2FA setup required"
+        message="2FA required"
     )
 
 
