@@ -1051,8 +1051,10 @@ async function handleSetStatus(status: string) {
     // Use the update API to change status
     await equipmentApi.update(equipment.value.id, { status })
     uiStore.showNotification('success', `Equipment status changed to ${statusLabel(status)}`)
+    // Refresh equipment data and logs
     await equipmentStore.fetchById(equipmentId.value)
-    await loadLogs()
+    logSection.value?.loadLogs()
+    childrenSection.value?.loadChildren()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to update status')
   }
@@ -1067,8 +1069,10 @@ async function handleSendToRepair() {
   try {
     await equipmentApi.repair(equipment.value.id, notes || undefined)
     uiStore.showNotification('success', 'Equipment sent to repair')
+    // Refresh equipment data and logs
     await equipmentStore.fetchById(equipmentId.value)
-    await loadLogs()
+    logSection.value?.loadLogs()
+    childrenSection.value?.loadChildren()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to repair')
   }
@@ -1083,8 +1087,10 @@ async function handleSendToCalibration() {
   try {
     await equipmentApi.sendToCalibration(equipment.value.id, notes || undefined)
     uiStore.showNotification('success', 'Equipment sent to calibration')
+    // Refresh equipment data and logs
     await equipmentStore.fetchById(equipmentId.value)
-    await loadLogs()
+    logSection.value?.loadLogs()
+    childrenSection.value?.loadChildren()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to calibration')
   }
