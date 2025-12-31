@@ -306,11 +306,12 @@ async def toggle_user_2fa(
         )
 
     if request.enabled:
-        # "Enable" means clearing existing 2FA so user can set it up fresh
-        # This is essentially the same as reset - user will set up on next login
+        # Enable 2FA - clear existing setup so user can configure fresh on next login
+        # Note: Admin cannot directly enable 2FA, user must set it up themselves
+        # This just clears any existing setup and keeps status as disabled
         user.totp_enabled = False
         user.totp_secret = None
-        message = f"2FA cleared for user {user.username}. User can set up 2FA on next login."
+        message = f"2FA setup cleared for user {user.username}. User can enable 2FA from their settings."
     else:
         # Disable 2FA - remove completely
         user.totp_enabled = False

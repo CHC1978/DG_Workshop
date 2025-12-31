@@ -85,7 +85,7 @@
                   <option value="view">View</option>
                   <option v-if="authStore.isAdmin || authStore.user?.id === user.id" value="edit">Edit</option>
                   <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="reset_password">Reset Password</option>
-                  <option v-if="authStore.isAdmin && user.totp_enabled" value="reset_2fa">Reset 2FA</option>
+                  <option v-if="authStore.isAdmin" value="toggle_2fa">{{ user.totp_enabled ? 'Disable 2FA' : 'Enable 2FA' }}</option>
                   <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="delete" class="text-red-600">Delete</option>
                 </select>
               </td>
@@ -155,7 +155,7 @@ function handleUserAction(event: Event, user: User) {
     case 'reset_password':
       handleResetPassword(user)
       break
-    case 'reset_2fa':
+    case 'toggle_2fa':
       handleToggle2FA(user)
       break
     case 'delete':
@@ -176,17 +176,31 @@ function editUser(id: number) {
 }
 
 async function handleToggle2FA(user: User) {
-  if (!confirm(`Reset 2FA for ${user.full_name}? They will need to set up 2FA again on next login.`)) {
+  const willEnable = !user.totp_enabled
+
+  if (willEnable) {
+    // Cannot directly enable 2FA - user must set it up themselves
+    alert(
+      `Cannot directly enable 2FA for ${user.full_name}.\n\n` +
+      `Please ask the user to:\n` +
+      `1. Login to their account\n` +
+      `2. Go to Settings\n` +
+      `3. Enable 2FA and scan the QR code`
+    )
+    return
+  }
+
+  // Disable 2FA
+  if (!confirm(`Disable 2FA for ${user.full_name}? They will no longer need 2FA to login.`)) {
     return
   }
 
   try {
-    // Always disable when resetting
     await usersStore.toggle2FA(user.id, false)
-    uiStore.showNotification('success', `2FA reset for ${user.full_name}`)
+    uiStore.showNotification('success', `2FA disabled for ${user.full_name}`)
     await usersStore.fetchList()
   } catch (error: any) {
-    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to reset 2FA')
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to disable 2FA')
   }
 }
 
