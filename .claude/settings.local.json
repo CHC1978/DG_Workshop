@@ -38,7 +38,10 @@
       "Bash(dir \"E:\\\\QT_project\\\\DG_workshop\\\\backend\\\\alembic\\\\versions\" /b /o-d)",
       "Bash(mkdir:*)",
       "Bash(./venv/Scripts/alembic stamp:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(./venv/Scripts/alembic:*)",
+      "Bash(sqlite3:*)",
+      "Bash(powershell:*)"
     ]
   }
 }

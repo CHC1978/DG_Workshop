@@ -14,7 +14,7 @@
       <!-- Form -->
       <div class="bg-white rounded-lg shadow p-6">
         <form @submit.prevent="handleSubmit" class="space-y-6">
-          <!-- Category -->
+          <!-- Step 1: Category (Always First) -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               Category <span class="text-red-500">*</span>
@@ -23,6 +23,8 @@
               v-model="formData.category"
               required
               class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              @change="handleCategoryChange"
+              :disabled="showParentSelector && selectedParentEquipment"
             >
               <option value="">Select category...</option>
               <option value="mbes">MBES - Multibeam Echosounder</option>
@@ -35,6 +37,77 @@
               <option value="magnetometer">Magnetometer</option>
               <option value="other">Other</option>
             </select>
+            <p v-if="showParentSelector && selectedParentEquipment" class="mt-1 text-sm text-gray-500">
+              Category inherited from parent equipment
+            </p>
+          </div>
+
+          <!-- Step 2: Equipment Type Selection (Create mode only, shown after category selected) -->
+          <div v-if="!isEdit && formData.category" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <label class="block text-sm font-medium text-gray-700 mb-3">
+              Equipment Type <span class="text-red-500">*</span>
+            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label
+                class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm hover:border-sky-500 transition-colors"
+                :class="!showParentSelector ? 'border-sky-500 ring-2 ring-sky-500' : 'border-gray-300'"
+              >
+                <input
+                  type="radio"
+                  name="equipmentType"
+                  :value="false"
+                  v-model="showParentSelector"
+                  class="sr-only"
+                  @change="disableParentSelector"
+                />
+                <div class="flex-1">
+                  <span class="block text-sm font-medium text-gray-900">🔧 Standalone Equipment</span>
+                  <span class="mt-1 flex items-center text-sm text-gray-500">
+                    Independent equipment unit
+                  </span>
+                </div>
+              </label>
+              <label
+                class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm hover:border-sky-500 transition-colors"
+                :class="showParentSelector ? 'border-sky-500 ring-2 ring-sky-500' : 'border-gray-300'"
+              >
+                <input
+                  type="radio"
+                  name="equipmentType"
+                  :value="true"
+                  v-model="showParentSelector"
+                  class="sr-only"
+                  @change="enableParentSelector"
+                />
+                <div class="flex-1">
+                  <span class="block text-sm font-medium text-gray-900">🔗 Sub-Component</span>
+                  <span class="mt-1 flex items-center text-sm text-gray-500">
+                    Part of a parent equipment
+                  </span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Step 3: Parent Equipment Selection (when sub-component is selected and category is chosen) -->
+          <div v-if="!isEdit && showParentSelector && formData.category" class="p-4 bg-sky-50 rounded-lg border border-sky-200">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Parent Equipment <span class="text-red-500">*</span>
+            </label>
+            <select
+              v-model="formData.parent_equipment_id"
+              required
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+              @change="handleParentEquipmentChange"
+            >
+              <option :value="null">Select parent equipment...</option>
+              <option v-for="eq in availableParentEquipment" :key="eq.id" :value="eq.id">
+                {{ eq.asset_code }} - {{ eq.manufacturer }} {{ eq.model }}
+              </option>
+            </select>
+            <p class="mt-1 text-sm text-gray-500">
+              Child component will inherit category and manufacturer from parent
+            </p>
           </div>
 
           <!-- Manufacturer -->
@@ -205,21 +278,48 @@
             </div>
           </div>
 
-          <!-- File Uploads (Edit mode only) -->
-          <div v-if="isEdit && equipmentId" class="space-y-4 p-4 bg-gray-50 rounded-lg">
-            <h3 class="text-sm font-semibold text-gray-700">File Attachments</h3>
+          <!-- Photo Upload (Available in both Create and Edit modes) -->
+          <div class="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-700">Equipment Photo</h3>
 
-            <!-- Photo Upload -->
-            <FileUpload
-              label="Equipment Photo"
-              file-type="photo"
-              :equipment-id="equipmentId"
-              :current-file-url="formData.photo_url"
-              accept="image/*"
-              hint="Supported: JPG, PNG, GIF, WebP (Max 10MB)"
-              @uploaded="handlePhotoUploaded"
-              @deleted="handlePhotoDeleted"
-            />
+            <!-- Photo Upload in Edit Mode -->
+            <div v-if="isEdit && equipmentId">
+              <FileUpload
+                label="Equipment Photo"
+                file-type="photo"
+                :equipment-id="equipmentId"
+                :current-file-url="formData.photo_url"
+                accept="image/*"
+                hint="Supported: JPG, PNG, GIF, WebP (Max 10MB)"
+                @uploaded="handlePhotoUploaded"
+                @deleted="handlePhotoDeleted"
+              />
+            </div>
+
+            <!-- Photo Selection in Create Mode -->
+            <div v-else>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Equipment Photo
+              </label>
+              <input
+                ref="photoFileInput"
+                type="file"
+                accept="image/*"
+                @change="handlePhotoFileSelected"
+                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+              />
+              <p class="mt-1 text-sm text-gray-500">
+                Photo will be uploaded after creating the equipment
+              </p>
+              <div v-if="pendingPhotoFile" class="mt-2 text-sm text-green-600">
+                ✓ Selected: {{ pendingPhotoFile.name }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Other File Uploads (Edit mode only) -->
+          <div v-if="isEdit && equipmentId" class="space-y-4 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-semibold text-gray-700">Other Attachments</h3>
 
             <!-- Manual Upload -->
             <FileUpload
@@ -244,13 +344,6 @@
               @uploaded="handleReportUploaded"
               @deleted="handleReportDeleted"
             />
-          </div>
-
-          <!-- Note for new equipment -->
-          <div v-if="!isEdit" class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p class="text-sm text-blue-800">
-              📝 Note: Create the equipment first, then you can upload files in edit mode.
-            </p>
           </div>
 
           <!-- Maintenance Records -->
@@ -396,12 +489,23 @@ const formData = reactive({
   maintenance_notes: '',
   specifications: '',
   notes: '',
+  parent_equipment_id: null as number | null,
 })
 
 // Location and Project data
 const locations = ref<Location[]>([])
 const projects = ref<Project[]>([])
 const suggestedProject = ref<Project | null>(null)
+
+// Parent Equipment data (for sub-components)
+const showParentSelector = ref(false)
+const parentEquipmentSelection = ref<number | null>(null)
+const availableParentEquipment = ref<any[]>([])
+const selectedParentEquipment = ref<any | null>(null)
+
+// Photo file for create mode
+const photoFileInput = ref<HTMLInputElement | null>(null)
+const pendingPhotoFile = ref<File | null>(null)
 
 // Computed: Group locations by type
 const vesselLocations = computed(() =>
@@ -471,6 +575,56 @@ async function handleLocationChange() {
   }
 }
 
+// Category change handler
+async function handleCategoryChange() {
+  // Reload parent equipment list when category changes
+  if (showParentSelector.value) {
+    await loadParentEquipment()
+  }
+}
+
+// Parent Equipment handling
+function enableParentSelector() {
+  showParentSelector.value = true
+  formData.parent_equipment_id = null
+  // Load parent equipment when enabling selector
+  loadParentEquipment()
+}
+
+function disableParentSelector() {
+  showParentSelector.value = false
+  formData.parent_equipment_id = null
+  selectedParentEquipment.value = null
+}
+
+async function handleParentEquipmentChange() {
+  if (!formData.parent_equipment_id) {
+    selectedParentEquipment.value = null
+    return
+  }
+
+  // Find selected parent equipment
+  const parent = availableParentEquipment.value.find(eq => eq.id === formData.parent_equipment_id)
+
+  if (parent) {
+    selectedParentEquipment.value = parent
+
+    // Inherit category and manufacturer from parent
+    formData.category = parent.category
+    formData.manufacturer = parent.manufacturer
+
+    // Inherit location and project if parent has them
+    if (parent.current_location_id) {
+      formData.current_location_id = parent.current_location_id
+    }
+    if (parent.project_id) {
+      formData.project_id = parent.project_id
+    }
+
+    uiStore.showNotification('info', `Inherited category and manufacturer from parent equipment`)
+  }
+}
+
 // Load locations and projects
 async function loadLocationsAndProjects() {
   try {
@@ -483,6 +637,66 @@ async function loadLocationsAndProjects() {
     projects.value = projectStore.projects
   } catch (error) {
     console.error('Failed to load locations/projects:', error)
+  }
+}
+
+// Load available parent equipment (for sub-component creation)
+async function loadParentEquipment() {
+  try {
+    await equipmentStore.fetchList({ skip: 0, limit: 1000 })
+    // Only show equipment that are NOT sub-components themselves
+    // And if category is selected, only show equipment with the same category
+    availableParentEquipment.value = equipmentStore.equipmentList.filter(
+      eq => !eq.parent_equipment_id && eq.is_active &&
+            (!formData.category || eq.category === formData.category)
+    )
+    console.log(`Loaded ${availableParentEquipment.value.length} available parent equipment`)
+  } catch (error) {
+    console.error('Failed to load parent equipment:', error)
+  }
+}
+
+// Photo file selection for create mode
+function handlePhotoFileSelected(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    pendingPhotoFile.value = file
+  }
+}
+
+// Upload pending photo file
+async function uploadPendingPhoto(equipmentId: number) {
+  if (!pendingPhotoFile.value) return
+
+  const formData = new FormData()
+  formData.append('file', pendingPhotoFile.value)
+
+  try {
+    const authData = localStorage.getItem('auth')
+    let headers: any = {
+      'Content-Type': 'multipart/form-data',
+    }
+
+    if (authData) {
+      try {
+        const auth = JSON.parse(authData)
+        if (auth.token) {
+          headers.Authorization = `Bearer ${auth.token}`
+        }
+      } catch (e) {
+        console.error('Failed to parse auth data')
+      }
+    }
+
+    const endpoint = `/api/uploads/equipment/${equipmentId}/photo`
+    const axios = (await import('axios')).default
+    await axios.post(endpoint, formData, { headers })
+
+    uiStore.showNotification('success', 'Photo uploaded successfully')
+  } catch (error: any) {
+    console.error('Failed to upload photo:', error)
+    uiStore.showNotification('error', 'Failed to upload photo')
   }
 }
 
@@ -595,6 +809,7 @@ async function handleSubmit() {
       maintenance_notes: formData.maintenance_notes || undefined,
       specifications: formData.specifications || undefined,
       notes: formData.notes || undefined,
+      parent_equipment_id: formData.parent_equipment_id || undefined,  // Add parent_equipment_id
     }
 
     if (isEdit.value) {
@@ -607,6 +822,11 @@ async function handleSubmit() {
       const newEquipment = await equipmentStore.create(data)
       successMessage.value = `Equipment created successfully! Asset Code: ${newEquipment.asset_code}`
       uiStore.showNotification('success', `Equipment created: ${newEquipment.asset_code}`)
+
+      // Upload pending photo if exists
+      if (pendingPhotoFile.value) {
+        await uploadPendingPhoto(newEquipment.id)
+      }
 
       // Redirect after 1 second
       setTimeout(() => {
@@ -624,6 +844,20 @@ async function handleSubmit() {
 onMounted(async () => {
   // Load locations and projects first
   await loadLocationsAndProjects()
+
+  // Load parent equipment (for sub-component creation)
+  if (!isEdit.value) {
+    await loadParentEquipment()
+
+    // Check if parent_id is provided in URL query
+    const parentId = route.query.parent_id
+    if (parentId) {
+      showParentSelector.value = true
+      parentEquipmentSelection.value = 0
+      formData.parent_equipment_id = parseInt(parentId as string)
+      await handleParentEquipmentChange()
+    }
+  }
 
   // Then load equipment if editing
   if (isEdit.value) {

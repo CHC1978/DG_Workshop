@@ -102,14 +102,24 @@ export interface Equipment {
   installation_type?: InstallationType
   installation_date?: string
   installation_notes?: string
+
+  // Parent-Child relationship
+  parent_equipment_id?: number
+
   is_active: boolean
   created_at: string
   updated_at: string
+
   // Display fields for Location and Project
   current_location_name?: string
   current_location_type?: string
   project_code?: string
   project_name?: string
+
+  // Display fields for Parent Equipment
+  parent_asset_code?: string
+  parent_model?: string
+  children_count?: number
 }
 
 export interface EquipmentCreateRequest {
@@ -129,6 +139,29 @@ export interface EquipmentCreateRequest {
   installation_type?: InstallationType
   installation_date?: string
   installation_notes?: string
+
+  // Parent-Child relationship
+  parent_equipment_id?: number
+}
+
+// ==================== Parent-Child Equipment Management ====================
+
+export interface DetachFromParentRequest {
+  new_location_id: number
+  new_status: string
+  notes?: string
+}
+
+export interface GroupMoveRequest {
+  location_id: number
+  include_children?: boolean
+  notes?: string
+}
+
+export interface SyncChildrenStatusRequest {
+  new_status: EquipmentStatus
+  include_children?: boolean
+  notes?: string
 }
 
 // ==================== Location ====================

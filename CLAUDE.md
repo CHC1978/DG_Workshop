@@ -188,5 +188,9 @@ Admin > Manager > Operator > Viewer
 - 軟刪除策略: 設備不實際刪除,僅標記 `is_active=false`
 
 ## 環境注意事項
-- 目前開發環境是Windows 11 , PowerShell 命令下. 
-- 所有前端與後端重新啟動都由我手動運行.
+- 目前開發環境是Windows 11 , PowerShell 命令下.
+- **⚠️ 重要：絕對不要使用 Bash 工具自行啟動後端或前端服務**
+  - **禁止執行**: `uvicorn`, `python -m uvicorn`, `bun dev` 等啟動指令
+  - **禁止執行**: 任何會在背景啟動服務的命令
+  - 所有前端與後端的啟動、重啟、停止操作都由使用者手動執行
+  - Claude 只能診斷問題、修改程式碼，不能控制服務的生命週期

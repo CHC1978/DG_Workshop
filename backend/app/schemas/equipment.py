@@ -25,6 +25,9 @@ class EquipmentCreate(EquipmentBase):
     purchase_date: Optional[date] = None
     current_location_id: Optional[int] = None
 
+    # Parent-Child relationship
+    parent_equipment_id: Optional[int] = Field(None, description="Parent equipment ID (for sub-components)")
+
     # Project and installation
     project_id: Optional[int] = Field(None, description="Associated project")
     installation_type: Optional[InstallationType] = Field(None, description="Installation type")
@@ -53,6 +56,9 @@ class EquipmentUpdate(BaseModel):
     deployed_to: Optional[str] = Field(None, max_length=200)
     deployed_by: Optional[int] = None
     purchase_date: Optional[date] = None
+
+    # Parent-Child relationship
+    parent_equipment_id: Optional[int] = Field(None, description="Parent equipment ID (for attaching/detaching)")
 
     # Project and installation
     project_id: Optional[int] = None
@@ -93,6 +99,9 @@ class EquipmentResponse(BaseModel):
     deployed_by: Optional[int]
     purchase_date: Optional[date]
 
+    # Parent-Child relationship
+    parent_equipment_id: Optional[int]
+
     # Project and installation
     project_id: Optional[int]
     installation_type: Optional[InstallationType]
@@ -122,6 +131,11 @@ class EquipmentResponse(BaseModel):
     current_location_type: Optional[str] = None
     project_code: Optional[str] = None
     project_name: Optional[str] = None
+
+    # Display fields for Parent Equipment (not from DB directly)
+    parent_asset_code: Optional[str] = None
+    parent_model: Optional[str] = None
+    children_count: int = 0
 
     model_config = {"from_attributes": True}
 
@@ -185,6 +199,29 @@ class EquipmentLogResponse(BaseModel):
     project_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+# ==================== Parent-Child Management Schemas ====================
+
+class DetachFromParentRequest(BaseModel):
+    """Request to detach equipment from parent (Manager+ only)"""
+    new_location_id: int = Field(..., description="Target location after detach")
+    new_status: EquipmentStatus = Field(..., description="Status after detach")
+    notes: Optional[str] = Field(None, description="Reason for detaching")
+
+
+class GroupMoveRequest(BaseModel):
+    """Request to move equipment with all children as a group"""
+    location_id: int = Field(..., description="Target location ID")
+    include_children: bool = Field(True, description="Move children together with parent")
+    notes: Optional[str] = Field(None, description="Notes for the move")
+
+
+class SyncChildrenStatusRequest(BaseModel):
+    """Request to sync children status with parent"""
+    new_status: EquipmentStatus = Field(..., description="New status to apply")
+    include_children: bool = Field(True, description="Apply to children as well")
+    notes: Optional[str] = Field(None, description="Notes for status change")
 
 
 # Forward reference for Location

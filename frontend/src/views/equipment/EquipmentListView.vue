@@ -73,10 +73,9 @@
         <div
           v-for="equipment in equipmentStore.equipmentList"
           :key="equipment.id"
-          class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-          @click="viewEquipment(equipment.id)"
+          class="bg-white rounded-lg shadow hover:shadow-lg transition-shadow"
         >
-          <div class="p-6">
+          <div class="p-6 cursor-pointer" @click="viewEquipment(equipment.id)">
             <div class="flex justify-between items-start mb-4">
               <div>
                 <h3 class="text-lg font-semibold text-gray-900">
@@ -117,6 +116,52 @@
               </div>
             </div>
           </div>
+
+          <!-- Child Components Section -->
+          <div v-if="equipment.children_count && equipment.children_count > 0" class="border-t border-gray-200 bg-gray-50">
+            <button
+              @click.stop="toggleChildren(equipment.id)"
+              class="w-full px-6 py-3 flex items-center justify-between text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <span class="flex items-center gap-2">
+                <span>🔧</span>
+                <span>{{ equipment.children_count }} Component(s)</span>
+              </span>
+              <svg
+                :class="['w-5 h-5 transition-transform', expandedEquipment[equipment.id] ? 'rotate-180' : '']"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Child Equipment List (Expanded) -->
+            <div v-if="expandedEquipment[equipment.id]" class="px-6 pb-4">
+              <div v-if="loadingChildren[equipment.id]" class="text-center py-4 text-sm text-gray-500">
+                Loading components...
+              </div>
+              <div v-else-if="childrenMap[equipment.id] && childrenMap[equipment.id].length > 0" class="space-y-2">
+                <div
+                  v-for="child in childrenMap[equipment.id]"
+                  :key="child.id"
+                  class="p-3 bg-white rounded border border-gray-200 hover:border-sky-400 transition-colors cursor-pointer"
+                  @click.stop="viewEquipment(child.id)"
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                      <p class="text-sm font-semibold text-gray-900">{{ child.asset_code }}</p>
+                      <p class="text-xs text-gray-600">{{ child.model }}</p>
+                    </div>
+                    <span :class="statusBadgeClass(child.status)" class="text-xs">
+                      {{ statusLabel(child.status) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -135,8 +180,10 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEquipmentStore } from '@/stores/equipment'
+import { equipmentApi } from '@/api/equipment'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import type { Equipment } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -150,6 +197,11 @@ const filters = reactive({
   skip: 0,
   limit: 50,
 })
+
+// Child equipment management
+const expandedEquipment = ref<Record<number, boolean>>({})
+const childrenMap = ref<Record<number, Equipment[]>>({})
+const loadingChildren = ref<Record<number, boolean>>({})
 
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -237,6 +289,27 @@ function locationTypeLabel(type?: string): string {
     vehicle: 'Vehicle',
   }
   return labels[type] || type
+}
+
+async function toggleChildren(equipmentId: number) {
+  // Toggle expanded state
+  expandedEquipment.value[equipmentId] = !expandedEquipment.value[equipmentId]
+
+  // Load children if expanding and not already loaded
+  if (expandedEquipment.value[equipmentId] && !childrenMap.value[equipmentId]) {
+    loadingChildren.value[equipmentId] = true
+    try {
+      const response = await equipmentApi.getChildren(equipmentId)
+      childrenMap.value[equipmentId] = response.data
+      console.log(`Loaded ${response.data.length} children for equipment ${equipmentId}`)
+    } catch (error: any) {
+      console.error('Failed to load children:', error)
+      // Reset expanded state on error
+      expandedEquipment.value[equipmentId] = false
+    } finally {
+      loadingChildren.value[equipmentId] = false
+    }
+  }
 }
 
 onMounted(() => {

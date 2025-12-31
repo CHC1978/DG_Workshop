@@ -86,6 +86,13 @@ class Equipment(Base, TimestampMixin):
         index=True
     )
 
+    # Parent-Child Equipment Relationship (for sub-components)
+    parent_equipment_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("equipments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     # Installation information
     installation_type: Mapped[Optional[InstallationType]] = mapped_column(
         SQLEnum(InstallationType),
@@ -130,6 +137,22 @@ class Equipment(Base, TimestampMixin):
         back_populates="equipment",
         cascade="all, delete-orphan"
     )
+
+    # Parent-Child relationships (self-referential)
+    parent: Mapped[Optional["Equipment"]] = relationship(
+        "Equipment",
+        remote_side=[id],
+        back_populates="children",
+        foreign_keys=[parent_equipment_id]
+    )
+    children: Mapped[list["Equipment"]] = relationship(
+        "Equipment",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        foreign_keys=[parent_equipment_id]
+    )
+
+    # Legacy sub_equipments (will be removed after migration)
     sub_equipments: Mapped[list["SubEquipment"]] = relationship(
         "SubEquipment",
         back_populates="parent_equipment",

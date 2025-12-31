@@ -2,7 +2,13 @@
  * Equipment API
  */
 import apiClient from './client'
-import type { Equipment, EquipmentCreateRequest } from '@/types'
+import type {
+  Equipment,
+  EquipmentCreateRequest,
+  DetachFromParentRequest,
+  GroupMoveRequest,
+  SyncChildrenStatusRequest
+} from '@/types'
 
 export interface EquipmentListResponse {
   equipments: Equipment[]
@@ -110,16 +116,12 @@ export const equipmentApi = {
   deploy(
     id: number,
     locationId: number,
-    notes?: string,
-    latitude?: number,
-    longitude?: number
+    notes?: string
   ) {
     return apiClient.post<Equipment>(`/equipment/${id}/deploy`, null, {
       params: {
         location_id: locationId,
         notes,
-        latitude,
-        longitude,
       }
     })
   },
@@ -130,16 +132,12 @@ export const equipmentApi = {
   return(
     id: number,
     locationId: number,
-    notes?: string,
-    latitude?: number,
-    longitude?: number
+    notes?: string
   ) {
     return apiClient.post<Equipment>(`/equipment/${id}/return`, null, {
       params: {
         location_id: locationId,
         notes,
-        latitude,
-        longitude,
       }
     })
   },
@@ -181,5 +179,41 @@ export const equipmentApi = {
    */
   getQRCode(id: number) {
     return apiClient.get(`/qrcode/${id}`)
+  },
+
+  // ==================== Parent-Child Equipment Management ====================
+
+  /**
+   * Get all child equipment (sub-components) for a parent equipment
+   */
+  getChildren(equipmentId: number) {
+    return apiClient.get<Equipment[]>(`/equipment/${equipmentId}/children`)
+  },
+
+  /**
+   * Detach equipment from its parent (Manager+ only)
+   */
+  detachFromParent(equipmentId: number, data: DetachFromParentRequest) {
+    return apiClient.post<Equipment>(`/equipment/${equipmentId}/detach-from-parent`, data)
+  },
+
+  /**
+   * Move equipment and optionally all its children to a new location
+   */
+  groupMove(equipmentId: number, data: GroupMoveRequest) {
+    return apiClient.post<{ message: string; moved_count: number; target_location: string }>(
+      `/equipment/${equipmentId}/group-move`,
+      data
+    )
+  },
+
+  /**
+   * Change equipment status and optionally sync all children
+   */
+  syncChildrenStatus(equipmentId: number, data: SyncChildrenStatusRequest) {
+    return apiClient.post<{ message: string; updated_count: number; new_status: string }>(
+      `/equipment/${equipmentId}/sync-children-status`,
+      data
+    )
   },
 }
