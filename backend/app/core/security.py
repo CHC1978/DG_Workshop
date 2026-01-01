@@ -149,14 +149,16 @@ def verify_totp(secret: str, code: str) -> bool:
     """
     # 檢查 secret 是否有效
     if not secret or secret == "RESET":
-        print(f"[ERROR] Invalid TOTP secret: {secret}")
+        logger.warning("TOTP verification failed: invalid secret state")
         return False
 
     try:
         totp = pyotp.TOTP(secret)
-        return totp.verify(code, valid_window=1)  # 允許 ±1 時間窗口
+        # valid_window=0: 嚴格驗證，只接受當前 30 秒窗口
+        # 如果使用者時鐘有輕微偏差，可考慮設為 1
+        return totp.verify(code, valid_window=0)
     except Exception as e:
-        print(f"[ERROR] TOTP verification error: {type(e).__name__}: {str(e)}")
+        logger.warning(f"TOTP verification error: {type(e).__name__}")
         return False
 
 

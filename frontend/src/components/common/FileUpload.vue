@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import apiClient from '@/api/client'
 import AppButton from './AppButton.vue'
 
 interface Props {
@@ -144,24 +144,12 @@ async function handleUpload() {
       endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
     }
 
-    // Get token from localStorage for authorization
-    const authData = localStorage.getItem('auth')
-    let headers: any = {
-      'Content-Type': 'multipart/form-data',
-    }
-
-    if (authData) {
-      try {
-        const auth = JSON.parse(authData)
-        if (auth.token) {
-          headers.Authorization = `Bearer ${auth.token}`
-        }
-      } catch (e) {
-        console.error('Failed to parse auth data')
-      }
-    }
-
-    const response = await axios.post(endpoint, formData, { headers })
+    // Use apiClient which automatically sends httpOnly cookies via withCredentials
+    const response = await apiClient.post(endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
 
     emit('uploaded', response.data.url)
     selectedFile.value = null
@@ -193,22 +181,8 @@ async function handleDelete() {
       endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
     }
 
-    // Get token from localStorage for authorization
-    const authData = localStorage.getItem('auth')
-    let headers: any = {}
-
-    if (authData) {
-      try {
-        const auth = JSON.parse(authData)
-        if (auth.token) {
-          headers.Authorization = `Bearer ${auth.token}`
-        }
-      } catch (e) {
-        console.error('Failed to parse auth data')
-      }
-    }
-
-    await axios.delete(endpoint, { headers })
+    // Use apiClient which automatically sends httpOnly cookies via withCredentials
+    await apiClient.delete(endpoint)
     emit('deleted')
   } catch (err: any) {
     console.error('Delete failed:', err)

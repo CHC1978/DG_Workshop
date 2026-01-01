@@ -16,8 +16,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # Token 過期時間 (分鐘)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    TEMP_TOKEN_EXPIRE_MINUTES: int = 5
+    # 生產環境建議使用更短的過期時間以降低 token 被竊取的風險
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 從 30 分鐘縮短至 15 分鐘
+    TEMP_TOKEN_EXPIRE_MINUTES: int = 3     # 從 5 分鐘縮短至 3 分鐘 (2FA 驗證用)
 
     # 資料庫設定
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/marine_equipment.db"

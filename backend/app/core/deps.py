@@ -49,6 +49,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # 驗證 token 類型 - 臨時 token 不能用於 API 存取
+    if payload.get("type") == "temp":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="臨時 token 不能用於 API 存取",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # 取得 user_id (convert from string to int)
     user_id_str = payload.get("sub")
     if user_id_str is None:

@@ -86,19 +86,40 @@ async def add_security_headers(request: Request, call_next):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
     # Content Security Policy
-    # 允許同源內容，內聯樣式 (Vue 需要)，圖片可來自 data: URIs
-    csp_directives = [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Vue 開發模式需要 unsafe-eval
-        "style-src 'self' 'unsafe-inline'",  # Tailwind 和 Vue 需要 unsafe-inline
-        "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "connect-src 'self'",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-    ]
+    # 生產環境使用更嚴格的 CSP，開發環境允許必要的例外
+    if settings.DEBUG:
+        # 開發模式: Vue 需要 unsafe-eval 和 unsafe-inline
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            "connect-src 'self' ws: wss:",  # 允許 WebSocket (Vite HMR)
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+        ]
+    else:
+        # 生產模式: 更嚴格的 CSP
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self'",  # 移除 unsafe-inline 和 unsafe-eval
+            "style-src 'self' 'unsafe-inline'",  # Tailwind 仍需要 unsafe-inline
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            "connect-src 'self'",
+            "frame-ancestors 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "upgrade-insecure-requests",  # 強制 HTTPS
+        ]
     response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
+    # 額外安全標頭
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
     # 移除可能洩露信息的標頭 (MutableHeaders 沒有 pop 方法，使用 del)
     if "Server" in response.headers:

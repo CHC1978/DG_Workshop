@@ -19,10 +19,20 @@ router = APIRouter(prefix="/uploads", tags=["File Uploads"])
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-# Allowed file extensions
+# Allowed file extensions and MIME types
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+
+# MIME type 白名單
+ALLOWED_IMAGE_MIMES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp"
+}
+ALLOWED_DOCUMENT_MIMES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+}
 
 
 def get_equipment_upload_dir(asset_code: str) -> Path:
@@ -50,6 +60,40 @@ def validate_file_extension(filename: str, file_type: str) -> str:
             )
 
     return ext
+
+
+def validate_mime_type(content_type: Optional[str], file_type: str) -> None:
+    """
+    驗證檔案 MIME 類型
+
+    Args:
+        content_type: 上傳檔案的 Content-Type
+        file_type: 檔案類型 (photo, manual, report)
+
+    Raises:
+        HTTPException: 如果 MIME 類型不在白名單中
+    """
+    if not content_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Content-Type header is required"
+        )
+
+    # 移除可能的 charset 參數
+    mime = content_type.split(';')[0].strip().lower()
+
+    if file_type == "photo":
+        if mime not in ALLOWED_IMAGE_MIMES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image MIME type: {mime}. Allowed: {', '.join(ALLOWED_IMAGE_MIMES)}"
+            )
+    elif file_type in ["manual", "report"]:
+        if mime not in ALLOWED_DOCUMENT_MIMES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid document MIME type: {mime}. Allowed: {', '.join(ALLOWED_DOCUMENT_MIMES)}"
+            )
 
 
 def safe_delete_file(file_url: str) -> None:
@@ -118,6 +162,7 @@ async def upload_equipment_photo(
         )
 
     ext = validate_file_extension(file.filename, "photo")
+    validate_mime_type(file.content_type, "photo")
 
     # Check file size
     file.file.seek(0, 2)  # Seek to end
@@ -183,6 +228,7 @@ async def upload_equipment_manual(
         )
 
     ext = validate_file_extension(file.filename, "manual")
+    validate_mime_type(file.content_type, "manual")
 
     # Check file size
     file.file.seek(0, 2)
@@ -248,6 +294,7 @@ async def upload_calibration_report(
         )
 
     ext = validate_file_extension(file.filename, "report")
+    validate_mime_type(file.content_type, "report")
 
     # Check file size
     file.file.seek(0, 2)
@@ -463,6 +510,7 @@ async def upload_calibration_report(
         )
 
     ext = validate_file_extension(file.filename, "report")
+    validate_mime_type(file.content_type, "report")
 
     # Check file size
     file.file.seek(0, 2)
@@ -520,10 +568,8 @@ async def delete_calibration_report(
             detail="Report not found"
         )
 
-    # Delete file
-    file_path = Path(calibration.report_url.lstrip('/'))
-    if file_path.exists():
-        file_path.unlink()
+    # Delete file (使用安全刪除函數)
+    safe_delete_file(calibration.report_url)
 
     # Clear URL from database
     calibration.report_url = None

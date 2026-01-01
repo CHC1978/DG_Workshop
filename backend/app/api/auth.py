@@ -1,7 +1,10 @@
 """Authentication API endpoints"""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -78,7 +81,7 @@ async def login_step1(
         # Check if user was reset (totp_secret == "RESET") - must set up 2FA
         if user.totp_secret == "RESET":
             # User was reset by admin - must set up 2FA before login
-            print(f"[INFO] User {user.username} was reset, needs to set up 2FA")
+            logger.info(f"User {user.username} was reset, needs to set up 2FA")
 
             # Generate temporary token for 2FA setup
             temp_token = create_temp_token({
@@ -107,7 +110,7 @@ async def login_step1(
             )
 
         # 2FA is disabled (totp_secret == None) - login directly without 2FA
-        print(f"[INFO] 2FA disabled for user {user.username}, logging in directly")
+        logger.info(f"2FA disabled for user {user.username}, logging in directly")
 
         # Generate access token directly
         access_token = create_access_token({
@@ -147,7 +150,7 @@ async def login_step1(
 
         if trusted_device and trusted_device.is_valid():
             # Device is trusted and still valid, skip 2FA
-            print(f"[INFO] Trusted device login for user {user.username}")
+            logger.info(f"Trusted device login for user {user.username}")
 
             # 驗證 User-Agent 一致性 (允許瀏覽器版本更新)
             current_user_agent = request.headers.get("user-agent", "")
@@ -177,9 +180,8 @@ async def login_step1(
 
             if current_sig != stored_sig and stored_user_agent:
                 # User-Agent 變化可疑，撤銷信任
-                print(f"[WARNING] User-Agent mismatch for trusted device. "
-                      f"Stored: {stored_sig}, Current: {current_sig}")
-                print(f"[WARNING] Revoking trust for device {credentials.device_fingerprint}")
+                logger.warning(f"User-Agent mismatch for trusted device. Stored: {stored_sig}, Current: {current_sig}")
+                logger.warning(f"Revoking trust for device")
                 # 不使用此信任設備，要求 2FA (繼續執行到下面的 temp_token 邏輯)
             else:
                 # User-Agent 一致，延長信任期
@@ -253,25 +255,14 @@ async def login_step2(
     Step 2: Verify TOTP code
     Returns access token
     """
-    try:
-        print(f"[DEBUG] login_step2 called")
-        print(f"[DEBUG] Cookies: {request.cookies}")
-        print(f"[DEBUG] Credentials: {credentials}")
+    # Get temp_token from cookie
+    temp_token = request.cookies.get("temp_token")
 
-        # Get temp_token from cookie
-        temp_token = request.cookies.get("temp_token")
-        print(f"[DEBUG] temp_token from cookie: {temp_token[:20] if temp_token else 'None'}...")
-
-        if not temp_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Temporary token not found",
-            )
-    except Exception as e:
-        print(f"[ERROR] Exception in login_step2: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise
+    if not temp_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Temporary token not found",
+        )
 
     # Decode temporary token
     payload = decode_token(temp_token)
@@ -312,12 +303,6 @@ async def login_step2(
             detail="User not found",
         )
 
-    # Verify TOTP code
-    print(f"[DEBUG] user.totp_enabled: {user.totp_enabled}")
-    print(f"[DEBUG] user.totp_secret exists: {bool(user.totp_secret)}")
-    print(f"[DEBUG] user.totp_secret value: {user.totp_secret[:10] if user.totp_secret and len(user.totp_secret) > 10 else user.totp_secret}")
-    print(f"[DEBUG] totp_code from request: {credentials.totp_code}")
-
     # Check if 2FA is properly set up (not RESET state)
     if not user.totp_enabled or not user.totp_secret or user.totp_secret == "RESET":
         raise HTTPException(
@@ -327,11 +312,9 @@ async def login_step2(
 
     # 驗證 TOTP
     is_valid = verify_totp(user.totp_secret, credentials.totp_code)
-    print(f"[DEBUG] TOTP verification result: {is_valid}")
 
     if not is_valid:
-        print(f"[ERROR] TOTP verification failed for user {user.username}")
-        print(f"[ERROR] Expected TOTP secret length: {len(user.totp_secret) if user.totp_secret else 0}")
+        logger.warning(f"TOTP verification failed for user {user.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid TOTP code",
@@ -371,7 +354,7 @@ async def login_step2(
             db.add(new_device)
 
         await db.commit()
-        print(f"[INFO] Device marked as trusted for user {user.username}")
+        logger.info(f"Device marked as trusted for user {user.username}")
 
     # Generate access token
     access_token = create_access_token({
@@ -406,7 +389,9 @@ async def login_step2(
 # ==================== 2FA Setup Endpoints ====================
 
 @router.post("/2fa/setup", response_model=Setup2FAResponse)
+@limiter.limit("5/minute")
 async def setup_2fa(
+    request: Request,
     current_user: User = Depends(get_user_from_temp_token),
     db: AsyncSession = Depends(get_db)
 ):
@@ -440,7 +425,9 @@ async def setup_2fa(
 
 
 @router.post("/2fa/confirm", response_model=Confirm2FAResponse)
+@limiter.limit("5/minute")
 async def confirm_2fa(
+    http_request: Request,
     request: Confirm2FARequest,
     current_user: User = Depends(get_user_from_temp_token),
     db: AsyncSession = Depends(get_db)
@@ -474,7 +461,9 @@ async def confirm_2fa(
 
 
 @router.post("/2fa/disable", response_model=Confirm2FAResponse)
+@limiter.limit("5/minute")
 async def disable_2fa(
+    http_request: Request,
     request: Confirm2FARequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
