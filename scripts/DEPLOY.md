@@ -59,7 +59,7 @@
 
 需要上傳至 NAS 的檔案：
 
-| 本地路徑 | 說明 |
+| 本地路徑                                   | 說明 |
 |----------|------|
 | `docker-images/backend-arm64.tar` | 後端 Docker 映像 |
 | `docker-images/frontend-arm64.tar` | 前端 Docker 映像 |

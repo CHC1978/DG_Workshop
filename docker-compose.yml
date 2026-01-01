@@ -30,9 +30,9 @@ services:
       - QR_CODE_DOMAIN=${QR_CODE_DOMAIN:-localhost:8080}
       - QR_CODE_PROTOCOL=${QR_CODE_PROTOCOL:-http}
     volumes:
-      # Persistent data volumes
-      - marine_data:/app/data
-      - marine_uploads:/app/uploads
+      # Persistent data (bind mount to host directory)
+      - ${DATA_PATH:-./data}:/app/data
+      - ${UPLOADS_PATH:-./uploads}:/app/uploads
     networks:
       - marine-network
     healthcheck:
@@ -98,10 +98,6 @@ networks:
     driver: bridge
 
 # ----------------------------------------
-# Persistent Volumes
+# Note: Data is stored in bind mounts, not Docker volumes
+# Configure DATA_PATH and UPLOADS_PATH in .env
 # ----------------------------------------
-volumes:
-  marine_data:
-    driver: local
-  marine_uploads:
-    driver: local
