@@ -1,0 +1,86 @@
+# ============================================
+# docker-compose.dev.yml - Development Configuration
+# Windows x64 local development environment
+# Usage: docker compose -f docker-compose.dev.yml up
+# ============================================
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # Backend API Service (Development)
+  # ----------------------------------------
+  backend:
+    image: marine-equipment-backend:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: marine-equipment-backend-dev
+    restart: unless-stopped
+    environment:
+      # Application settings
+      - APP_NAME=Marine Equipment QR System (Dev)
+      - APP_VERSION=0.1.0-dev
+      - DEBUG=true
+      # Security settings
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - TEMP_TOKEN_EXPIRE_MINUTES=5
+      # Database settings
+      - DATABASE_URL=sqlite+aiosqlite:///./data/marine_equipment.db
+      # CORS settings (allow localhost)
+      - BACKEND_CORS_ORIGINS=["http://localhost:8080","http://localhost:5173","http://127.0.0.1:8080"]
+      # QR Code settings
+      - QR_CODE_DOMAIN=localhost:8080
+      - QR_CODE_PROTOCOL=http
+    volumes:
+      # Mount local data directory for development
+      - ./backend/data:/app/data
+      - ./backend/uploads:/app/uploads
+    networks:
+      - marine-network-dev
+    ports:
+      # Expose backend directly for debugging
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ----------------------------------------
+  # Frontend Service (Development - HTTP only)
+  # ----------------------------------------
+  frontend:
+    image: marine-equipment-frontend:dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: marine-equipment-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    networks:
+      - marine-network-dev
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# ----------------------------------------
+# Network Definition
+# ----------------------------------------
+networks:
+  marine-network-dev:
+    driver: bridge
+
+# ----------------------------------------
+# Note: No persistent volumes in dev mode
+# Data is stored in local ./backend/data directory
+# ----------------------------------------

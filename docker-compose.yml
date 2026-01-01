@@ -1,36 +1,36 @@
 # ============================================
-# docker-compose.yml - 海洋設備 QR 管理系統
-# 適用於 Synology DS223 Container Manager
+# docker-compose.yml - Marine Equipment QR System
+# Production configuration for Synology DS223
 # ============================================
 version: '3.8'
 
 services:
   # ----------------------------------------
-  # 後端 API 服務
+  # Backend API Service
   # ----------------------------------------
   backend:
-    image: marine-equipment-backend:arm64
+    image: marine-equipment-backend:${ARCH:-arm64}
     container_name: marine-equipment-backend
     restart: unless-stopped
     environment:
-      # 應用程式設定
+      # Application settings
       - APP_NAME=${APP_NAME:-Marine Equipment QR System}
       - APP_VERSION=${APP_VERSION:-0.1.0}
       - DEBUG=${DEBUG:-false}
-      # 安全性設定
+      # Security settings
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
       - ALGORITHM=${ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
       - TEMP_TOKEN_EXPIRE_MINUTES=${TEMP_TOKEN_EXPIRE_MINUTES:-3}
-      # 資料庫設定
+      # Database settings
       - DATABASE_URL=sqlite+aiosqlite:///./data/marine_equipment.db
-      # CORS 設定
+      # CORS settings
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:8080"]}
-      # QR Code 設定
+      # QR Code settings
       - QR_CODE_DOMAIN=${QR_CODE_DOMAIN:-localhost:8080}
       - QR_CODE_PROTOCOL=${QR_CODE_PROTOCOL:-http}
     volumes:
-      # 持久化資料卷
+      # Persistent data volumes
       - marine_data:/app/data
       - marine_uploads:/app/uploads
     networks:
@@ -41,7 +41,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    # 資源限制（適合 DS223 入門級 NAS）
+    # Resource limits (suitable for DS223)
     deploy:
       resources:
         limits:
@@ -55,14 +55,18 @@ services:
         max-file: "3"
 
   # ----------------------------------------
-  # 前端服務 (Nginx)
+  # Frontend Service (Nginx)
   # ----------------------------------------
   frontend:
-    image: marine-equipment-frontend:arm64
+    image: marine-equipment-frontend:${ARCH:-arm64}
     container_name: marine-equipment-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      # SSL certificates (for HTTPS)
+      - ${SSL_CERT_PATH:-./ssl}:/etc/nginx/ssl:ro
     networks:
       - marine-network
     depends_on:
@@ -87,14 +91,14 @@ services:
         max-file: "3"
 
 # ----------------------------------------
-# 網路定義
+# Network Definition
 # ----------------------------------------
 networks:
   marine-network:
     driver: bridge
 
 # ----------------------------------------
-# 持久化資料卷
+# Persistent Volumes
 # ----------------------------------------
 volumes:
   marine_data:

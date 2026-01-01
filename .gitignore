@@ -13,6 +13,8 @@ build/
 
 # FastAPI
 .env
+.env.production
+.env.local
 *.db
 *.db-shm
 *.db-wal
@@ -58,3 +60,6 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Docker build outputs
+docker-images/
