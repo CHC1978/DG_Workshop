@@ -115,7 +115,7 @@ export const useAuthStore = defineStore(
   },
   {
     persist: {
-      paths: ['user'],  // Only persist user info, tokens are in httpOnly cookies
+      pick: ['user'],  // Only persist user info, tokens are in httpOnly cookies
     },
   }
 )

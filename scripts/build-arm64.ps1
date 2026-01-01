@@ -1,7 +1,7 @@
 # ============================================
-# ARM64 Docker 映像構建腳本
+# ARM64 Docker Image Build Script
 # Marine Equipment QR System
-# 適用於 Synology DS223 NAS
+# Target: Synology DS223 NAS
 # ============================================
 
 param(
@@ -13,7 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# 顏色輸出函式
+# Color output functions
 function Write-Status($message) {
     Write-Host "[INFO] $message" -ForegroundColor Cyan
 }
@@ -22,11 +22,11 @@ function Write-Success($message) {
     Write-Host "[OK] $message" -ForegroundColor Green
 }
 
-function Write-Error($message) {
+function Write-ErrorMsg($message) {
     Write-Host "[ERROR] $message" -ForegroundColor Red
 }
 
-# 取得腳本所在目錄的父目錄（專案根目錄）
+# Get project root directory (parent of scripts folder)
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
@@ -38,75 +38,75 @@ Write-Host "============================================" -ForegroundColor Yello
 Write-Host ""
 
 # ----------------------------------------
-# 步驟 1: 檢查 Docker
+# Step 1: Check Docker Installation
 # ----------------------------------------
-Write-Status "檢查 Docker 安裝狀態..."
+Write-Status "Checking Docker installation..."
 
 try {
     $dockerVersion = docker --version
-    Write-Success "Docker 已安裝: $dockerVersion"
+    Write-Success "Docker installed: $dockerVersion"
 } catch {
-    Write-Error "Docker 未安裝或未啟動"
+    Write-ErrorMsg "Docker is not installed or not running"
     Write-Host ""
-    Write-Host "請安裝 Docker Desktop:" -ForegroundColor Yellow
+    Write-Host "Please install Docker Desktop:" -ForegroundColor Yellow
     Write-Host "https://www.docker.com/products/docker-desktop/" -ForegroundColor Cyan
     Write-Host ""
     exit 1
 }
 
-# 確認 Docker 正在運行
+# Verify Docker is running
 try {
     docker info | Out-Null
-    Write-Success "Docker 正在運行"
+    Write-Success "Docker is running"
 } catch {
-    Write-Error "Docker Desktop 未啟動，請先啟動 Docker Desktop"
+    Write-ErrorMsg "Docker Desktop is not started. Please start Docker Desktop first."
     exit 1
 }
 
 # ----------------------------------------
-# 步驟 2: 設定 Buildx
+# Step 2: Setup Buildx
 # ----------------------------------------
-Write-Status "設定 Docker Buildx 多架構支援..."
+Write-Status "Setting up Docker Buildx for multi-architecture support..."
 
 $builderName = "marine-arm64-builder"
 $existingBuilder = docker buildx ls 2>&1 | Select-String $builderName
 
 if (-not $existingBuilder) {
-    Write-Status "建立新的 Buildx builder: $builderName"
+    Write-Status "Creating new Buildx builder: $builderName"
     docker buildx create --name $builderName --driver docker-container --use
     docker buildx inspect --bootstrap
 } else {
-    Write-Status "使用現有的 builder: $builderName"
+    Write-Status "Using existing builder: $builderName"
     docker buildx use $builderName
 }
 
-Write-Success "Buildx 設定完成"
+Write-Success "Buildx setup complete"
 
 # ----------------------------------------
-# 步驟 3: 建立輸出目錄
+# Step 3: Create Output Directory
 # ----------------------------------------
 $OutputPath = Join-Path $ProjectRoot $OutputDir
 
 if (-not (Test-Path $OutputPath)) {
     New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
-    Write-Status "已建立輸出目錄: $OutputPath"
+    Write-Status "Created output directory: $OutputPath"
 } else {
-    Write-Status "使用現有輸出目錄: $OutputPath"
+    Write-Status "Using existing output directory: $OutputPath"
 }
 
 # ----------------------------------------
-# 步驟 4: 構建後端映像
+# Step 4: Build Backend Image
 # ----------------------------------------
 if (-not $SkipBackend) {
     Write-Host ""
     Write-Host "----------------------------------------" -ForegroundColor Yellow
-    Write-Host " 構建後端映像 (ARM64)" -ForegroundColor Yellow
+    Write-Host " Building Backend Image (ARM64)" -ForegroundColor Yellow
     Write-Host "----------------------------------------" -ForegroundColor Yellow
 
     $backendTar = Join-Path $OutputPath "backend-arm64.tar"
 
-    Write-Status "開始構建後端映像..."
-    Write-Status "這可能需要 5-10 分鐘（首次構建）..."
+    Write-Status "Starting backend image build..."
+    Write-Status "This may take 5-10 minutes (first build)..."
 
     $startTime = Get-Date
 
@@ -119,34 +119,34 @@ if (-not $SkipBackend) {
         backend
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "後端映像構建失敗"
+        Write-ErrorMsg "Backend image build failed"
         exit 1
     }
 
     $duration = (Get-Date) - $startTime
-    $size = [math]::Round((Get-Item $backendTar).Length / 1MB, 2)
+    $fileSize = [math]::Round((Get-Item $backendTar).Length / 1MB, 2)
 
-    Write-Success "後端映像構建完成"
-    Write-Host "  - 檔案: $backendTar" -ForegroundColor Gray
-    Write-Host "  - 大小: ${size} MB" -ForegroundColor Gray
-    Write-Host "  - 耗時: $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor Gray
+    Write-Success "Backend image build complete"
+    Write-Host "  - File: $backendTar" -ForegroundColor Gray
+    Write-Host "  - Size: $fileSize MB" -ForegroundColor Gray
+    Write-Host "  - Duration: $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor Gray
 } else {
-    Write-Status "跳過後端映像構建 (-SkipBackend)"
+    Write-Status "Skipping backend image build (-SkipBackend)"
 }
 
 # ----------------------------------------
-# 步驟 5: 構建前端映像
+# Step 5: Build Frontend Image
 # ----------------------------------------
 if (-not $SkipFrontend) {
     Write-Host ""
     Write-Host "----------------------------------------" -ForegroundColor Yellow
-    Write-Host " 構建前端映像 (ARM64)" -ForegroundColor Yellow
+    Write-Host " Building Frontend Image (ARM64)" -ForegroundColor Yellow
     Write-Host "----------------------------------------" -ForegroundColor Yellow
 
     $frontendTar = Join-Path $OutputPath "frontend-arm64.tar"
 
-    Write-Status "開始構建前端映像..."
-    Write-Status "這可能需要 3-5 分鐘（首次構建）..."
+    Write-Status "Starting frontend image build..."
+    Write-Status "This may take 3-5 minutes (first build)..."
 
     $startTime = Get-Date
 
@@ -159,51 +159,51 @@ if (-not $SkipFrontend) {
         frontend
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "前端映像構建失敗"
+        Write-ErrorMsg "Frontend image build failed"
         exit 1
     }
 
     $duration = (Get-Date) - $startTime
-    $size = [math]::Round((Get-Item $frontendTar).Length / 1MB, 2)
+    $fileSize = [math]::Round((Get-Item $frontendTar).Length / 1MB, 2)
 
-    Write-Success "前端映像構建完成"
-    Write-Host "  - 檔案: $frontendTar" -ForegroundColor Gray
-    Write-Host "  - 大小: ${size} MB" -ForegroundColor Gray
-    Write-Host "  - 耗時: $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor Gray
+    Write-Success "Frontend image build complete"
+    Write-Host "  - File: $frontendTar" -ForegroundColor Gray
+    Write-Host "  - Size: $fileSize MB" -ForegroundColor Gray
+    Write-Host "  - Duration: $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor Gray
 } else {
-    Write-Status "跳過前端映像構建 (-SkipFrontend)"
+    Write-Status "Skipping frontend image build (-SkipFrontend)"
 }
 
 # ----------------------------------------
-# 步驟 6: 清理（可選）
+# Step 6: Cleanup (Optional)
 # ----------------------------------------
 if ($CleanBuilder) {
     Write-Host ""
-    Write-Status "清理 Buildx builder..."
+    Write-Status "Cleaning up Buildx builder..."
     docker buildx rm $builderName
-    Write-Success "Builder 已清理"
+    Write-Success "Builder removed"
 }
 
 # ----------------------------------------
-# 完成摘要
+# Build Summary
 # ----------------------------------------
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " 構建完成！" -ForegroundColor Green
+Write-Host " Build Complete!" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "輸出檔案:" -ForegroundColor Yellow
+Write-Host "Output files:" -ForegroundColor Yellow
 
 Get-ChildItem $OutputPath -Filter "*.tar" | ForEach-Object {
-    $size = [math]::Round($_.Length / 1MB, 2)
-    Write-Host "  - $($_.Name) (${size} MB)" -ForegroundColor Cyan
+    $fileSize = [math]::Round($_.Length / 1MB, 2)
+    Write-Host "  - $($_.Name) ($fileSize MB)" -ForegroundColor Cyan
 }
 
 Write-Host ""
-Write-Host "下一步驟:" -ForegroundColor Yellow
-Write-Host "  1. 透過 DSM File Station 上傳 tar 檔案至 NAS" -ForegroundColor White
-Write-Host "  2. 在 Container Manager 匯入映像" -ForegroundColor White
-Write-Host "  3. 建立專案並啟動容器" -ForegroundColor White
+Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "  1. Upload tar files to NAS via DSM File Station" -ForegroundColor White
+Write-Host "  2. Import images in Container Manager" -ForegroundColor White
+Write-Host "  3. Create project and start containers" -ForegroundColor White
 Write-Host ""
-Write-Host "詳細說明請參閱專案文件" -ForegroundColor Gray
+Write-Host "See scripts/DEPLOY.md for detailed instructions" -ForegroundColor Gray
 Write-Host ""

@@ -235,6 +235,9 @@ export interface LocationCreateRequest {
 export interface LocationListResponse {
   locations: Location[]
   total: number
+  page?: number
+  page_size?: number
+  total_pages?: number
 }
 
 // ==================== Project ====================

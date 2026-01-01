@@ -32,7 +32,6 @@ bun.lockb.debug
 # Docker
 Dockerfile
 .dockerignore
-nginx.conf
 
 # 測試
 coverage/

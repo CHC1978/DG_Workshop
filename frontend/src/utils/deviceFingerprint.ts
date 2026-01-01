@@ -3,12 +3,19 @@
  * 使用多種設備屬性和 Web Crypto API SHA-256 hash
  */
 
+// Extend Navigator for non-standard properties
+interface ExtendedNavigator extends Navigator {
+  deviceMemory?: number
+}
+
 export async function generateDeviceFingerprint(): Promise<string> {
+  const nav = navigator as ExtendedNavigator
+
   const components = [
     // 基本資訊
-    navigator.userAgent,
-    navigator.language,
-    navigator.languages?.join(',') || '',
+    nav.userAgent,
+    nav.language,
+    nav.languages?.join(',') || '',
     new Date().getTimezoneOffset().toString(),
 
     // 螢幕資訊
@@ -18,9 +25,9 @@ export async function generateDeviceFingerprint(): Promise<string> {
     screen.pixelDepth.toString(),
 
     // 硬體資訊
-    navigator.hardwareConcurrency?.toString() || '',
-    navigator.deviceMemory?.toString() || '',
-    navigator.maxTouchPoints?.toString() || '',
+    nav.hardwareConcurrency?.toString() || '',
+    nav.deviceMemory?.toString() || '',
+    nav.maxTouchPoints?.toString() || '',
 
     // 平台資訊
     navigator.platform,
