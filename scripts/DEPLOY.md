@@ -72,17 +72,44 @@
 
 ## 步驟 3: 建立 .env 檔案
 
-複製 `.env.example` 為 `.env` 並修改：
+複製 `.env.production` 為 `.env` 並修改：
 
 ```bash
 # 必須更換的設定
 SECRET_KEY=<使用以下指令產生>
 # python -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# 根據 NAS IP 修改
-BACKEND_CORS_ORIGINS=["http://192.168.x.x:8080"]
-QR_CODE_DOMAIN=192.168.x.x:8080
 ```
+
+### Tailscale HTTPS 設定 (建議)
+
+```bash
+# Network Ports (使用非標準 port 避免與 DSM 衝突)
+HTTP_PORT=8080
+HTTPS_PORT=8443
+
+# SSL 憑證路徑
+SSL_CERT_PATH=/volume1/docker/marine-equipment/ssl
+
+# Tailscale Domain - 重要！必須包含 port 號
+# 格式: your-machine.tail-xxxxx.ts.net:8443
+QR_CODE_DOMAIN=your-machine.tail-xxxxx.ts.net:8443
+QR_CODE_PROTOCOL=https
+
+# CORS 設定 - 必須與 QR_CODE_DOMAIN 一致
+BACKEND_CORS_ORIGINS=["https://your-machine.tail-xxxxx.ts.net:8443"]
+```
+
+### 內網 HTTP 設定 (替代方案)
+
+```bash
+HTTP_PORT=8080
+QR_CODE_DOMAIN=192.168.x.x:8080
+QR_CODE_PROTOCOL=http
+BACKEND_CORS_ORIGINS=["http://192.168.x.x:8080"]
+```
+
+> **重要**: `QR_CODE_DOMAIN` 會影響所有設備 QR Code 的 URL。
+> 如果使用非標準 port (非 80/443)，必須在 domain 中包含 port 號！
 
 ---
 
@@ -91,13 +118,16 @@ QR_CODE_DOMAIN=192.168.x.x:8080
 透過 DSM File Station 建立：
 
 ```
-/docker/marine-equipment/
+/volume1/docker/marine-equipment/
 ├── data/                 # 資料庫存放
 ├── uploads/              # 上傳檔案存放
+├── ssl/                  # SSL 憑證 (Tailscale HTTPS)
 ├── images/               # Docker 映像檔
 ├── docker-compose.yml
 └── .env
 ```
+
+> 注意: 使用完整路徑 `/volume1/docker/marine-equipment/`
 
 ---
 
@@ -155,6 +185,23 @@ QR_CODE_DOMAIN=192.168.x.x:8080
 
 在 Container Manager > 專案 > marine-equipment，點擊容器查看日誌。
 
+### 驗證環境變數設定
+
+使用 Task Scheduler 執行以下腳本檢查設定：
+
+```bash
+#!/bin/bash
+echo "=== Environment Check ==="
+docker exec marine-equipment-backend python -c "
+from app.core.config import settings
+print(f'QR_CODE_DOMAIN: {settings.QR_CODE_DOMAIN}')
+print(f'QR_CODE_PROTOCOL: {settings.QR_CODE_PROTOCOL}')
+print(f'CORS: {settings.BACKEND_CORS_ORIGINS}')
+"
+```
+
+預期輸出應包含正確的 port 號 (如 `:8443`)
+
 ### 常見問題
 
 **Q: 容器無法啟動**
@@ -163,11 +210,22 @@ QR_CODE_DOMAIN=192.168.x.x:8080
 
 **Q: 前端無法連接後端**
 - 確認後端容器健康狀態
-- 檢查 CORS 設定是否包含前端 URL
+- 檢查 CORS 設定是否包含前端 URL（含 port）
 
 **Q: 資料庫錯誤**
-- 確認 `/docker/marine-equipment/data/` 目錄有寫入權限
+- 確認 `/volume1/docker/marine-equipment/data/` 目錄有寫入權限
 - 如遷移現有資料庫，確認檔案完整
+
+**Q: QR Code URL 沒有 port 號**
+- 確認 `.env` 中 `QR_CODE_DOMAIN` 包含 port（如 `:8443`）
+- 重啟容器讓新設定生效
+- 執行 `update_qr_codes_nas.py` 更新現有設備的 QR Code
+- 詳見 `scripts/update_qr_codes_nas.py`
+
+**Q: Port 衝突 (80/443/5001)**
+- DSM 預設使用 port 80, 443, 5001
+- 使用 8080/8443 避免衝突
+- 確認 `.env` 中 `HTTP_PORT=8080`, `HTTPS_PORT=8443`
 
 ---
 
