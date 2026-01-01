@@ -84,8 +84,10 @@
                   <option value="">-- Select Action --</option>
                   <option value="view">View</option>
                   <option v-if="authStore.isAdmin || authStore.user?.id === user.id" value="edit">Edit</option>
-                  <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="reset_password">Reset Password</option>
-                  <option v-if="authStore.isAdmin" value="toggle_2fa">{{ user.totp_enabled ? 'Disable 2FA' : 'Enable 2FA' }}</option>
+                  <option v-if="authStore.isAdmin" value="reset_password">Reset Password</option>
+                  <option v-if="authStore.isAdmin" value="reset_2fa">Reset 2FA</option>
+                  <option v-if="authStore.isAdmin && !user.totp_enabled" value="enable_2fa">Enable 2FA</option>
+                  <option v-if="authStore.isAdmin && user.totp_enabled" value="disable_2fa">Disable 2FA</option>
                   <option v-if="authStore.isAdmin && user.id !== authStore.user?.id" value="delete" class="text-red-600">Delete</option>
                 </select>
               </td>
@@ -99,11 +101,91 @@
         Showing {{ usersStore.usersList.length }} of {{ usersStore.total }} users
       </div>
     </div>
+
+    <!-- Enable 2FA Modal -->
+    <div v-if="show2FAModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          Enable 2FA for {{ selected2FAUser?.full_name }}
+        </h3>
+
+        <!-- Step 1: Show QR Code -->
+        <div v-if="setup2FAStep === 1">
+          <p class="text-sm text-gray-600 mb-4">
+            Scan this QR code with Google Authenticator or Microsoft Authenticator:
+          </p>
+
+          <div class="flex justify-center mb-4">
+            <img v-if="qrCodeData" :src="qrCodeData" alt="2FA QR Code" class="w-48 h-48" />
+            <div v-else class="w-48 h-48 bg-gray-100 flex items-center justify-center">
+              <span class="text-gray-500">Loading...</span>
+            </div>
+          </div>
+
+          <div v-if="totpSecret" class="mb-4 p-3 bg-gray-100 rounded-lg">
+            <p class="text-xs text-gray-500 mb-1">Manual entry code:</p>
+            <p class="font-mono text-sm break-all">{{ totpSecret }}</p>
+          </div>
+
+          <div v-if="backupCodes.length > 0" class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p class="text-xs text-yellow-800 font-semibold mb-2">Backup Codes (save these!):</p>
+            <div class="grid grid-cols-2 gap-1">
+              <span v-for="code in backupCodes" :key="code" class="font-mono text-xs">{{ code }}</span>
+            </div>
+          </div>
+
+          <div class="flex space-x-3">
+            <AppButton variant="ghost" @click="close2FAModal" class="flex-1">
+              Cancel
+            </AppButton>
+            <AppButton variant="primary" @click="setup2FAStep = 2" class="flex-1">
+              Next
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Step 2: Verify TOTP Code -->
+        <div v-else-if="setup2FAStep === 2">
+          <p class="text-sm text-gray-600 mb-4">
+            Enter the 6-digit code from the authenticator app to confirm setup:
+          </p>
+
+          <div class="mb-4">
+            <input
+              v-model="verifyTotpCode"
+              type="text"
+              maxlength="6"
+              placeholder="000000"
+              class="w-full px-4 py-2 text-center text-2xl font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+              @keyup.enter="confirmEnable2FA"
+            />
+          </div>
+
+          <div v-if="enable2FAError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600">{{ enable2FAError }}</p>
+          </div>
+
+          <div class="flex space-x-3">
+            <AppButton variant="ghost" @click="setup2FAStep = 1" class="flex-1">
+              Back
+            </AppButton>
+            <AppButton
+              variant="primary"
+              @click="confirmEnable2FA"
+              :loading="enabling2FA"
+              class="flex-1"
+            >
+              Enable 2FA
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </div>
   </MainLayout>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUsersStore } from '@/stores/users'
@@ -116,6 +198,17 @@ const router = useRouter()
 const authStore = useAuthStore()
 const usersStore = useUsersStore()
 const uiStore = useUiStore()
+
+// 2FA Modal state
+const show2FAModal = ref(false)
+const selected2FAUser = ref<User | null>(null)
+const setup2FAStep = ref(1)
+const qrCodeData = ref('')
+const totpSecret = ref('')
+const backupCodes = ref<string[]>([])
+const verifyTotpCode = ref('')
+const enable2FAError = ref('')
+const enabling2FA = ref(false)
 
 function roleLabel(role: string): string {
   const labels: Record<string, string> = {
@@ -155,8 +248,14 @@ function handleUserAction(event: Event, user: User) {
     case 'reset_password':
       handleResetPassword(user)
       break
-    case 'toggle_2fa':
-      handleToggle2FA(user)
+    case 'reset_2fa':
+      handleReset2FA(user)
+      break
+    case 'enable_2fa':
+      handleEnable2FA(user)
+      break
+    case 'disable_2fa':
+      handleDisable2FA(user)
       break
     case 'delete':
       handleDelete(user)
@@ -175,32 +274,136 @@ function editUser(id: number) {
   router.push(`/admin/users/${id}/edit`)
 }
 
-async function handleToggle2FA(user: User) {
-  const willEnable = !user.totp_enabled
+async function handleReset2FA(user: User) {
+  const isSelf = user.id === authStore.user?.id
+  const userName = isSelf ? 'your' : `${user.full_name}'s (@${user.username})`
+  const pronoun = isSelf ? 'your' : 'their'
 
-  if (willEnable) {
-    // Cannot directly enable 2FA - user must set it up themselves
-    alert(
-      `Cannot directly enable 2FA for ${user.full_name}.\n\n` +
-      `Please ask the user to:\n` +
-      `1. Login to their account\n` +
-      `2. Go to Settings\n` +
-      `3. Enable 2FA and scan the QR code`
-    )
+  const logoutWarning = '\n\n⚠️ The user will be logged out and must set up 2FA on next login.'
+
+  if (!confirm(
+    `Reset 2FA for ${userName}?\n\n` +
+    `This will:\n` +
+    `• Disable ${pronoun} current 2FA\n` +
+    `• Clear ${pronoun} TOTP secret\n` +
+    `• Force ${isSelf ? 'you' : 'them'} to set up 2FA again on next login` +
+    logoutWarning
+  )) {
     return
   }
 
-  // Disable 2FA
-  if (!confirm(`Disable 2FA for ${user.full_name}? They will no longer need 2FA to login.`)) {
+  try {
+    const result = await usersStore.reset2FA(user.id)
+
+    if (isSelf) {
+      // Current user reset their own 2FA - must logout
+      uiStore.showNotification('success', '2FA reset successfully. You will be logged out.')
+      // Wait a moment for notification to show
+      setTimeout(async () => {
+        await authStore.logout()
+        router.push('/login')
+      }, 1500)
+    } else {
+      uiStore.showNotification('success', `2FA reset successfully for ${user.full_name}. They must set up 2FA on next login.`)
+      await usersStore.fetchList()
+    }
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to reset 2FA')
+  }
+}
+
+async function handleDisable2FA(user: User) {
+  const isSelf = user.id === authStore.user?.id
+  const userName = isSelf ? 'yourself' : user.full_name
+  const pronoun = isSelf ? 'You' : 'They'
+
+  if (!confirm(
+    `Disable 2FA for ${userName}?\n\n` +
+    `${pronoun} will no longer need 2FA to login.\n\n` +
+    `Note: To enable 2FA again, use "Enable 2FA" from the Actions menu.`
+  )) {
     return
   }
 
   try {
     await usersStore.toggle2FA(user.id, false)
-    uiStore.showNotification('success', `2FA disabled for ${user.full_name}`)
+    const message = isSelf
+      ? '2FA disabled for your account. You can now login without 2FA.'
+      : `2FA disabled for ${user.full_name}`
+    uiStore.showNotification('success', message)
     await usersStore.fetchList()
   } catch (error: any) {
     uiStore.showNotification('error', error.response?.data?.detail || 'Failed to disable 2FA')
+  }
+}
+
+async function handleEnable2FA(user: User) {
+  try {
+    // First try to directly enable 2FA (if user has existing secret)
+    const result = await usersStore.toggle2FA(user.id, true)
+
+    if (!result.needs_setup) {
+      // User has existing secret, 2FA enabled directly
+      uiStore.showNotification('success', `2FA enabled for ${user.full_name}`)
+      await usersStore.fetchList()
+      return
+    }
+
+    // User needs to set up 2FA - show QR code modal
+    selected2FAUser.value = user
+    setup2FAStep.value = 1
+    qrCodeData.value = ''
+    totpSecret.value = ''
+    backupCodes.value = []
+    verifyTotpCode.value = ''
+    enable2FAError.value = ''
+    enabling2FA.value = false
+
+    // Show modal
+    show2FAModal.value = true
+
+    // Fetch QR code data
+    const data = await usersStore.setup2FA(user.id)
+    // Backend already returns complete data URL (data:image/png;base64,...)
+    qrCodeData.value = data.qr_code
+    totpSecret.value = data.secret
+    backupCodes.value = data.backup_codes
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to enable 2FA')
+    show2FAModal.value = false
+  }
+}
+
+function close2FAModal() {
+  show2FAModal.value = false
+  selected2FAUser.value = null
+  qrCodeData.value = ''
+  totpSecret.value = ''
+  backupCodes.value = []
+  verifyTotpCode.value = ''
+  enable2FAError.value = ''
+}
+
+async function confirmEnable2FA() {
+  if (!selected2FAUser.value) return
+
+  if (!verifyTotpCode.value || verifyTotpCode.value.length !== 6) {
+    enable2FAError.value = 'Please enter a 6-digit code'
+    return
+  }
+
+  enabling2FA.value = true
+  enable2FAError.value = ''
+
+  try {
+    await usersStore.confirm2FA(selected2FAUser.value.id, verifyTotpCode.value)
+    uiStore.showNotification('success', `2FA enabled successfully for ${selected2FAUser.value.full_name}`)
+    close2FAModal()
+    await usersStore.fetchList()
+  } catch (error: any) {
+    enable2FAError.value = error.response?.data?.detail || 'Invalid TOTP code. Please try again.'
+  } finally {
+    enabling2FA.value = false
   }
 }
 

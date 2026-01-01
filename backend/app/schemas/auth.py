@@ -18,13 +18,14 @@ class LoginStep1Response(BaseModel):
     temp_token: Optional[str] = None
     access_token: Optional[str] = None  # If trusted device, skip 2FA
     totp_required: bool
+    needs_2fa_setup: bool = False  # User needs to set up 2FA (after reset)
     trusted_device: bool = False  # Is this a trusted device?
     message: str = "Please provide TOTP code"
 
 
 class LoginStep2Request(BaseModel):
     """Step 2: TOTP verification"""
-    temp_token: str
+    temp_token: Optional[str] = None  # Now optional, read from cookie
     totp_code: str = Field(..., min_length=6, max_length=6)
     remember_device: bool = False  # Remember this device for 7 days
     device_fingerprint: Optional[str] = Field(None, max_length=255)
@@ -32,8 +33,8 @@ class LoginStep2Request(BaseModel):
 
 
 class LoginStep2Response(BaseModel):
-    """Step 2 response: Access token"""
-    access_token: str
+    """Step 2 response: Access token (token stored in httpOnly cookie)"""
+    access_token: Optional[str] = None  # Token is in httpOnly cookie, not response body
     token_type: str = "bearer"
     user_id: int
     username: str

@@ -43,14 +43,70 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# 設定 CORS
+# 設定 CORS (限制方法和標頭以提高安全性)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # 明確列出允許的方法
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+    ],  # 明確列出允許的標頭
+    expose_headers=["Content-Length", "X-Request-ID"],
+    max_age=600,  # CORS 預檢快取 10 分鐘
 )
+
+
+# 添加安全標頭中介軟體
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """添加安全相關的 HTTP 標頭"""
+    response = await call_next(request)
+
+    # 防止 MIME type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+
+    # 防止點擊劫持 (Clickjacking)
+    response.headers["X-Frame-Options"] = "DENY"
+
+    # XSS 保護 (舊版瀏覽器)
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # HSTS (HTTP Strict Transport Security) - 僅在 HTTPS 時啟用
+    if settings.DEBUG:
+        # 開發環境使用較短的時間
+        response.headers["Strict-Transport-Security"] = "max-age=0"
+    else:
+        # 生產環境強制 HTTPS
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # Content Security Policy
+    # 允許同源內容，內聯樣式 (Vue 需要)，圖片可來自 data: URIs
+    csp_directives = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  # Vue 開發模式需要 unsafe-eval
+        "style-src 'self' 'unsafe-inline'",  # Tailwind 和 Vue 需要 unsafe-inline
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ]
+    response.headers["Content-Security-Policy"] = "; ".join(csp_directives)
+
+    # 移除可能洩露信息的標頭 (MutableHeaders 沒有 pop 方法，使用 del)
+    if "Server" in response.headers:
+        del response.headers["Server"]
+    if "X-Powered-By" in response.headers:
+        del response.headers["X-Powered-By"]
+
+    return response
 
 
 @app.get("/")

@@ -205,14 +205,14 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
-  // Special handling for setup-2fa (requires temp token)
+  // Special handling for setup-2fa (requires temp token in httpOnly cookie)
   if (to.meta.requiresTempToken) {
-    if (authStore.tempToken) {
-      // Has temp token, allow access
+    if (authStore.needs2FASetup || authStore.totpRequired) {
+      // User needs to set up 2FA, allow access
       next()
     } else {
-      // No temp token, redirect to login
-      console.log('No temp token, redirecting to login')
+      // No 2FA setup needed, redirect to login
+      console.log('No 2FA setup required, redirecting to login')
       next('/login')
     }
     return

@@ -29,12 +29,13 @@ export interface LoginStep1Response {
   temp_token?: string
   access_token?: string
   totp_required: boolean
+  needs_2fa_setup?: boolean
   trusted_device?: boolean
   message: string
 }
 
 export interface LoginStep2Request {
-  temp_token: string
+  temp_token?: string  // Optional: now in httpOnly cookie
   totp_code: string
   remember_device?: boolean
   device_fingerprint?: string

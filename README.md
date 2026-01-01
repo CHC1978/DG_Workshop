@@ -2,7 +2,7 @@
 
 海洋調查設備資產管理系統，透過 QR Code 實現設備快速識別、狀態追蹤、校正管理等功能。
 
-**版本**: 1.0
+**版本**: 1.1
 **狀態**: ✅ 可投入使用
 **GitHub**: https://github.com/CHC1978/DG_Workshop
 
@@ -21,6 +21,7 @@
 - ✅ QR Code 管理（環境變數配置 + 掃描入口）
 - ✅ 響應式 UI（Desktop/Tablet/Mobile）
 - ✅ Network Mode（同網域訪問）
+- ✅ **Week 2 安全強化**（httpOnly Cookies + 2FA 管理增強）
 
 ---
 
@@ -158,9 +159,19 @@ Backend:  http://[您的IP]:8000
 
 ### 6. 安全與權限
 - **雙因素認證**（TOTP）
+- **httpOnly Cookies**（Token 安全儲存，防 XSS）
 - **記住裝置**（7 天免 2FA）
+- **2FA 管理**（Admin 可 Reset/Enable/Disable）
 - **4 種角色**（Admin, Manager, Operator, Viewer）
 - **操作追蹤**（誰在何時做了什麼）
+
+#### 2FA 操作說明
+
+| 操作 | 說明 | 效果 |
+|------|------|------|
+| **Disable 2FA** | 暫時停用 2FA | 保留 secret，可直接重新啟用 |
+| **Enable 2FA** | 重新啟用 2FA | 使用原有 secret，無需掃描 QR |
+| **Reset 2FA** | 重設 2FA | 清除 secret，需重新設定 |
 
 ---
 
@@ -467,8 +478,14 @@ manage.bat → [N] Network Mode
 - Phase 2: 設備管理
 - Phase 3: 租賃校正
 - Phase 4: 前端開發
-- **Calibration 完善**（今日完成）
-- **ActivityLog 附件**（今日完成）
+- Calibration 完善
+- ActivityLog 附件
+
+### ✅ 已完成（v1.1 安全強化）
+- **httpOnly Cookies**：Token 改用 httpOnly cookie 儲存，防止 XSS 攻擊
+- **2FA 管理增強**：Admin 可執行 Reset/Enable/Disable 2FA
+- **Disable/Enable 分離**：Disable 保留 secret，Enable 可直接重啟用
+- **Reset 2FA 流程**：強制用戶重新掃描 QR code 設定
 
 ### 🔜 下次開發
 - Phase 5: SubEquipment 管理（設備組件追蹤）
@@ -518,6 +535,6 @@ manage.bat → [N] Network Mode
 
 ---
 
-**最後更新**: 2025-12-30
-**版本**: 1.0
+**最後更新**: 2026-01-01
+**版本**: 1.1
 **狀態**: ✅ Production Ready

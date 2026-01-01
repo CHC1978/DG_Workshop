@@ -129,4 +129,11 @@ A: SQLite 資料庫檔案位於 `backend/data/marine_equipment.db`
 4. ✅ 建立前端登入頁面
 5. ✅ 實作 QR Code 掃描功能
 
-詳細開發計畫請參考 `plan/marine-equipment-qr-system-plan.md`
+詳細開發計畫請參考 `plan/marine-equipment-qr-system-plan.md
+
+
+ 1. 清除瀏覽器數據
+
+  在瀏覽器 Console (F12 → Console) 執行：
+  localStorage.clear()
+  location.reload()`

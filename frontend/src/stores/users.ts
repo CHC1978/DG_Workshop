@@ -106,9 +106,9 @@ export const useUsersStore = defineStore('users', () => {
   async function reset2FA(id: number) {
     loading.value = true
     try {
-      await usersApi.reset2FA(id)
-      // Refresh user data
-      await fetchById(id)
+      const response = await usersApi.reset2FA(id)
+      // Return response data for frontend to handle logout
+      return response.data
     } catch (error) {
       console.error('Failed to reset 2FA:', error)
       throw error
@@ -120,13 +120,16 @@ export const useUsersStore = defineStore('users', () => {
   async function toggle2FA(id: number, enabled: boolean) {
     loading.value = true
     try {
-      await usersApi.toggle2FA(id, enabled)
-      // Refresh user data in list
-      const index = usersList.value.findIndex((u) => u.id === id)
-      if (index !== -1) {
-        const response = await usersApi.get(id)
-        usersList.value[index] = response.data
+      const response = await usersApi.toggle2FA(id, enabled)
+      // Refresh user data in list if 2FA was actually toggled
+      if (!response.data.needs_setup) {
+        const index = usersList.value.findIndex((u) => u.id === id)
+        if (index !== -1) {
+          const userResponse = await usersApi.get(id)
+          usersList.value[index] = userResponse.data
+        }
       }
+      return response.data
     } catch (error) {
       console.error('Failed to toggle 2FA:', error)
       throw error
@@ -141,6 +144,38 @@ export const useUsersStore = defineStore('users', () => {
       await usersApi.resetPassword(id, newPassword)
     } catch (error) {
       console.error('Failed to reset password:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function setup2FA(id: number) {
+    loading.value = true
+    try {
+      const response = await usersApi.setup2FA(id)
+      return response.data
+    } catch (error) {
+      console.error('Failed to setup 2FA:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function confirm2FA(id: number, totpCode: string) {
+    loading.value = true
+    try {
+      const response = await usersApi.confirm2FA(id, totpCode)
+      // Refresh user data in list
+      const index = usersList.value.findIndex((u) => u.id === id)
+      if (index !== -1) {
+        const userResponse = await usersApi.get(id)
+        usersList.value[index] = userResponse.data
+      }
+      return response.data
+    } catch (error) {
+      console.error('Failed to confirm 2FA:', error)
       throw error
     } finally {
       loading.value = false
@@ -167,6 +202,8 @@ export const useUsersStore = defineStore('users', () => {
     reset2FA,
     toggle2FA,
     resetPassword,
+    setup2FA,
+    confirm2FA,
     clearCurrent,
   }
 })

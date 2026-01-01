@@ -117,11 +117,11 @@ const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
 
-// Debug: Check tempToken on mount
+// Debug: Check 2FA setup state on mount
 onMounted(() => {
   console.log('Setup2FAView mounted')
-  console.log('tempToken exists:', !!authStore.tempToken)
-  console.log('tempToken value:', authStore.tempToken?.substring(0, 50) + '...')
+  console.log('needs2FASetup:', authStore.needs2FASetup)
+  console.log('totpRequired:', authStore.totpRequired)
 })
 
 const loading = ref(false)
@@ -138,9 +138,9 @@ async function handleSetup() {
   loading.value = true
   errorMessage.value = ''
 
-  // Check if we have tempToken
-  if (!authStore.tempToken) {
-    console.error('No tempToken found, redirecting to login')
+  // Check if we have valid 2FA setup session (temp_token is in httpOnly cookie)
+  if (!authStore.needs2FASetup && !authStore.totpRequired) {
+    console.error('No 2FA setup session, redirecting to login')
     errorMessage.value = 'Session expired. Please login again.'
     setTimeout(() => {
       router.push('/login')
@@ -150,7 +150,7 @@ async function handleSetup() {
   }
 
   try {
-    console.log('Starting 2FA setup with tempToken...')
+    console.log('Starting 2FA setup (temp_token in httpOnly cookie)...')
     const response = await authStore.setup2FA()
     console.log('2FA setup successful, got QR code')
     qrCodeData.value = response
@@ -160,6 +160,7 @@ async function handleSetup() {
 
     if (error.response?.status === 401) {
       errorMessage.value = 'Session expired. Please login again.'
+      authStore.needs2FASetup = false
       setTimeout(() => {
         router.push('/login')
       }, 2000)
@@ -185,6 +186,9 @@ async function handleConfirm() {
   try {
     await authStore.confirm2FA(verifyCode.value)
     confirmed.value = true
+    // Clear 2FA setup state
+    authStore.needs2FASetup = false
+    authStore.totpRequired = false
     uiStore.showNotification('success', '2FA enabled successfully')
   } catch (error: any) {
     console.error('2FA confirmation failed:', error)

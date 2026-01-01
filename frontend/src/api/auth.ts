@@ -53,4 +53,11 @@ export const authApi = {
   disable2FA(totpCode: string) {
     return apiClient.post('/auth/2fa/disable', { totp_code: totpCode })
   },
+
+  /**
+   * Logout (clear httpOnly cookies)
+   */
+  logout() {
+    return apiClient.post('/auth/logout')
+  },
 }

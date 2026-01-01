@@ -1,9 +1,10 @@
 """Authentication API endpoints"""
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import (
     verify_password,
     create_access_token,
@@ -40,6 +41,7 @@ from app.main import limiter
 @limiter.limit("5/minute")  # 每分鐘最多 5 次嘗試
 async def login_step1(
     request: Request,
+    response: Response,
     credentials: LoginStep1Request,
     db: AsyncSession = Depends(get_db)
 ):
@@ -71,9 +73,41 @@ async def login_step1(
             detail="User account is disabled",
         )
 
-    # If 2FA is not enabled, login directly without temp token
+    # If 2FA is not enabled
     if not user.totp_enabled:
-        print(f"[INFO] 2FA not enabled for user {user.username}, logging in directly")
+        # Check if user was reset (totp_secret == "RESET") - must set up 2FA
+        if user.totp_secret == "RESET":
+            # User was reset by admin - must set up 2FA before login
+            print(f"[INFO] User {user.username} was reset, needs to set up 2FA")
+
+            # Generate temporary token for 2FA setup
+            temp_token = create_temp_token({
+                "sub": str(user.id),
+                "username": user.username,
+                "type": "temp"
+            })
+
+            # Set httpOnly cookie for temp token
+            response.set_cookie(
+                key="temp_token",
+                value=temp_token,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite="lax",
+                max_age=settings.TEMP_TOKEN_EXPIRE_MINUTES * 60,
+                path="/",
+            )
+
+            return LoginStep1Response(
+                temp_token=None,
+                totp_required=False,
+                needs_2fa_setup=True,
+                trusted_device=False,
+                message="2FA setup required"
+            )
+
+        # 2FA is disabled (totp_secret == None) - login directly without 2FA
+        print(f"[INFO] 2FA disabled for user {user.username}, logging in directly")
 
         # Generate access token directly
         access_token = create_access_token({
@@ -82,9 +116,21 @@ async def login_step1(
             "role": user.role.value,
         })
 
+        # Set httpOnly cookie
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=not settings.DEBUG,  # HTTPS only in production
+            samesite="lax",  # 使用 lax 在開發和生產環境都有效
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
+        )
+
         return LoginStep1Response(
-            access_token=access_token,
+            access_token=None,  # Don't return token in response body
             totp_required=False,
+            needs_2fa_setup=False,
             trusted_device=False,
             message="Login successful"
         )
@@ -103,23 +149,70 @@ async def login_step1(
             # Device is trusted and still valid, skip 2FA
             print(f"[INFO] Trusted device login for user {user.username}")
 
-            # Extend trust period and update last used
-            trusted_device.extend_trust(days=7)
-            await db.commit()
+            # 驗證 User-Agent 一致性 (允許瀏覽器版本更新)
+            current_user_agent = request.headers.get("user-agent", "")
+            stored_user_agent = trusted_device.user_agent or ""
 
-            # Generate access token directly
-            access_token = create_access_token({
-                "sub": str(user.id),
-                "username": user.username,
-                "role": user.role.value,
-            })
+            # 簡單驗證：檢查主要瀏覽器和 OS 是否相同
+            # 允許版本號變化 (例如 Chrome/120 -> Chrome/121)
+            def extract_browser_os(ua: str) -> tuple:
+                """提取瀏覽器和作業系統主要標識"""
+                browser = ""
+                if "Chrome" in ua: browser = "Chrome"
+                elif "Firefox" in ua: browser = "Firefox"
+                elif "Safari" in ua: browser = "Safari"
+                elif "Edge" in ua: browser = "Edge"
 
-            return LoginStep1Response(
-                access_token=access_token,
-                totp_required=False,
-                trusted_device=True,
-                message="Login successful (trusted device)"
-            )
+                os_name = ""
+                if "Windows" in ua: os_name = "Windows"
+                elif "Mac" in ua: os_name = "Mac"
+                elif "Linux" in ua: os_name = "Linux"
+                elif "Android" in ua: os_name = "Android"
+                elif "iOS" in ua: os_name = "iOS"
+
+                return (browser, os_name)
+
+            current_sig = extract_browser_os(current_user_agent)
+            stored_sig = extract_browser_os(stored_user_agent)
+
+            if current_sig != stored_sig and stored_user_agent:
+                # User-Agent 變化可疑，撤銷信任
+                print(f"[WARNING] User-Agent mismatch for trusted device. "
+                      f"Stored: {stored_sig}, Current: {current_sig}")
+                print(f"[WARNING] Revoking trust for device {credentials.device_fingerprint}")
+                # 不使用此信任設備，要求 2FA (繼續執行到下面的 temp_token 邏輯)
+            else:
+                # User-Agent 一致，延長信任期
+                trusted_device.extend_trust(days=7)
+                # 更新 User-Agent 和 IP (版本更新)
+                trusted_device.user_agent = current_user_agent
+                trusted_device.ip_address = request.client.host if request.client else None
+                await db.commit()
+
+                # Generate access token directly
+                access_token = create_access_token({
+                    "sub": str(user.id),
+                    "username": user.username,
+                    "role": user.role.value,
+                })
+
+                # Set httpOnly cookie
+                response.set_cookie(
+                    key="access_token",
+                    value=access_token,
+                    httponly=True,
+                    secure=not settings.DEBUG,  # HTTPS only in production
+                    samesite="lax",
+                    max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                    path="/",
+                )
+
+                return LoginStep1Response(
+                    access_token=None,  # Don't return token in response body
+                    totp_required=False,
+                    trusted_device=True,
+                    message="Login successful (trusted device)"
+                )
 
     # 2FA is enabled and not a trusted device - require TOTP
     # Generate temporary token (short-lived)
@@ -129,8 +222,19 @@ async def login_step1(
         "type": "temp"
     })
 
+    # Set httpOnly cookie for temp token
+    response.set_cookie(
+        key="temp_token",
+        value=temp_token,
+        httponly=True,
+        secure=not settings.DEBUG,  # HTTPS only in production
+        samesite="lax",
+        max_age=settings.TEMP_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
     return LoginStep1Response(
-        temp_token=temp_token,
+        temp_token=None,  # Don't return token in response body
         totp_required=True,
         trusted_device=False,
         message="2FA required"
@@ -141,6 +245,7 @@ async def login_step1(
 @limiter.limit("10/minute")  # 每分鐘最多 10 次嘗試 (較 step1 寬鬆，因為已有 temp token)
 async def login_step2(
     request: Request,
+    response: Response,
     credentials: LoginStep2Request,
     db: AsyncSession = Depends(get_db)
 ):
@@ -148,8 +253,28 @@ async def login_step2(
     Step 2: Verify TOTP code
     Returns access token
     """
+    try:
+        print(f"[DEBUG] login_step2 called")
+        print(f"[DEBUG] Cookies: {request.cookies}")
+        print(f"[DEBUG] Credentials: {credentials}")
+
+        # Get temp_token from cookie
+        temp_token = request.cookies.get("temp_token")
+        print(f"[DEBUG] temp_token from cookie: {temp_token[:20] if temp_token else 'None'}...")
+
+        if not temp_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Temporary token not found",
+            )
+    except Exception as e:
+        print(f"[ERROR] Exception in login_step2: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
+
     # Decode temporary token
-    payload = decode_token(credentials.temp_token)
+    payload = decode_token(temp_token)
     if not payload or payload.get("type") != "temp":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -188,13 +313,25 @@ async def login_step2(
         )
 
     # Verify TOTP code
-    if not user.totp_enabled or not user.totp_secret:
+    print(f"[DEBUG] user.totp_enabled: {user.totp_enabled}")
+    print(f"[DEBUG] user.totp_secret exists: {bool(user.totp_secret)}")
+    print(f"[DEBUG] user.totp_secret value: {user.totp_secret[:10] if user.totp_secret and len(user.totp_secret) > 10 else user.totp_secret}")
+    print(f"[DEBUG] totp_code from request: {credentials.totp_code}")
+
+    # Check if 2FA is properly set up (not RESET state)
+    if not user.totp_enabled or not user.totp_secret or user.totp_secret == "RESET":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="2FA is not enabled for this user. Please set up 2FA first.",
+            detail="2FA is not properly enabled for this user. Please set up 2FA first.",
         )
 
-    if not verify_totp(user.totp_secret, credentials.totp_code):
+    # 驗證 TOTP
+    is_valid = verify_totp(user.totp_secret, credentials.totp_code)
+    print(f"[DEBUG] TOTP verification result: {is_valid}")
+
+    if not is_valid:
+        print(f"[ERROR] TOTP verification failed for user {user.username}")
+        print(f"[ERROR] Expected TOTP secret length: {len(user.totp_secret) if user.totp_secret else 0}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid TOTP code",
@@ -217,12 +354,17 @@ async def login_step2(
         if existing_device:
             # Update existing device
             existing_device.extend_trust(days=7)
+            # 更新 User-Agent 和 IP
+            existing_device.user_agent = request.headers.get("user-agent")
+            existing_device.ip_address = request.client.host if request.client else None
         else:
             # Create new trusted device
             new_device = TrustedDevice(
                 user_id=user.id,
                 device_fingerprint=credentials.device_fingerprint,
                 device_name=credentials.device_name or "Unknown Device",
+                user_agent=request.headers.get("user-agent"),
+                ip_address=request.client.host if request.client else None,
                 trusted_until=datetime.utcnow() + timedelta(days=7),
                 last_used_at=datetime.utcnow(),
             )
@@ -238,8 +380,22 @@ async def login_step2(
         "role": user.role.value,
     })
 
+    # Set httpOnly cookie for access token
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=not settings.DEBUG,  # HTTPS only in production
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+    # Clear temp_token cookie
+    response.delete_cookie(key="temp_token", path="/")
+
     return LoginStep2Response(
-        access_token=access_token,
+        access_token=None,  # Don't return token in response body
         token_type="bearer",
         user_id=user.id,
         username=user.username,
@@ -369,3 +525,15 @@ async def get_current_user_info(
         totp_enabled=current_user.totp_enabled,
         is_active=current_user.is_active,
     )
+
+
+# ==================== Logout Endpoint ====================
+
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Logout user by clearing authentication cookies
+    """
+    response.delete_cookie(key="access_token", path="/")
+    response.delete_cookie(key="temp_token", path="/")
+    return {"message": "Logout successful"}

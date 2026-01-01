@@ -9,14 +9,13 @@ import type { User, LoginStep1Request, LoginStep2Request } from '@/types'
 export const useAuthStore = defineStore(
   'auth',
   () => {
-    // State
-    const token = ref<string | null>(null)
-    const tempToken = ref<string | null>(null)
+    // State (tokens are now in httpOnly cookies, not in state)
     const user = ref<User | null>(null)
     const totpRequired = ref(false)
+    const needs2FASetup = ref(false)  // Flag for users who need to set up 2FA (after reset)
 
     // Getters
-    const isAuthenticated = computed(() => !!token.value && !!user.value)
+    const isAuthenticated = computed(() => !!user.value)
     const userRole = computed(() => user.value?.role || 'viewer')
     const isAdmin = computed(() => user.value?.role === 'admin')
     const isManager = computed(() =>
@@ -29,20 +28,26 @@ export const useAuthStore = defineStore(
     // Actions
     async function loginStep1(credentials: LoginStep1Request) {
       const response = await authApi.loginStep1(credentials)
-      tempToken.value = response.data.temp_token
+      // Token is now in httpOnly cookie, just track TOTP requirement
       totpRequired.value = response.data.totp_required
+      needs2FASetup.value = response.data.needs_2fa_setup || false
+
+      // If login successful without 2FA and no setup required, fetch user info
+      if (!response.data.totp_required && !response.data.needs_2fa_setup) {
+        await fetchCurrentUser()
+      }
+
       return response.data
     }
 
     async function loginStep2(credentials: LoginStep2Request) {
       const response = await authApi.loginStep2(credentials)
-      token.value = response.data.access_token
+      // Token is now in httpOnly cookie, just update user info
       user.value = {
         id: response.data.user_id,
         username: response.data.username,
         role: response.data.role as any,
       } as User
-      tempToken.value = null
       totpRequired.value = false
 
       // Fetch full user info
@@ -52,8 +57,6 @@ export const useAuthStore = defineStore(
     }
 
     async function fetchCurrentUser() {
-      if (!token.value) return
-
       try {
         const response = await authApi.getCurrentUser()
         user.value = response.data
@@ -76,19 +79,25 @@ export const useAuthStore = defineStore(
       return response.data
     }
 
-    function logout() {
-      token.value = null
-      tempToken.value = null
+    async function logout() {
+      try {
+        // Call logout API to clear cookies
+        await authApi.logout()
+      } catch (error) {
+        console.error('Logout API error:', error)
+        // Continue with local cleanup even if API call fails
+      }
+
+      // Clear local state
       user.value = null
       totpRequired.value = false
     }
 
     return {
       // State
-      token,
-      tempToken,
       user,
       totpRequired,
+      needs2FASetup,
       // Getters
       isAuthenticated,
       userRole,
@@ -106,7 +115,7 @@ export const useAuthStore = defineStore(
   },
   {
     persist: {
-      paths: ['token', 'user', 'tempToken'],
+      paths: ['user'],  // Only persist user info, tokens are in httpOnly cookies
     },
   }
 )

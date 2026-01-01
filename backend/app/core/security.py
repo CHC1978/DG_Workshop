@@ -147,8 +147,17 @@ def verify_totp(secret: str, code: str) -> bool:
     Returns:
         驗證是否成功
     """
-    totp = pyotp.TOTP(secret)
-    return totp.verify(code, valid_window=1)  # 允許 ±1 時間窗口
+    # 檢查 secret 是否有效
+    if not secret or secret == "RESET":
+        print(f"[ERROR] Invalid TOTP secret: {secret}")
+        return False
+
+    try:
+        totp = pyotp.TOTP(secret)
+        return totp.verify(code, valid_window=1)  # 允許 ±1 時間窗口
+    except Exception as e:
+        print(f"[ERROR] TOTP verification error: {type(e).__name__}: {str(e)}")
+        return False
 
 
 def generate_backup_codes(count: int = 8) -> list[str]:

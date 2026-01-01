@@ -94,4 +94,27 @@ export const usersApi = {
   resetPassword(id: number, newPassword: string) {
     return apiClient.post(`/users/${id}/reset-password`, { new_password: newPassword })
   },
+
+  /**
+   * Setup 2FA for user (Admin only) - generates QR code
+   */
+  setup2FA(id: number) {
+    return apiClient.post<{
+      secret: string
+      qr_code: string
+      backup_codes: string[]
+      message: string
+    }>(`/users/${id}/2fa/setup`)
+  },
+
+  /**
+   * Confirm 2FA for user (Admin only) - enables 2FA
+   */
+  confirm2FA(id: number, totpCode: string) {
+    return apiClient.post<{ success: boolean; message: string }>(
+      `/users/${id}/2fa/confirm`,
+      null,
+      { params: { totp_code: totpCode } }
+    )
+  },
 }

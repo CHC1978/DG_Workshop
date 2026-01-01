@@ -124,12 +124,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
 
-// Clear old tempToken when entering login page
-onMounted(() => {
-  console.log('LoginView mounted, clearing old tempToken')
-  authStore.tempToken = null
-})
-
 const step = ref(1)
 const loading = ref(false)
 const errorMessage = ref('')
@@ -173,8 +167,8 @@ async function handleStep1() {
   try {
     console.log('Attempting login step 1...')
 
-    // Add device fingerprint
-    const deviceFingerprint = generateDeviceFingerprint()
+    // Add device fingerprint (now async)
+    const deviceFingerprint = await generateDeviceFingerprint()
     const deviceName = getDeviceName()
 
     const response = await authStore.loginStep1({
@@ -184,31 +178,27 @@ async function handleStep1() {
     })
     console.log('Login step 1 response:', response)
 
-    // Check if access token is returned (2FA not required or trusted device)
-    if (response.access_token) {
-      console.log('Access token received, logging in directly')
-      // Save access token and proceed
-      authStore.token = response.access_token
-      await authStore.fetchCurrentUser()
+    // Check if 2FA setup is required (after reset)
+    if (response.needs_2fa_setup) {
+      console.log('2FA setup required, redirecting to setup page')
+      uiStore.showNotification('info', 'Please set up 2FA to continue')
+      await router.push('/setup-2fa')
+      return
+    }
 
+    // Check if 2FA is required
+    if (response.totp_required) {
+      console.log('2FA required, moving to step 2')
+      step.value = 2
+    } else {
+      // Login successful (2FA not enabled or trusted device)
+      console.log('Login successful, redirecting to dashboard')
       if (response.trusted_device) {
         uiStore.showNotification('success', 'Login successful (trusted device)')
       } else {
         uiStore.showNotification('success', 'Login successful')
       }
-
       await router.push('/dashboard')
-      return
-    }
-
-    // If no access token, check if 2FA is required
-    if (response.totp_required) {
-      console.log('2FA required, moving to step 2')
-      step.value = 2
-    } else {
-      // This should not happen - either access_token or totp_required should be set
-      console.error('Unexpected response: no access_token and totp_required=false')
-      errorMessage.value = 'Unexpected login response. Please contact support.'
     }
   } catch (error: any) {
     console.error('Login step 1 failed:', error)
@@ -228,28 +218,21 @@ async function handleStep2() {
     return
   }
 
-  if (!authStore.tempToken) {
-    errorMessage.value = 'Session expired, please login again'
-    backToStep1()
-    return
-  }
-
   loading.value = true
 
   try {
     console.log('Attempting login step 2...')
 
-    // Add device fingerprint if remember device is checked
-    const deviceFingerprint = rememberDevice.value ? generateDeviceFingerprint() : undefined
+    // Add device fingerprint if remember device is checked (now async)
+    const deviceFingerprint = rememberDevice.value ? await generateDeviceFingerprint() : undefined
     const deviceName = rememberDevice.value ? getDeviceName() : undefined
 
     await authStore.loginStep2({
-      temp_token: authStore.tempToken,
       totp_code: totpCode.value,
       remember_device: rememberDevice.value,
       device_fingerprint: deviceFingerprint,
       device_name: deviceName,
-    })
+    })  // temp_token is now in httpOnly cookie
 
     console.log('Login successful, redirecting to dashboard')
     if (rememberDevice.value) {
