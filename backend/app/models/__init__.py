@@ -11,6 +11,7 @@ from app.models.calibration import Calibration
 from app.models.maintenance import Maintenance
 from app.models.trusted_device import TrustedDevice
 from app.models.log_attachment import LogAttachment, AttachmentType
+from app.models.backup_code import BackupCode
 
 __all__ = [
     "User",
@@ -34,4 +35,5 @@ __all__ = [
     "TrustedDevice",
     "LogAttachment",
     "AttachmentType",
+    "BackupCode",
 ]

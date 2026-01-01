@@ -26,6 +26,7 @@ from app.schemas.auth import (
     LoginStep1Response,
     LoginStep2Request,
     LoginStep2Response,
+    BackupCodeLoginRequest,
     Setup2FAResponse,
     Confirm2FARequest,
     Confirm2FAResponse,
@@ -386,6 +387,128 @@ async def login_step2(
     )
 
 
+@router.post("/login/backup-code", response_model=LoginStep2Response)
+@limiter.limit("3/minute")  # 更嚴格的速率限制，因為備用碼更敏感
+async def login_with_backup_code(
+    request: Request,
+    response: Response,
+    credentials: BackupCodeLoginRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Login using backup code instead of TOTP
+    This is for emergency access when authenticator app is unavailable
+    Each backup code can only be used once
+    """
+    from app.models.backup_code import BackupCode
+    from app.core.security import verify_password
+
+    # Get temp_token from cookie
+    temp_token = request.cookies.get("temp_token")
+
+    if not temp_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Temporary token not found",
+        )
+
+    # Decode temporary token
+    payload = decode_token(temp_token)
+    if not payload or payload.get("type") != "temp":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired temporary token",
+        )
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    try:
+        user_id = int(user_id_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    # Get user from database
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    # Get all unused backup codes for this user
+    result = await db.execute(
+        select(BackupCode).where(
+            BackupCode.user_id == user.id,
+            BackupCode.is_used == False
+        )
+    )
+    backup_codes = result.scalars().all()
+
+    # Try to verify the provided backup code against stored hashes
+    valid_code = None
+    for stored_code in backup_codes:
+        if verify_password(credentials.backup_code.upper(), stored_code.code_hash):
+            valid_code = stored_code
+            break
+
+    if not valid_code:
+        logger.warning(f"Invalid backup code attempt for user {user.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or already used backup code",
+        )
+
+    # Mark the backup code as used
+    valid_code.mark_as_used()
+    await db.commit()
+
+    logger.info(f"User {user.username} logged in using backup code")
+
+    # Generate access token
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+
+    # Set httpOnly cookie for access token
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+    # Clear temp_token cookie
+    response.delete_cookie(key="temp_token", path="/")
+
+    # Get remaining backup codes count
+    remaining = len([c for c in backup_codes if c.id != valid_code.id])
+    if remaining <= 2:
+        logger.warning(f"User {user.username} has only {remaining} backup codes remaining")
+
+    return LoginStep2Response(
+        access_token=None,
+        token_type="bearer",
+        user_id=user.id,
+        username=user.username,
+        role=user.role.value,
+    )
+
+
 # ==================== 2FA Setup Endpoints ====================
 
 @router.post("/2fa/setup", response_model=Setup2FAResponse)
@@ -400,6 +523,9 @@ async def setup_2fa(
     Requires temporary token from login step 1
     Returns QR code and backup codes
     """
+    from app.models.backup_code import BackupCode
+    from app.core.security import hash_password
+
     # Generate TOTP secret
     secret = generate_totp_secret()
 
@@ -412,9 +538,27 @@ async def setup_2fa(
     # Generate backup codes
     backup_codes = generate_backup_codes()
 
+    # Delete existing backup codes for this user
+    existing_codes = await db.execute(
+        select(BackupCode).where(BackupCode.user_id == current_user.id)
+    )
+    for code in existing_codes.scalars().all():
+        await db.delete(code)
+
+    # Store hashed backup codes in database
+    for code in backup_codes:
+        hashed_code = hash_password(code)  # Use bcrypt hash
+        backup_code = BackupCode(
+            user_id=current_user.id,
+            code_hash=hashed_code
+        )
+        db.add(backup_code)
+
     # Save secret to user (not enabled yet)
     current_user.totp_secret = secret
     await db.commit()
+
+    logger.info(f"2FA setup initiated for user {current_user.username}, {len(backup_codes)} backup codes generated")
 
     return Setup2FAResponse(
         secret=secret,
@@ -519,10 +663,46 @@ async def get_current_user_info(
 # ==================== Logout Endpoint ====================
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(
+    request: Request,
+    response: Response,
+    logout_all: bool = False,
+    db: AsyncSession = Depends(get_db)
+):
     """
     Logout user by clearing authentication cookies
+
+    Args:
+        logout_all: If True, revoke all trusted devices for this user
     """
+    from app.models.trusted_device import TrustedDevice
+
+    # If logout_all is requested, clear all trusted devices for this user
+    if logout_all:
+        # Get current user from access_token cookie
+        token = request.cookies.get("access_token")
+        if token:
+            payload = decode_token(token)
+            if payload and payload.get("sub"):
+                try:
+                    user_id = int(payload.get("sub"))
+                    # Delete all trusted devices for this user
+                    result = await db.execute(
+                        select(TrustedDevice).where(TrustedDevice.user_id == user_id)
+                    )
+                    devices = result.scalars().all()
+                    for device in devices:
+                        await db.delete(device)
+                    await db.commit()
+                    logger.info(f"Revoked {len(devices)} trusted devices for user {user_id}")
+                except (ValueError, TypeError):
+                    pass  # Invalid token, just proceed with logout
+
+    # Clear authentication cookies
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="temp_token", path="/")
-    return {"message": "Logout successful"}
+
+    return {
+        "message": "Logout successful",
+        "all_devices_revoked": logout_all
+    }

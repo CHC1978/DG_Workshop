@@ -32,6 +32,13 @@ class LoginStep2Request(BaseModel):
     device_name: Optional[str] = Field(None, max_length=200)
 
 
+class BackupCodeLoginRequest(BaseModel):
+    """Login with backup code instead of TOTP"""
+    backup_code: str = Field(..., min_length=8, max_length=8)
+    device_fingerprint: Optional[str] = Field(None, max_length=255)
+    device_name: Optional[str] = Field(None, max_length=200)
+
+
 class LoginStep2Response(BaseModel):
     """Step 2 response: Access token (token stored in httpOnly cookie)"""
     access_token: Optional[str] = None  # Token is in httpOnly cookie, not response body
