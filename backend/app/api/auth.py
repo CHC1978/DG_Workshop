@@ -1,8 +1,11 @@
 """Authentication API endpoints"""
 import logging
+from datetime import datetime, timedelta
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +21,13 @@ from app.core.security import (
     generate_qrcode_base64,
     verify_totp,
     generate_backup_codes,
+    generate_refresh_token,
+    hash_refresh_token,
+    generate_token_family,
 )
 from app.core.deps import get_current_user, get_user_from_temp_token
 from app.models.user import User
+from app.models.refresh_token import RefreshToken
 from app.schemas.auth import (
     LoginStep1Request,
     LoginStep1Response,
@@ -37,6 +44,129 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # 從 main.py 獲取 limiter
 from app.main import limiter
+
+
+# ==================== Refresh Token Helper Functions ====================
+
+async def _issue_refresh_token(
+    response: Response,
+    db: AsyncSession,
+    user: User,
+    request: Request,
+    device_fingerprint: Optional[str] = None
+) -> str:
+    """
+    發放新的 Refresh Token 並設定 Cookie
+
+    Args:
+        response: FastAPI Response
+        db: 資料庫 session
+        user: 使用者
+        request: 請求物件
+        device_fingerprint: 裝置指紋 (可選)
+
+    Returns:
+        refresh token 字串
+    """
+    # 清理過期或過多的 tokens
+    await _cleanup_user_refresh_tokens(db, user.id)
+
+    # 生成新 token
+    refresh_token = generate_refresh_token()
+    token_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token(refresh_token),
+        token_family=generate_token_family(),
+        device_fingerprint=device_fingerprint,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    db.add(token_record)
+
+    # 設定 cookie (限制 path 到 /api/auth 提升安全性)
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.SECURE_COOKIE,
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth",
+    )
+
+    return refresh_token
+
+
+async def _cleanup_user_refresh_tokens(db: AsyncSession, user_id: int) -> None:
+    """
+    清理使用者的 Refresh Tokens
+
+    - 刪除過期 tokens
+    - 限制活躍 token 數量 (FIFO)
+    """
+    # 刪除過期 tokens
+    await db.execute(
+        delete(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.expires_at < datetime.utcnow()
+        )
+    )
+
+    # 限制活躍 token 數量
+    result = await db.execute(
+        select(RefreshToken)
+        .where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.is_revoked == False
+        )
+        .order_by(RefreshToken.created_at.desc())
+    )
+    active_tokens = result.scalars().all()
+
+    if len(active_tokens) >= settings.MAX_REFRESH_TOKENS_PER_USER:
+        # 撤銷最舊的 tokens
+        for token in active_tokens[settings.MAX_REFRESH_TOKENS_PER_USER - 1:]:
+            token.revoke("max_tokens_exceeded")
+
+
+async def _revoke_token_family(
+    db: AsyncSession,
+    token_family: str,
+    reason: str
+) -> None:
+    """撤銷整個 Token Family (用於偵測重播攻擊)"""
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.token_family == token_family,
+            RefreshToken.is_revoked == False
+        )
+    )
+    tokens = result.scalars().all()
+    for token in tokens:
+        token.revoke(reason)
+    await db.commit()
+
+
+async def _revoke_all_user_tokens(
+    db: AsyncSession,
+    user_id: int,
+    reason: str
+) -> int:
+    """撤銷使用者所有 Refresh Tokens"""
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.is_revoked == False
+        )
+    )
+    tokens = result.scalars().all()
+    count = 0
+    for token in tokens:
+        token.revoke(reason)
+        count += 1
+    await db.commit()
+    return count
 
 
 # ==================== Login Endpoints ====================
@@ -131,6 +261,16 @@ async def login_step1(
             path="/",
         )
 
+        # Issue refresh token
+        await _issue_refresh_token(
+            response=response,
+            db=db,
+            user=user,
+            request=request,
+            device_fingerprint=credentials.device_fingerprint
+        )
+        await db.commit()
+
         return LoginStep1Response(
             access_token=None,  # Don't return token in response body
             totp_required=False,
@@ -209,6 +349,16 @@ async def login_step1(
                     max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                     path="/",
                 )
+
+                # Issue refresh token
+                await _issue_refresh_token(
+                    response=response,
+                    db=db,
+                    user=user,
+                    request=request,
+                    device_fingerprint=credentials.device_fingerprint
+                )
+                await db.commit()
 
                 return LoginStep1Response(
                     access_token=None,  # Don't return token in response body
@@ -375,6 +525,16 @@ async def login_step2(
         path="/",
     )
 
+    # Issue refresh token
+    await _issue_refresh_token(
+        response=response,
+        db=db,
+        user=user,
+        request=request,
+        device_fingerprint=credentials.device_fingerprint
+    )
+    await db.commit()
+
     # Clear temp_token cookie
     response.delete_cookie(key="temp_token", path="/")
 
@@ -491,6 +651,16 @@ async def login_with_backup_code(
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
+
+    # Issue refresh token
+    await _issue_refresh_token(
+        response=response,
+        db=db,
+        user=user,
+        request=request,
+        device_fingerprint=None  # 備用碼登入不綁定裝置指紋
+    )
+    await db.commit()
 
     # Clear temp_token cookie
     response.delete_cookie(key="temp_token", path="/")
@@ -670,39 +840,268 @@ async def logout(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Logout user by clearing authentication cookies
+    Logout user by clearing authentication cookies and revoking refresh tokens
 
     Args:
-        logout_all: If True, revoke all trusted devices for this user
+        logout_all: If True, revoke all refresh tokens and trusted devices for this user
     """
     from app.models.trusted_device import TrustedDevice
 
-    # If logout_all is requested, clear all trusted devices for this user
-    if logout_all:
-        # Get current user from access_token cookie
-        token = request.cookies.get("access_token")
-        if token:
-            payload = decode_token(token)
-            if payload and payload.get("sub"):
-                try:
-                    user_id = int(payload.get("sub"))
-                    # Delete all trusted devices for this user
-                    result = await db.execute(
-                        select(TrustedDevice).where(TrustedDevice.user_id == user_id)
-                    )
-                    devices = result.scalars().all()
-                    for device in devices:
-                        await db.delete(device)
-                    await db.commit()
-                    logger.info(f"Revoked {len(devices)} trusted devices for user {user_id}")
-                except (ValueError, TypeError):
-                    pass  # Invalid token, just proceed with logout
+    user_id = None
+    revoked_tokens = 0
+
+    # Get user_id from access_token or refresh_token
+    token = request.cookies.get("access_token")
+    if token:
+        payload = decode_token(token)
+        if payload and payload.get("sub"):
+            try:
+                user_id = int(payload.get("sub"))
+            except (ValueError, TypeError):
+                pass
+
+    # Revoke current refresh token
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        token_hash = hash_refresh_token(refresh_token)
+        result = await db.execute(
+            select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+        )
+        stored_token = result.scalar_one_or_none()
+
+        if stored_token:
+            if user_id is None:
+                user_id = stored_token.user_id
+
+            if logout_all:
+                # 撤銷使用者所有 refresh tokens
+                revoked_tokens = await _revoke_all_user_tokens(db, stored_token.user_id, "logout_all")
+            else:
+                # 只撤銷當前 token family
+                await _revoke_token_family(db, stored_token.token_family, "logout")
+                revoked_tokens = 1
+
+    # If logout_all is requested, also clear all trusted devices
+    if logout_all and user_id:
+        result = await db.execute(
+            select(TrustedDevice).where(TrustedDevice.user_id == user_id)
+        )
+        devices = result.scalars().all()
+        for device in devices:
+            await db.delete(device)
+        await db.commit()
+        logger.info(f"Revoked {len(devices)} trusted devices and {revoked_tokens} refresh tokens for user {user_id}")
 
     # Clear authentication cookies
     response.delete_cookie(key="access_token", path="/")
     response.delete_cookie(key="temp_token", path="/")
+    response.delete_cookie(key="refresh_token", path="/api/auth")
 
     return {
         "message": "Logout successful",
         "all_devices_revoked": logout_all
+    }
+
+
+# ==================== Refresh Token Endpoints ====================
+
+@router.post("/refresh")
+@limiter.limit("30/minute")  # 每分鐘最多 30 次刷新
+async def refresh_access_token(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    使用 Refresh Token 換取新的 Access Token
+
+    Token 輪換: 每次刷新會生成新的 refresh_token
+    """
+    # 1. 從 cookie 取得 refresh_token
+    refresh_token = request.cookies.get("refresh_token")
+
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found"
+        )
+
+    # 2. 計算 token hash 並查詢
+    token_hash = hash_refresh_token(refresh_token)
+    result = await db.execute(
+        select(RefreshToken)
+        .where(RefreshToken.token_hash == token_hash)
+        .options(selectinload(RefreshToken.user))
+    )
+    stored_token = result.scalar_one_or_none()
+
+    # 3. 驗證 token 存在
+    if not stored_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    # 4. 檢查是否已撤銷 (可能是重播攻擊)
+    if stored_token.is_revoked:
+        # 偵測到重播攻擊：撤銷整個 token family
+        await _revoke_token_family(db, stored_token.token_family, "reuse_detected")
+        logger.warning(f"Refresh token reuse detected for user {stored_token.user_id}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked. Please login again."
+        )
+
+    # 5. 檢查是否過期
+    if not stored_token.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired"
+        )
+
+    # 6. 檢查用戶狀態
+    user = stored_token.user
+    if not user or not user.is_active:
+        stored_token.revoke("user_inactive")
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is disabled"
+        )
+
+    # 7. Token Rotation: 撤銷舊 token，發放新 token
+    stored_token.revoke("rotated")
+
+    # 生成新的 refresh token (保持相同 family)
+    new_refresh_token = generate_refresh_token()
+    new_token_record = RefreshToken(
+        user_id=user.id,
+        token_hash=hash_refresh_token(new_refresh_token),
+        token_family=stored_token.token_family,  # 保持相同 family
+        device_fingerprint=stored_token.device_fingerprint,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    db.add(new_token_record)
+
+    # 8. 生成新的 access token
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "username": user.username,
+        "role": user.role.value,
+    })
+
+    await db.commit()
+
+    # 9. 設定 cookies
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=settings.SECURE_COOKIE,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=settings.SECURE_COOKIE,
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        path="/api/auth",
+    )
+
+    logger.info(f"Token refreshed for user {user.username}")
+
+    return {
+        "message": "Token refreshed successfully",
+        "token_type": "bearer"
+    }
+
+
+@router.get("/sessions")
+async def get_active_sessions(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    取得當前使用者的所有活躍 sessions (refresh tokens)
+    """
+    # 取得當前的 refresh token (用於標記 is_current)
+    current_refresh_token = request.cookies.get("refresh_token")
+    current_token_hash = hash_refresh_token(current_refresh_token) if current_refresh_token else None
+
+    # 查詢所有活躍的 refresh tokens
+    result = await db.execute(
+        select(RefreshToken)
+        .where(
+            RefreshToken.user_id == current_user.id,
+            RefreshToken.is_revoked == False,
+            RefreshToken.expires_at > datetime.utcnow()
+        )
+        .order_by(RefreshToken.last_used_at.desc().nullsfirst(), RefreshToken.created_at.desc())
+    )
+    tokens = result.scalars().all()
+
+    sessions = []
+    for token in tokens:
+        sessions.append({
+            "id": token.id,
+            "device_fingerprint": token.device_fingerprint,
+            "user_agent": token.user_agent,
+            "ip_address": token.ip_address,
+            "created_at": token.created_at.isoformat() if token.created_at else None,
+            "last_used_at": token.last_used_at.isoformat() if token.last_used_at else None,
+            "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+            "is_current": token.token_hash == current_token_hash
+        })
+
+    return {
+        "sessions": sessions,
+        "total": len(sessions)
+    }
+
+
+@router.delete("/sessions/{session_id}")
+async def revoke_session(
+    session_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    撤銷指定的 session (refresh token)
+    """
+    # 查詢 token
+    result = await db.execute(
+        select(RefreshToken).where(
+            RefreshToken.id == session_id,
+            RefreshToken.user_id == current_user.id
+        )
+    )
+    token = result.scalar_one_or_none()
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
+
+    if token.is_revoked:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session already revoked"
+        )
+
+    # 撤銷整個 token family
+    await _revoke_token_family(db, token.token_family, "user_revoked")
+
+    return {
+        "message": "Session revoked successfully",
+        "session_id": session_id
     }

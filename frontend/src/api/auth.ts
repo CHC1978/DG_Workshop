@@ -9,6 +9,8 @@ import type {
   LoginStep2Response,
   Setup2FAResponse,
   User,
+  SessionInfo,
+  SessionsResponse,
 } from '@/types'
 
 export const authApi = {
@@ -59,5 +61,35 @@ export const authApi = {
    */
   logout() {
     return apiClient.post('/auth/logout')
+  },
+
+  /**
+   * Logout from all devices
+   */
+  logoutAll() {
+    return apiClient.post('/auth/logout', null, {
+      params: { logout_all: true }
+    })
+  },
+
+  /**
+   * Refresh access token
+   */
+  refreshToken() {
+    return apiClient.post('/auth/refresh')
+  },
+
+  /**
+   * Get all active sessions
+   */
+  getSessions() {
+    return apiClient.get<SessionsResponse>('/auth/sessions')
+  },
+
+  /**
+   * Revoke a specific session
+   */
+  revokeSession(sessionId: number) {
+    return apiClient.delete(`/auth/sessions/${sessionId}`)
   },
 }

@@ -1,7 +1,10 @@
-"""安全性相關功能: JWT, TOTP, 密碼雜湊"""
+"""安全性相關功能: JWT, TOTP, 密碼雜湊, Refresh Token"""
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import logging
+import secrets
+import hashlib
+import uuid
 import pyotp
 from jose import JWTError, jwt
 import bcrypt
@@ -172,5 +175,42 @@ def generate_backup_codes(count: int = 8) -> list[str]:
     Returns:
         備用碼列表
     """
-    import secrets
     return [secrets.token_hex(4).upper() for _ in range(count)]
+
+
+# ==================== Refresh Token ====================
+
+def generate_refresh_token() -> str:
+    """
+    產生安全隨機 Refresh Token
+
+    Returns:
+        URL-safe base64 編碼的隨機字串 (43 字元)
+    """
+    return secrets.token_urlsafe(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    """
+    雜湊 Refresh Token (SHA-256)
+
+    Args:
+        token: 原始 refresh token
+
+    Returns:
+        64 字元的十六進位雜湊值
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def generate_token_family() -> str:
+    """
+    產生唯一的 Token Family ID
+
+    Token Family 用於追蹤 Token 輪換鏈，
+    當偵測到舊 token 被重複使用時，撤銷整個 family
+
+    Returns:
+        UUID 字串
+    """
+    return str(uuid.uuid4())

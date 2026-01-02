@@ -12,6 +12,7 @@ from app.models.maintenance import Maintenance
 from app.models.trusted_device import TrustedDevice
 from app.models.log_attachment import LogAttachment, AttachmentType
 from app.models.backup_code import BackupCode
+from app.models.refresh_token import RefreshToken
 
 __all__ = [
     "User",
@@ -36,4 +37,5 @@ __all__ = [
     "LogAttachment",
     "AttachmentType",
     "BackupCode",
+    "RefreshToken",
 ]

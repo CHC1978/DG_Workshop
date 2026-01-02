@@ -16,10 +16,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     SECURE_COOKIE: bool = False  # 生產環境設為 True 強制 HTTPS Cookie
 
-    # Token 過期時間 (分鐘)
+    # Token 過期時間
     # 生產環境建議使用更短的過期時間以降低 token 被竊取的風險
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # 從 30 分鐘縮短至 15 分鐘
-    TEMP_TOKEN_EXPIRE_MINUTES: int = 3     # 從 5 分鐘縮短至 3 分鐘 (2FA 驗證用)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Access token 15 分鐘
+    TEMP_TOKEN_EXPIRE_MINUTES: int = 3     # Temp token 3 分鐘 (2FA 驗證用)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7     # Refresh token 7 天
+    MAX_REFRESH_TOKENS_PER_USER: int = 10  # 每用戶最多 10 個活躍 refresh token
 
     # 資料庫設定
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/marine_equipment.db"

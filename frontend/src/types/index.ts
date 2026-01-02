@@ -57,6 +57,22 @@ export interface Setup2FAResponse {
   message: string
 }
 
+export interface SessionInfo {
+  id: number
+  device_fingerprint?: string
+  user_agent?: string
+  ip_address?: string
+  created_at?: string
+  last_used_at?: string
+  expires_at?: string
+  is_current: boolean
+}
+
+export interface SessionsResponse {
+  sessions: SessionInfo[]
+  total: number
+}
+
 // ==================== Equipment ====================
 
 export type EquipmentCategory =
