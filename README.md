@@ -2,7 +2,7 @@
 
 海洋調查設備資產管理系統，透過 QR Code 實現設備快速識別、狀態追蹤、校正管理等功能。
 
-**版本**: 1.1
+**版本**: 1.2
 **狀態**: ✅ 可投入使用
 **GitHub**: https://github.com/CHC1978/DG_Workshop
 
@@ -22,6 +22,7 @@
 - ✅ 響應式 UI（Desktop/Tablet/Mobile）
 - ✅ Network Mode（同網域訪問）
 - ✅ **Week 2 安全強化**（httpOnly Cookies + 2FA 管理增強）
+- ✅ **Week 3 安全強化**（檔案驗證 + XSS 防護 + 100MB 上傳）
 
 ---
 
@@ -413,10 +414,10 @@ QR_CODE_PROTOCOL=http
 
 | 位置 | 類型 | 格式 | 大小限制 |
 |------|------|------|---------|
-| Equipment Photo | 圖片 | JPG, PNG, GIF, WebP | 10MB |
-| Equipment Manual | 文件 | PDF, DOC, DOCX | 10MB |
-| Calibration Report | PDF | PDF | 10MB |
-| Log Attachments | 任意 | 所有常見格式 | 10MB |
+| Equipment Photo | 圖片 | JPG, PNG, GIF, WebP | 100MB |
+| Equipment Manual | 文件 | PDF, DOC, DOCX | 100MB |
+| Calibration Report | PDF | PDF | 100MB |
+| Log Attachments | 任意 | 所有常見格式 | 100MB |
 
 ### 檔案儲存結構
 ```
@@ -487,6 +488,15 @@ manage.bat → [N] Network Mode
 - **Disable/Enable 分離**：Disable 保留 secret，Enable 可直接重啟用
 - **Reset 2FA 流程**：強制用戶重新掃描 QR code 設定
 
+### ✅ 已完成（v1.2 檔案安全 + 前端防護）
+- **Magic Number 驗證**：檔案簽名驗證，防止偽造副檔名
+- **PDF 安全掃描**：檢測 JavaScript、自動執行、嵌入檔案等危險內容
+- **圖片重新編碼**：移除 EXIF metadata 和隱藏 payload
+- **DOMPurify XSS 防護**：前端 HTML 內容清理
+- **前端安全審計日誌**：追蹤認證失敗、權限拒絕等安全事件
+- **檔案大小提升**：單檔上傳限制提升至 100MB
+- **PWA 圖示**：新增 192x192 和 512x512 應用程式圖示
+
 ### 🔜 下次開發
 - Phase 5: SubEquipment 管理（設備組件追蹤）
 - Phase 6: Category 動態管理（需謹慎測試）
@@ -519,6 +529,18 @@ manage.bat → [N] Network Mode
 解決: 執行 update_qr_codes.py 更新
 ```
 
+
+### 問題 5: Docker 建立 admin 
+init_db() 只建立資料表，不會自動建立 admin 帳號。
+
+  需要手動執行 create_admin.py 腳本。
+    解決方案：在容器內建立 admin
+  在 NAS 任務排程器執行：
+
+        
+  #!/bin/bash
+        docker exec marine-equipment-backend python -m app.scripts.create_admin
+
 ---
 
 ## 授權
@@ -535,6 +557,6 @@ manage.bat → [N] Network Mode
 
 ---
 
-**最後更新**: 2026-01-01
-**版本**: 1.1
+**最後更新**: 2026-01-02
+**版本**: 1.2
 **狀態**: ✅ Production Ready
