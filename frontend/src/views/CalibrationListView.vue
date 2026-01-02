@@ -264,7 +264,7 @@
                 :calibration-id="editingCalibrationId"
                 :current-file-url="newCalibration.report_url"
                 accept=".pdf"
-                hint="Upload calibration report (PDF, Max 10MB)"
+                hint="Upload calibration report (PDF, Max 100MB)"
                 @uploaded="handleReportUploaded"
                 @deleted="handleReportDeleted"
               />

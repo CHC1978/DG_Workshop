@@ -290,7 +290,7 @@
                 :equipment-id="equipmentId"
                 :current-file-url="formData.photo_url"
                 accept="image/*"
-                hint="Supported: JPG, PNG, GIF, WebP (Max 10MB)"
+                hint="Supported: JPG, PNG, GIF, WebP (Max 100MB)"
                 @uploaded="handlePhotoUploaded"
                 @deleted="handlePhotoDeleted"
               />
@@ -328,7 +328,7 @@
               :equipment-id="equipmentId"
               :current-file-url="formData.manual_url"
               accept=".pdf,.doc,.docx"
-              hint="Supported: PDF, DOC, DOCX (Max 10MB)"
+              hint="Supported: PDF, DOC, DOCX (Max 100MB)"
               @uploaded="handleManualUploaded"
               @deleted="handleManualDeleted"
             />
@@ -340,7 +340,7 @@
               :equipment-id="equipmentId"
               :current-file-url="formData.calibration_report_url"
               accept=".pdf"
-              hint="Supported: PDF (Max 10MB)"
+              hint="Supported: PDF (Max 100MB)"
               @uploaded="handleReportUploaded"
               @deleted="handleReportDeleted"
             />

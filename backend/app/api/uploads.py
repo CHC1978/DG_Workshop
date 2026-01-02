@@ -33,7 +33,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Allowed file extensions and MIME types
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".doc", ".docx"}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
 
 # MIME type 白名單
 ALLOWED_IMAGE_MIMES = {

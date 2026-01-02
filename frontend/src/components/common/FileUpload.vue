@@ -139,9 +139,9 @@ async function handleUpload() {
   try {
     let endpoint = ''
     if (props.fileType === 'calibration') {
-      endpoint = `/api/uploads/calibrations/${props.calibrationId}/report`
+      endpoint = `/uploads/calibrations/${props.calibrationId}/report`
     } else {
-      endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+      endpoint = `/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
     }
 
     // Use apiClient which automatically sends httpOnly cookies via withCredentials
@@ -175,10 +175,10 @@ async function handleDelete() {
     let endpoint = ''
     if (props.fileType === 'calibration') {
       if (!props.calibrationId) return
-      endpoint = `/api/uploads/calibrations/${props.calibrationId}/report`
+      endpoint = `/uploads/calibrations/${props.calibrationId}/report`
     } else {
       if (!props.equipmentId) return
-      endpoint = `/api/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
+      endpoint = `/uploads/equipment/${props.equipmentId}/${props.fileType === 'report' ? 'calibration-report' : props.fileType}`
     }
 
     // Use apiClient which automatically sends httpOnly cookies via withCredentials

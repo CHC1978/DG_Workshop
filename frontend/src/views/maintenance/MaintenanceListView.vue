@@ -274,7 +274,7 @@
                 :maintenance-id="editingMaintenanceId"
                 :current-file-url="newMaintenance.report_url"
                 accept=".pdf"
-                hint="Upload maintenance report (PDF, Max 10MB)"
+                hint="Upload maintenance report (PDF, Max 100MB)"
                 @uploaded="handleReportUploaded"
                 @deleted="handleReportDeleted"
               />
