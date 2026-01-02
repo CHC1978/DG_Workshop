@@ -11,13 +11,13 @@
  *   const safeUrl = sanitizeUrl(userProvidedUrl)
  */
 
-import DOMPurify from 'dompurify'
+import DOMPurify, { type Config } from 'dompurify'
 
 /**
  * Default DOMPurify configuration
  * Restrictive by default - only allow safe elements
  */
-const DEFAULT_CONFIG: DOMPurify.Config = {
+const DEFAULT_CONFIG: Config = {
   // Allow only basic formatting tags
   ALLOWED_TAGS: [
     'p', 'br', 'b', 'i', 'u', 'strong', 'em',
@@ -43,7 +43,7 @@ const DEFAULT_CONFIG: DOMPurify.Config = {
 /**
  * Minimal configuration for plain text only
  */
-const PLAIN_TEXT_CONFIG: DOMPurify.Config = {
+const PLAIN_TEXT_CONFIG: Config = {
   ALLOWED_TAGS: [],
   ALLOWED_ATTR: [],
 }
@@ -57,12 +57,12 @@ const PLAIN_TEXT_CONFIG: DOMPurify.Config = {
  */
 export function sanitizeHtml(
   dirty: string | null | undefined,
-  config: DOMPurify.Config = DEFAULT_CONFIG
+  config: Config = DEFAULT_CONFIG
 ): string {
   if (!dirty) return ''
 
-  // Sanitize and return
-  return DOMPurify.sanitize(dirty, config)
+  // Sanitize and return (RETURN_TRUSTED_TYPE: false ensures string return)
+  return DOMPurify.sanitize(dirty, { ...config, RETURN_TRUSTED_TYPE: false }) as string
 }
 
 /**
@@ -74,7 +74,7 @@ export function sanitizeHtml(
 export function stripHtml(dirty: string | null | undefined): string {
   if (!dirty) return ''
 
-  return DOMPurify.sanitize(dirty, PLAIN_TEXT_CONFIG)
+  return DOMPurify.sanitize(dirty, { ...PLAIN_TEXT_CONFIG, RETURN_TRUSTED_TYPE: false }) as string
 }
 
 /**

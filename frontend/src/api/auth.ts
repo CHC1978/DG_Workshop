@@ -9,7 +9,6 @@ import type {
   LoginStep2Response,
   Setup2FAResponse,
   User,
-  SessionInfo,
   SessionsResponse,
 } from '@/types'
 
