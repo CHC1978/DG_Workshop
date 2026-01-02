@@ -28,6 +28,7 @@ from app.core.security import (
 from app.core.deps import get_current_user, get_user_from_temp_token
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
+from app.models.used_totp_code import UsedTotpCode
 from app.schemas.auth import (
     LoginStep1Request,
     LoginStep1Response,
@@ -44,6 +45,112 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # 從 main.py 獲取 limiter
 from app.main import limiter
+
+
+# ==================== TOTP Replay Protection Helper Functions ====================
+
+async def _check_totp_reuse(
+    db: AsyncSession,
+    user_id: int,
+    totp_code: str
+) -> bool:
+    """
+    檢查 TOTP 碼是否已被使用
+
+    Args:
+        db: 資料庫 session
+        user_id: 使用者 ID
+        totp_code: TOTP 碼
+
+    Returns:
+        True 如果碼已被使用（應拒絕），False 如果未使用（可繼續）
+    """
+    code_hash = UsedTotpCode.hash_code(user_id, totp_code)
+
+    # 查詢是否有未過期的相同碼
+    result = await db.execute(
+        select(UsedTotpCode).where(
+            UsedTotpCode.user_id == user_id,
+            UsedTotpCode.code_hash == code_hash,
+            UsedTotpCode.expires_at > datetime.utcnow()
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    return existing is not None
+
+
+async def _mark_totp_used(
+    db: AsyncSession,
+    user_id: int,
+    totp_code: str
+) -> None:
+    """
+    標記 TOTP 碼為已使用
+
+    Args:
+        db: 資料庫 session
+        user_id: 使用者 ID
+        totp_code: TOTP 碼
+    """
+    # 先清理過期記錄
+    await _cleanup_expired_totp_codes(db, user_id)
+
+    # 建立新記錄
+    used_code = UsedTotpCode.create(user_id, totp_code)
+    db.add(used_code)
+
+
+async def _cleanup_expired_totp_codes(
+    db: AsyncSession,
+    user_id: int
+) -> None:
+    """
+    清理使用者的過期 TOTP 碼記錄
+
+    Args:
+        db: 資料庫 session
+        user_id: 使用者 ID
+    """
+    await db.execute(
+        delete(UsedTotpCode).where(
+            UsedTotpCode.user_id == user_id,
+            UsedTotpCode.expires_at < datetime.utcnow()
+        )
+    )
+
+
+async def _verify_totp_with_replay_protection(
+    db: AsyncSession,
+    user_id: int,
+    totp_secret: str,
+    totp_code: str
+) -> tuple[bool, str]:
+    """
+    驗證 TOTP 碼並檢查重播攻擊
+
+    Args:
+        db: 資料庫 session
+        user_id: 使用者 ID
+        totp_secret: TOTP secret
+        totp_code: TOTP 碼
+
+    Returns:
+        (is_valid, error_message) - 驗證結果和錯誤訊息
+    """
+    # 1. 檢查是否已使用
+    if await _check_totp_reuse(db, user_id, totp_code):
+        logger.warning(f"TOTP code reuse detected for user {user_id}")
+        return False, "TOTP code already used. Please wait for a new code."
+
+    # 2. 驗證 TOTP 碼
+    if not verify_totp(totp_secret, totp_code):
+        return False, "Invalid TOTP code"
+
+    # 3. 標記為已使用
+    await _mark_totp_used(db, user_id, totp_code)
+
+    return True, ""
 
 
 # ==================== Refresh Token Helper Functions ====================
@@ -461,14 +568,19 @@ async def login_step2(
             detail="2FA is not properly enabled for this user. Please set up 2FA first.",
         )
 
-    # 驗證 TOTP
-    is_valid = verify_totp(user.totp_secret, credentials.totp_code)
+    # 驗證 TOTP (含重播保護)
+    is_valid, error_message = await _verify_totp_with_replay_protection(
+        db=db,
+        user_id=user.id,
+        totp_secret=user.totp_secret,
+        totp_code=credentials.totp_code
+    )
 
     if not is_valid:
-        logger.warning(f"TOTP verification failed for user {user.username}")
+        logger.warning(f"TOTP verification failed for user {user.username}: {error_message}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid TOTP code",
+            detail=error_message,
         )
 
     # Save as trusted device if requested
@@ -757,11 +869,18 @@ async def confirm_2fa(
             detail="2FA setup not started. Call /auth/2fa/setup first.",
         )
 
-    # Verify TOTP code
-    if not verify_totp(current_user.totp_secret, request.totp_code):
+    # Verify TOTP code (含重播保護)
+    is_valid, error_message = await _verify_totp_with_replay_protection(
+        db=db,
+        user_id=current_user.id,
+        totp_secret=current_user.totp_secret,
+        totp_code=request.totp_code
+    )
+
+    if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid TOTP code. Please try again.",
+            detail=error_message or "Invalid TOTP code. Please try again.",
         )
 
     # Enable 2FA
@@ -792,11 +911,18 @@ async def disable_2fa(
             detail="2FA is not enabled",
         )
 
-    # Verify TOTP code
-    if not verify_totp(current_user.totp_secret, request.totp_code):
+    # Verify TOTP code (含重播保護)
+    is_valid, error_message = await _verify_totp_with_replay_protection(
+        db=db,
+        user_id=current_user.id,
+        totp_secret=current_user.totp_secret,
+        totp_code=request.totp_code
+    )
+
+    if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid TOTP code",
+            detail=error_message or "Invalid TOTP code",
         )
 
     # Disable 2FA

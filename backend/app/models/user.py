@@ -60,5 +60,11 @@ class User(Base, TimestampMixin):
         cascade="all, delete-orphan"
     )
 
+    used_totp_codes: Mapped[list["UsedTotpCode"]] = relationship(
+        "UsedTotpCode",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<User(id={self.id}, username='{self.username}', role='{self.role.value}')>"
