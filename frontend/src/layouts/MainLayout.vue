@@ -188,8 +188,8 @@ const roleLabel = computed(() => {
   return labels[authStore.userRole] || authStore.userRole
 })
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   mobileMenuOpen.value = false
   router.push('/login')
 }

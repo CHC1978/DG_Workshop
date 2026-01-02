@@ -21,12 +21,13 @@ CSRF_HEADER_NAME = "X-CSRF-Token"
 # 安全方法 (不需要 CSRF 保護)
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
-# 排除路徑 (登入前無 CSRF token)
+# 排除路徑 (登入前無 CSRF token 或低風險操作)
 CSRF_EXEMPT_PATHS = {
     "/api/auth/login/step1",
     "/api/auth/login/step2",
     "/api/auth/login/backup-code",
     "/api/auth/refresh",
+    "/api/auth/logout",  # Logout 有 token 驗證，且 CSRF 風險低
     "/docs",
     "/redoc",
     "/openapi.json",
