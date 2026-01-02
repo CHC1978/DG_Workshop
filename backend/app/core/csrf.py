@@ -2,7 +2,8 @@
 import secrets
 from typing import Callable, Optional
 
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, Response, status
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
@@ -60,7 +61,7 @@ def set_csrf_cookie(response: Response, token: Optional[str] = None) -> str:
         key=CSRF_COOKIE_NAME,
         value=token,
         httponly=False,  # 前端需要讀取
-        secure=settings.COOKIE_SECURE,
+        secure=settings.SECURE_COOKIE,
         samesite="lax",
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # 與 refresh token 同步
         path="/",
@@ -79,7 +80,7 @@ def clear_csrf_cookie(response: Response) -> None:
     response.delete_cookie(
         key=CSRF_COOKIE_NAME,
         path="/",
-        secure=settings.COOKIE_SECURE,
+        secure=settings.SECURE_COOKIE,
         samesite="lax",
     )
 
@@ -169,9 +170,9 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # 驗證 CSRF token
         if not verify_csrf_token(request):
-            raise HTTPException(
+            return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="CSRF token 驗證失敗",
+                content={"detail": "CSRF token verification failed"},
             )
 
         return await call_next(request)
