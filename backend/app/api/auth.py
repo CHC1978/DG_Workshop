@@ -26,6 +26,7 @@ from app.core.security import (
     generate_token_family,
 )
 from app.core.deps import get_current_user, get_user_from_temp_token
+from app.core.csrf import set_csrf_cookie, clear_csrf_cookie
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.models.used_totp_code import UsedTotpCode
@@ -378,6 +379,9 @@ async def login_step1(
         )
         await db.commit()
 
+        # 設定 CSRF cookie
+        set_csrf_cookie(response)
+
         return LoginStep1Response(
             access_token=None,  # Don't return token in response body
             totp_required=False,
@@ -466,6 +470,9 @@ async def login_step1(
                     device_fingerprint=credentials.device_fingerprint
                 )
                 await db.commit()
+
+                # 設定 CSRF cookie
+                set_csrf_cookie(response)
 
                 return LoginStep1Response(
                     access_token=None,  # Don't return token in response body
@@ -647,6 +654,9 @@ async def login_step2(
     )
     await db.commit()
 
+    # 設定 CSRF cookie
+    set_csrf_cookie(response)
+
     # Clear temp_token cookie
     response.delete_cookie(key="temp_token", path="/")
 
@@ -773,6 +783,9 @@ async def login_with_backup_code(
         device_fingerprint=None  # 備用碼登入不綁定裝置指紋
     )
     await db.commit()
+
+    # 設定 CSRF cookie
+    set_csrf_cookie(response)
 
     # Clear temp_token cookie
     response.delete_cookie(key="temp_token", path="/")
@@ -1023,6 +1036,9 @@ async def logout(
     response.delete_cookie(key="temp_token", path="/")
     response.delete_cookie(key="refresh_token", path="/api/auth")
 
+    # 清除 CSRF cookie
+    clear_csrf_cookie(response)
+
     return {
         "message": "Logout successful",
         "all_devices_revoked": logout_all
@@ -1140,6 +1156,9 @@ async def refresh_access_token(
         max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         path="/api/auth",
     )
+
+    # 刷新 CSRF cookie
+    set_csrf_cookie(response)
 
     logger.info(f"Token refreshed for user {user.username}")
 

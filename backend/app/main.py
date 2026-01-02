@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
+from app.core.csrf import CSRFMiddleware
 
 # 初始化 rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -53,6 +54,7 @@ app.add_middleware(
         "Content-Type",
         "Authorization",
         "X-Request-ID",
+        "X-CSRF-Token",
         "Accept",
         "Accept-Language",
         "Content-Language",
@@ -60,6 +62,9 @@ app.add_middleware(
     expose_headers=["Content-Length", "X-Request-ID"],
     max_age=600,  # CORS 預檢快取 10 分鐘
 )
+
+# 添加 CSRF 保護 Middleware (Double Submit Cookie 模式)
+app.add_middleware(CSRFMiddleware)
 
 
 # 添加安全標頭中介軟體

@@ -1,7 +1,28 @@
 /**
- * Axios API client configuration with token refresh
+ * Axios API client configuration with token refresh and CSRF protection
  */
 import axios, { type AxiosInstance, type AxiosError, type InternalAxiosRequestConfig } from 'axios'
+
+// CSRF token cookie 名稱
+const CSRF_COOKIE_NAME = 'csrf_token'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+
+// 需要 CSRF 保護的 HTTP 方法
+const CSRF_PROTECTED_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+/**
+ * 從 cookie 讀取 CSRF token
+ */
+function getCsrfToken(): string | null {
+  const cookies = document.cookie.split(';')
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=')
+    if (name === CSRF_COOKIE_NAME) {
+      return decodeURIComponent(value)
+    }
+  }
+  return null
+}
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -12,6 +33,24 @@ const apiClient: AxiosInstance = axios.create({
   },
   withCredentials: true,  // 自動發送 cookies (httpOnly)
 })
+
+// Request interceptor: 自動附加 CSRF token
+apiClient.interceptors.request.use(
+  (config) => {
+    const method = config.method?.toUpperCase() || 'GET'
+
+    // 對需要保護的方法附加 CSRF token
+    if (CSRF_PROTECTED_METHODS.includes(method)) {
+      const csrfToken = getCsrfToken()
+      if (csrfToken) {
+        config.headers[CSRF_HEADER_NAME] = csrfToken
+      }
+    }
+
+    return config
+  },
+  (error) => Promise.reject(error)
+)
 
 // Flag to prevent multiple refresh attempts
 let isRefreshing = false
