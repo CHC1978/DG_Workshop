@@ -446,6 +446,99 @@ class SecurityChecker:
                 "CSRF protection module not found"
             )
 
+    def check_file_validator(self):
+        """Verify file validator module is properly configured"""
+        validator_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "file_validator.py"
+        )
+
+        if os.path.exists(validator_path):
+            # Try to import and verify it works
+            try:
+                from app.utils.file_validator import FileValidator, ValidationStatus
+                validator = FileValidator()
+
+                # Quick sanity check
+                test_jpeg = b'\xFF\xD8\xFF\xE0\x00\x10JFIF'
+                result = validator.validate_file(test_jpeg, "image", "test.jpg")
+
+                if result.file_type.value == "image/jpeg":
+                    self.add_result(
+                        "File Validator",
+                        CheckStatus.PASS,
+                        "File validator module is functional"
+                    )
+                else:
+                    self.add_result(
+                        "File Validator",
+                        CheckStatus.WARN,
+                        "File validator exists but magic number detection may have issues"
+                    )
+            except Exception as e:
+                self.add_result(
+                    "File Validator",
+                    CheckStatus.WARN,
+                    f"File validator import error: {e}"
+                )
+        else:
+            self.add_result(
+                "File Validator",
+                CheckStatus.FAIL,
+                "File validator module not found",
+                ["Missing backend/app/utils/file_validator.py"]
+            )
+
+    def check_upload_integration(self):
+        """Verify file validator is integrated into uploads API"""
+        uploads_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "api", "uploads.py"
+        )
+
+        if os.path.exists(uploads_path):
+            try:
+                with open(uploads_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+
+                checks = {
+                    "validate_upload": "validate_upload function import",
+                    "ValidationStatus": "ValidationStatus enum import",
+                    "INVALID_SIGNATURE": "Invalid signature handling",
+                    "SUSPICIOUS_CONTENT": "Suspicious content handling",
+                }
+
+                missing = []
+                for keyword, description in checks.items():
+                    if keyword not in content:
+                        missing.append(description)
+
+                if not missing:
+                    self.add_result(
+                        "Upload Validation Integration",
+                        CheckStatus.PASS,
+                        "File validation is properly integrated into uploads API"
+                    )
+                else:
+                    self.add_result(
+                        "Upload Validation Integration",
+                        CheckStatus.WARN,
+                        f"Missing {len(missing)} integration point(s)",
+                        missing
+                    )
+            except Exception as e:
+                self.add_result(
+                    "Upload Validation Integration",
+                    CheckStatus.WARN,
+                    f"Could not verify upload integration: {e}"
+                )
+        else:
+            self.add_result(
+                "Upload Validation Integration",
+                CheckStatus.FAIL,
+                "Uploads API file not found"
+            )
+
     # ==================== Run All Checks ====================
 
     def run_all_checks(self):
@@ -481,6 +574,8 @@ class SecurityChecker:
         # File security checks
         print("\n[File Security Checks]")
         self.check_upload_directory()
+        self.check_file_validator()
+        self.check_upload_integration()
 
         # Print results
         self._print_results()

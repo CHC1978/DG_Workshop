@@ -2,8 +2,9 @@
 import os
 import re
 import shutil
+import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,6 +13,13 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.equipment import Equipment
+from app.utils.file_validator import (
+    FileValidator,
+    ValidationStatus,
+    validate_upload,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/uploads", tags=["File Uploads"])
 
@@ -180,6 +188,35 @@ async def upload_equipment_photo(
             detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
         )
 
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Validate file with magic number check and sanitization
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type="image",
+        sanitize=True
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for photo upload: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in photo: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected: {validation_result.message}"
+        )
+
+    # Log if image was sanitized
+    if validation_result.sanitized:
+        logger.info(f"Image sanitized: {file.filename} for equipment {equipment.asset_code}")
+
     # Save file
     upload_dir = get_equipment_upload_dir(equipment.asset_code)
     filename = f"photo{ext}"
@@ -189,9 +226,9 @@ async def upload_equipment_photo(
     if file_path.exists():
         file_path.unlink()
 
-    # Save new file
+    # Save processed file (sanitized if applicable)
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(processed_content)
 
     # Update equipment record
     relative_path = f"/uploads/{equipment.asset_code}/{filename}"
@@ -201,7 +238,9 @@ async def upload_equipment_photo(
     return {
         "message": "Photo uploaded successfully",
         "url": relative_path,
-        "filename": filename
+        "filename": filename,
+        "sanitized": validation_result.sanitized,
+        "warnings": validation_result.warnings if validation_result.warnings else None
     }
 
 
@@ -248,6 +287,38 @@ async def upload_equipment_manual(
             detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
         )
 
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Determine validation type based on extension
+    validation_type = "pdf" if ext == ".pdf" else "document"
+
+    # Validate file with magic number check
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type=validation_type,
+        sanitize=False
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for manual upload: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in manual: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected for security reasons: {validation_result.message}"
+        )
+
+    # Log warnings if any
+    if validation_result.warnings:
+        logger.info(f"Document warnings for {file.filename}: {validation_result.warnings}")
+
     # Save file
     upload_dir = get_equipment_upload_dir(equipment.asset_code)
     filename = f"manual{ext}"
@@ -257,9 +328,9 @@ async def upload_equipment_manual(
     if file_path.exists():
         file_path.unlink()
 
-    # Save new file
+    # Save file
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(processed_content)
 
     # Update equipment record
     relative_path = f"/uploads/{equipment.asset_code}/{filename}"
@@ -269,7 +340,8 @@ async def upload_equipment_manual(
     return {
         "message": "Manual uploaded successfully",
         "url": relative_path,
-        "filename": filename
+        "filename": filename,
+        "warnings": validation_result.warnings if validation_result.warnings else None
     }
 
 
@@ -316,6 +388,38 @@ async def upload_calibration_report(
             detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
         )
 
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Determine validation type based on extension
+    validation_type = "pdf" if ext == ".pdf" else "document"
+
+    # Validate file with magic number check
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type=validation_type,
+        sanitize=False
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for calibration report: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in calibration report: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected for security reasons: {validation_result.message}"
+        )
+
+    # Log warnings if any
+    if validation_result.warnings:
+        logger.info(f"Document warnings for {file.filename}: {validation_result.warnings}")
+
     # Save file
     upload_dir = get_equipment_upload_dir(equipment.asset_code)
     filename = f"calibration_report{ext}"
@@ -325,9 +429,9 @@ async def upload_calibration_report(
     if file_path.exists():
         file_path.unlink()
 
-    # Save new file
+    # Save file
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(processed_content)
 
     # Update equipment record
     relative_path = f"/uploads/{equipment.asset_code}/{filename}"
@@ -337,7 +441,8 @@ async def upload_calibration_report(
     return {
         "message": "Calibration report uploaded successfully",
         "url": relative_path,
-        "filename": filename
+        "filename": filename,
+        "warnings": validation_result.warnings if validation_result.warnings else None
     }
 
 
@@ -534,6 +639,38 @@ async def upload_calibration_report_file(
             detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
         )
 
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Determine validation type based on extension
+    validation_type = "pdf" if ext == ".pdf" else "document"
+
+    # Validate file with magic number check
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type=validation_type,
+        sanitize=False
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for calibration report: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in calibration report: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected for security reasons: {validation_result.message}"
+        )
+
+    # Log warnings if any
+    if validation_result.warnings:
+        logger.info(f"Document warnings for {file.filename}: {validation_result.warnings}")
+
     # Save file
     upload_dir = get_equipment_upload_dir(equipment.asset_code)
     filename = f"calibration_{calibration_id}{ext}"
@@ -543,9 +680,9 @@ async def upload_calibration_report_file(
     if file_path.exists():
         file_path.unlink()
 
-    # Save new file
+    # Save file
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(processed_content)
 
     # Update calibration record
     relative_path = f"/uploads/{equipment.asset_code}/{filename}"
@@ -555,12 +692,13 @@ async def upload_calibration_report_file(
     return {
         "message": "Calibration report uploaded successfully",
         "url": relative_path,
-        "filename": filename
+        "filename": filename,
+        "warnings": validation_result.warnings if validation_result.warnings else None
     }
 
 
 @router.delete("/calibrations/{calibration_id}/report")
-async def delete_calibration_report(
+async def delete_calibration_report_by_calibration(
     calibration_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -648,6 +786,53 @@ async def upload_log_attachment(
             detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
         )
 
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Determine file type based on extension
+    ext = Path(file.filename).suffix.lower()
+    if ext in ALLOWED_IMAGE_EXTENSIONS:
+        validation_type = "image"
+        sanitize = True
+    elif ext == ".pdf":
+        validation_type = "pdf"
+        sanitize = False
+    elif ext in ALLOWED_DOCUMENT_EXTENSIONS:
+        validation_type = "document"
+        sanitize = False
+    else:
+        # For other file types, just do basic magic number check
+        validation_type = None
+        sanitize = False
+
+    # Validate file if we have a known type
+    processed_content = file_content
+    validation_warnings = []
+
+    if validation_type:
+        processed_content, validation_result = validate_upload(
+            file_content=file_content,
+            filename=file.filename,
+            file_type=validation_type,
+            sanitize=sanitize
+        )
+
+        if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+            logger.warning(f"Invalid file signature for log attachment: {file.filename}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file format: {validation_result.message}"
+            )
+
+        if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+            logger.warning(f"Suspicious content in log attachment: {file.filename} - {validation_result.warnings}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File rejected for security reasons: {validation_result.message}"
+            )
+
+        validation_warnings = validation_result.warnings or []
+
     # Save file
     log_dir = UPLOAD_DIR / equipment.asset_code / "logs" / str(log_id)
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -658,7 +843,7 @@ async def upload_log_attachment(
     file_path = log_dir / safe_filename
 
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(processed_content)
 
     # Create attachment record
     relative_path = f"/uploads/{equipment.asset_code}/logs/{log_id}/{safe_filename}"
@@ -681,7 +866,8 @@ async def upload_log_attachment(
         "id": attachment.id,
         "message": "Attachment uploaded successfully",
         "url": relative_path,
-        "filename": safe_filename
+        "filename": safe_filename,
+        "warnings": validation_warnings if validation_warnings else None
     }
 
 
