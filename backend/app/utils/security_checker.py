@@ -155,11 +155,14 @@ class SecurityChecker:
             privileged = [u for u in users_without_2fa if u.role in [UserRole.ADMIN, UserRole.MANAGER]]
 
             if privileged:
+                # In development mode (DEBUG=True), show as WARN instead of FAIL
+                status = CheckStatus.WARN if settings.DEBUG else CheckStatus.FAIL
                 self.add_result(
                     "2FA Coverage",
-                    CheckStatus.FAIL,
+                    status,
                     f"Found {len(privileged)} privileged user(s) without 2FA",
-                    [f"{u.username} ({u.role.value})" for u in privileged]
+                    [f"{u.username} ({u.role.value})" for u in privileged] +
+                    (["(Development mode - will be required in production)"] if settings.DEBUG else [])
                 )
             else:
                 self.add_result(
