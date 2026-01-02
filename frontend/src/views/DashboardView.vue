@@ -102,24 +102,65 @@
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
           <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold text-gray-900">Recent Activities</h2>
-            <!-- Log Type Filter -->
-            <div class="flex items-center gap-2">
-              <label class="text-xs text-gray-600">Filter:</label>
-              <select
-                v-model="selectedLogType"
-                class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            <!-- Log Type Filter + Admin Clear -->
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600">Filter:</label>
+                <select
+                  v-model="selectedLogType"
+                  class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                >
+                  <option value="">All Types</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="calibration">Calibration</option>
+                  <option value="status_change">Status Change</option>
+                  <option value="location_change">Location Change</option>
+                  <option value="rental_start">Rental Start</option>
+                  <option value="rental_end">Rental End</option>
+                  <option value="note">Note</option>
+                  <option value="created">Created</option>
+                  <option value="updated">Updated</option>
+                </select>
+              </div>
+              <!-- Admin Clear All Button -->
+              <button
+                v-if="isAdmin && recentActivities.length > 0"
+                @click="showClearConfirm = true"
+                class="px-3 py-1 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-300 rounded-lg transition-colors"
+                title="Clear all activities (Admin only)"
               >
-                <option value="">All Types</option>
-                <option value="maintenance">Maintenance</option>
-                <option value="calibration">Calibration</option>
-                <option value="status_change">Status Change</option>
-                <option value="location_change">Location Change</option>
-                <option value="rental_start">Rental Start</option>
-                <option value="rental_end">Rental End</option>
-                <option value="note">Note</option>
-                <option value="created">Created</option>
-                <option value="updated">Updated</option>
-              </select>
+                Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Clear Confirmation Modal -->
+        <div
+          v-if="showClearConfirm"
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+          @click.self="showClearConfirm = false"
+        >
+          <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Clear All Activities</h3>
+            <p class="text-sm text-gray-600 mb-4">
+              Are you sure you want to delete all <span class="font-bold text-red-600">{{ recentActivities.length }}</span> activity logs?
+              This will clear ALL equipment logs across the system. This action cannot be undone.
+            </p>
+            <div class="flex justify-end gap-2">
+              <button
+                @click="showClearConfirm = false"
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                @click="clearAllActivities"
+                :disabled="clearing"
+                class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {{ clearing ? 'Deleting...' : 'Delete All' }}
+              </button>
             </div>
           </div>
         </div>
@@ -227,11 +268,19 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { dashboardApi, type DashboardAlerts, type DashboardStats, type RecentActivity } from '@/api/dashboard'
+import { useAuthStore } from '@/stores/auth'
 import MainLayout from '@/layouts/MainLayout.vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const loading = ref(true)
+const showClearConfirm = ref(false)
+const clearing = ref(false)
+
+// Check if current user is admin
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
 const stats = ref<DashboardStats>({
   total_equipment: 0,
   in_stock: 0,
@@ -330,6 +379,19 @@ async function loadDashboard() {
     console.error('Failed to load dashboard:', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function clearAllActivities() {
+  clearing.value = true
+  try {
+    await dashboardApi.clearActivities()
+    recentActivities.value = []
+    showClearConfirm.value = false
+  } catch (error) {
+    console.error('Failed to clear activities:', error)
+  } finally {
+    clearing.value = false
   }
 }
 

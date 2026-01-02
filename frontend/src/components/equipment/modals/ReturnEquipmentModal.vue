@@ -10,16 +10,16 @@
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Return to Location
+            Return to
           </label>
           <select
             v-model="returnForm.locationId"
             class="w-full px-3 py-2 border rounded-lg"
             required
           >
-            <option :value="null">Select location...</option>
-            <option v-for="location in warehouses" :key="location.id" :value="location.id">
-              {{ location.name }}
+            <option :value="null">Select...</option>
+            <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
+              {{ location.name }} ({{ location.location_type }})
             </option>
           </select>
         </div>
@@ -82,8 +82,10 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const uiStore = useUiStore()
 
-// Filter locations to show only warehouses
-const warehouses = computed(() => props.locations.filter(l => l.location_type === 'warehouse'))
+// Filter locations to show only warehouses and persons
+const filteredLocations = computed(() =>
+  props.locations.filter(l => l.location_type === 'warehouse' || l.location_type === 'person')
+)
 
 const returnForm = ref({
   locationId: null as number | null,

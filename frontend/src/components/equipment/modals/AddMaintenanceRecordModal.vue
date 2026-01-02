@@ -4,32 +4,35 @@
     class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+    <div class="bg-white rounded-lg shadow-xl p-4 sm:p-6 max-w-md w-full overflow-hidden">
       <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Maintenance Record</h3>
 
       <div class="space-y-4">
-        <!-- Last Maintenance Date -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Last Maintenance Date
-          </label>
-          <input
-            v-model="formData.last_maintenance_date"
-            type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-          />
-        </div>
+        <!-- Date Fields - Responsive Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- Last Maintenance Date -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Last Maintenance
+            </label>
+            <input
+              v-model="formData.last_maintenance_date"
+              type="date"
+              class="w-full max-w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            />
+          </div>
 
-        <!-- Next Maintenance Due -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Next Maintenance Due
-          </label>
-          <input
-            v-model="formData.next_maintenance_date"
-            type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
-          />
+          <!-- Next Maintenance Due -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Next Due
+            </label>
+            <input
+              v-model="formData.next_maintenance_date"
+              type="date"
+              class="w-full max-w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
         <!-- Maintenance Notes -->

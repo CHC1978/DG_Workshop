@@ -83,4 +83,8 @@ export const dashboardApi = {
       params: { limit },
     })
   },
+
+  clearActivities() {
+    return apiClient.delete<{ message: string; deleted_count: number }>('/dashboard/recent-activities')
+  },
 }

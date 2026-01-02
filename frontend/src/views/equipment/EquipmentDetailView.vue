@@ -287,8 +287,10 @@
           v-if="equipmentId"
           :key="`logs-${equipmentId}`"
           :equipment-id="equipmentId"
+          :is-admin="authStore.isAdmin"
           @log-double-clicked="handleLogDoubleClick"
           @view-attachments="viewLogAttachmentsQuick"
+          @logs-cleared="uiStore.showNotification('success', 'All logs cleared')"
           ref="logSection"
         />
 
@@ -310,6 +312,46 @@
           :locations="locations"
           @close="showReturnModal = false"
           @returned="handleReturned"
+        />
+
+        <!-- Send to Repair Modal -->
+        <SendToRepairModal
+          :show="showRepairModal"
+          :equipment="equipment"
+          :children-count="childrenEquipment.length"
+          :locations="locations"
+          @close="showRepairModal = false"
+          @submitted="handleRepairSubmitted"
+        />
+
+        <!-- Send to Calibration Modal -->
+        <SendToCalibrationModal
+          :show="showCalibrationModal"
+          :equipment="equipment"
+          :children-count="childrenEquipment.length"
+          :locations="locations"
+          @close="showCalibrationModal = false"
+          @submitted="handleCalibrationSubmitted"
+        />
+
+        <!-- Set to In Stock Modal -->
+        <SetToInStockModal
+          :show="showInStockModal"
+          :equipment="equipment"
+          :children-count="childrenEquipment.length"
+          :locations="locations"
+          @close="showInStockModal = false"
+          @submitted="handleInStockSubmitted"
+        />
+
+        <!-- Set to Rented Modal -->
+        <SetToRentedModal
+          :show="showRentedModal"
+          :equipment="equipment"
+          :children-count="childrenEquipment.length"
+          :locations="locations"
+          @close="showRentedModal = false"
+          @submitted="handleRentedSubmitted"
         />
 
         <!-- Detach from Parent Modal -->
@@ -353,11 +395,41 @@
                 </p>
               </div>
 
-              <!-- Non-editable fields -->
-              <div v-if="editingLog.old_value || editingLog.new_value" class="border-l-4 border-gray-300 pl-3">
-                <p class="text-xs text-gray-500 mb-1">Change Record (read-only):</p>
-                <p v-if="editingLog.old_value" class="text-sm text-gray-600">Old: {{ editingLog.old_value }}</p>
-                <p v-if="editingLog.new_value" class="text-sm text-gray-600">New: {{ editingLog.new_value }}</p>
+              <!-- Change Record - Visual Format -->
+              <div v-if="editingLog.old_value || editingLog.new_value" class="p-3 bg-gray-50 rounded-lg">
+                <p class="text-xs text-gray-500 mb-2 font-medium">Change Record</p>
+                <div v-if="isJsonChangeRecord(editingLog.new_value)" class="flex items-center gap-3 flex-wrap">
+                  <!-- From -->
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">From:</span>
+                    <span v-if="parseChangeRecord(editingLog.old_value)?.location"
+                          :class="['text-sm px-2 py-1 rounded', getLocationBadgeClass(parseChangeRecord(editingLog.old_value)?.location?.type)]">
+                      {{ parseChangeRecord(editingLog.old_value)?.location?.name || 'N/A' }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">N/A</span>
+                  </div>
+                  <!-- Arrow -->
+                  <span class="text-gray-400 text-lg">→</span>
+                  <!-- To -->
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">To:</span>
+                    <span v-if="parseChangeRecord(editingLog.new_value)?.location"
+                          :class="['text-sm px-2 py-1 rounded', getLocationBadgeClass(parseChangeRecord(editingLog.new_value)?.location?.type)]">
+                      {{ parseChangeRecord(editingLog.new_value)?.location?.name || 'N/A' }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">N/A</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span v-if="parseChangeRecord(editingLog.new_value)?.status"
+                        class="ml-auto text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                    {{ parseChangeRecord(editingLog.new_value)?.status }}
+                  </span>
+                </div>
+                <!-- Fallback for old format -->
+                <div v-else class="text-sm text-gray-600 space-y-1">
+                  <p v-if="editingLog.old_value">Old: {{ editingLog.old_value }}</p>
+                  <p v-if="editingLog.new_value">New: {{ editingLog.new_value }}</p>
+                </div>
               </div>
 
               <!-- Editable fields -->
@@ -371,29 +443,6 @@
                   rows="4"
                   placeholder="Enter description..."
                 ></textarea>
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Latitude (optional)</label>
-                  <input
-                    v-model.number="editLogForm.latitude"
-                    type="number"
-                    step="0.000001"
-                    class="w-full px-3 py-2 border rounded-lg"
-                    placeholder="e.g., 25.033671"
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Longitude (optional)</label>
-                  <input
-                    v-model.number="editLogForm.longitude"
-                    type="number"
-                    step="0.000001"
-                    class="w-full px-3 py-2 border rounded-lg"
-                    placeholder="e.g., 121.564427"
-                  />
-                </div>
               </div>
 
               <!-- Actions -->
@@ -427,17 +476,6 @@
             <div class="border-b border-gray-200 mb-4">
               <div class="flex gap-4">
                 <button
-                  @click="quickActionTab = 'status'"
-                  :class="[
-                    'pb-2 px-1 border-b-2 font-medium text-sm transition-colors',
-                    quickActionTab === 'status'
-                      ? 'border-sky-500 text-sky-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  ]"
-                >
-                  Status Change
-                </button>
-                <button
                   @click="quickActionTab = 'attachments'"
                   :class="[
                     'pb-2 px-1 border-b-2 font-medium text-sm transition-colors',
@@ -462,75 +500,8 @@
               </div>
             </div>
 
-            <!-- Status Change Tab -->
-            <div v-if="quickActionTab === 'status'" class="space-y-4">
-              <div class="mb-4 p-3 bg-gray-50 rounded">
-                <p class="text-sm text-gray-600">Current Status:</p>
-                <p class="text-lg font-semibold text-gray-900">{{ statusLabel(equipment?.status || '') }}</p>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Change To:
-                </label>
-                <select
-                  v-model="quickStatusForm.action"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
-                >
-                  <option value="">-- Select Action --</option>
-                  <option value="deploy">Deploy Equipment</option>
-                  <option value="return">Return Equipment</option>
-                  <option value="repair">Send to Repair</option>
-                  <option value="calibration">Send to Calibration</option>
-                  <option value="in_stock">Set to In Stock</option>
-                  <option value="rented">Set to Rented</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Notes (optional):
-                </label>
-                <textarea
-                  v-model="quickStatusForm.notes"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows="3"
-                  placeholder="Enter notes..."
-                ></textarea>
-              </div>
-
-              <!-- Include Children Option -->
-              <div v-if="childrenEquipment.length > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
-                <label class="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    v-model="quickStatusForm.includeChildren"
-                    class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-                  />
-                  <div class="flex-1">
-                    <span class="text-sm font-medium text-gray-900">Include Child Components</span>
-                    <p class="text-xs text-gray-600 mt-1">
-                      Apply this change to all {{ childrenEquipment.length }} child component(s)
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              <div class="flex justify-end gap-2 pt-4 border-t">
-                <AppButton variant="secondary" @click="showQuickStatusModal = false">
-                  Cancel
-                </AppButton>
-                <AppButton
-                  :disabled="!quickStatusForm.action"
-                  @click="executeQuickStatusChange"
-                >
-                  Execute
-                </AppButton>
-              </div>
-            </div>
-
             <!-- Log Attachments Tab -->
-            <div v-else-if="quickActionTab === 'attachments'" class="space-y-4">
+            <div v-if="quickActionTab === 'attachments'" class="space-y-4">
               <div v-if="selectedLog" class="mb-4 p-3 bg-gray-50 rounded">
                 <p class="text-sm font-medium">{{ selectedLog.description }}</p>
                 <p class="text-xs text-gray-500 mt-1">{{ formatDateTime(selectedLog.created_at) }}</p>
@@ -550,25 +521,38 @@
                   :key="att.id"
                   class="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
                 >
-                  <div class="flex-1">
-                    <a
-                      :href="`http://localhost:8000${att.file_url}`"
-                      target="_blank"
-                      class="text-sm font-medium text-sky-600 hover:text-sky-800"
-                    >
-                      {{ att.file_name }}
-                    </a>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">{{ att.file_name }}</p>
                     <p class="text-xs text-gray-500">
                       {{ (att.file_size / 1024).toFixed(1) }} KB • {{ att.file_type }}
                     </p>
                     <p v-if="att.description" class="text-xs text-gray-600 mt-1">{{ att.description }}</p>
                   </div>
-                  <button
-                    @click="deleteAttachment(att.id)"
-                    class="ml-4 text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Delete
-                  </button>
+                  <div class="flex items-center gap-2 ml-4">
+                    <a
+                      :href="getAttachmentUrl(att.file_url)"
+                      target="_blank"
+                      class="px-2 py-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors"
+                      title="View in new tab"
+                    >
+                      View
+                    </a>
+                    <a
+                      :href="getAttachmentUrl(att.file_url)"
+                      :download="att.file_name"
+                      class="px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                      title="Download file"
+                    >
+                      Download
+                    </a>
+                    <button
+                      @click="deleteAttachment(att.id)"
+                      class="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                      title="Delete attachment"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -622,10 +606,41 @@
                 </p>
               </div>
 
-              <div v-if="selectedLog && (selectedLog.old_value || selectedLog.new_value)" class="border-l-4 border-gray-300 pl-3">
-                <p class="text-xs text-gray-500 mb-1">Change Record (read-only):</p>
-                <p v-if="selectedLog.old_value" class="text-sm text-gray-600">Old: {{ selectedLog.old_value }}</p>
-                <p v-if="selectedLog.new_value" class="text-sm text-gray-600">New: {{ selectedLog.new_value }}</p>
+              <!-- Change Record - Visual Format -->
+              <div v-if="selectedLog && (selectedLog.old_value || selectedLog.new_value)" class="p-3 bg-gray-50 rounded-lg">
+                <p class="text-xs text-gray-500 mb-2 font-medium">Change Record</p>
+                <div v-if="isJsonChangeRecord(selectedLog.new_value)" class="flex items-center gap-3 flex-wrap">
+                  <!-- From -->
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">From:</span>
+                    <span v-if="parseChangeRecord(selectedLog.old_value)?.location"
+                          :class="['text-sm px-2 py-1 rounded', getLocationBadgeClass(parseChangeRecord(selectedLog.old_value)?.location?.type)]">
+                      {{ parseChangeRecord(selectedLog.old_value)?.location?.name || 'N/A' }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">N/A</span>
+                  </div>
+                  <!-- Arrow -->
+                  <span class="text-gray-400 text-lg">→</span>
+                  <!-- To -->
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">To:</span>
+                    <span v-if="parseChangeRecord(selectedLog.new_value)?.location"
+                          :class="['text-sm px-2 py-1 rounded', getLocationBadgeClass(parseChangeRecord(selectedLog.new_value)?.location?.type)]">
+                      {{ parseChangeRecord(selectedLog.new_value)?.location?.name || 'N/A' }}
+                    </span>
+                    <span v-else class="text-sm text-gray-400">N/A</span>
+                  </div>
+                  <!-- Status badge -->
+                  <span v-if="parseChangeRecord(selectedLog.new_value)?.status"
+                        class="ml-auto text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                    {{ parseChangeRecord(selectedLog.new_value)?.status }}
+                  </span>
+                </div>
+                <!-- Fallback for old format -->
+                <div v-else class="text-sm text-gray-600 space-y-1">
+                  <p v-if="selectedLog.old_value">Old: {{ selectedLog.old_value }}</p>
+                  <p v-if="selectedLog.new_value">New: {{ selectedLog.new_value }}</p>
+                </div>
               </div>
 
               <div>
@@ -638,29 +653,6 @@
                   rows="4"
                   placeholder="Enter description..."
                 ></textarea>
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Latitude (optional)</label>
-                  <input
-                    v-model.number="editLogForm.latitude"
-                    type="number"
-                    step="0.000001"
-                    class="w-full px-3 py-2 border rounded-lg"
-                    placeholder="e.g., 25.033671"
-                  />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Longitude (optional)</label>
-                  <input
-                    v-model.number="editLogForm.longitude"
-                    type="number"
-                    step="0.000001"
-                    class="w-full px-3 py-2 border rounded-lg"
-                    placeholder="e.g., 121.564427"
-                  />
-                </div>
               </div>
 
               <div class="flex justify-end gap-2 pt-4 border-t">
@@ -793,13 +785,17 @@ import { useEquipmentStore } from '@/stores/equipment'
 import { useUiStore } from '@/stores/ui'
 import { equipmentApi } from '@/api/equipment'
 import { locationApi } from '@/api/locations'
-import axios from 'axios'
+import apiClient from '@/api/client'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import DeployEquipmentModal from '@/components/equipment/modals/DeployEquipmentModal.vue'
 import ReturnEquipmentModal from '@/components/equipment/modals/ReturnEquipmentModal.vue'
 import DetachFromParentModal from '@/components/equipment/modals/DetachFromParentModal.vue'
 import AddMaintenanceRecordModal from '@/components/equipment/modals/AddMaintenanceRecordModal.vue'
+import SendToRepairModal from '@/components/equipment/modals/SendToRepairModal.vue'
+import SendToCalibrationModal from '@/components/equipment/modals/SendToCalibrationModal.vue'
+import SetToInStockModal from '@/components/equipment/modals/SetToInStockModal.vue'
+import SetToRentedModal from '@/components/equipment/modals/SetToRentedModal.vue'
 import EquipmentLogSection from '@/components/equipment/sections/EquipmentLogSection.vue'
 import ChildrenEquipmentSection from '@/components/equipment/sections/ChildrenEquipmentSection.vue'
 import type { Equipment } from '@/types'
@@ -822,9 +818,12 @@ const showMaintenanceModal = ref(false)
 const logSection = ref<InstanceType<typeof EquipmentLogSection> | null>(null)
 const childrenSection = ref<InstanceType<typeof ChildrenEquipmentSection> | null>(null)
 const showRepairModal = ref(false)
+const showCalibrationModal = ref(false)
+const showInStockModal = ref(false)
+const showRentedModal = ref(false)
 const selectedStatusAction = ref('')
 const showQuickStatusModal = ref(false)
-const quickActionTab = ref('status')
+const quickActionTab = ref('attachments')
 const quickStatusForm = ref({
   action: '',
   notes: '',
@@ -956,6 +955,45 @@ function logTypeBadge(type: string): string {
   return `${base} ${variants[type] || 'bg-gray-100 text-gray-800'}`
 }
 
+// Change Record parsing helpers
+interface ChangeRecord {
+  status?: string
+  location?: {
+    id?: number
+    name?: string
+    type?: string
+  }
+}
+
+function isJsonChangeRecord(value?: string): boolean {
+  if (!value) return false
+  return value.startsWith('{')
+}
+
+function parseChangeRecord(value?: string): ChangeRecord | null {
+  if (!value) return null
+  try {
+    if (value.startsWith('{')) {
+      return JSON.parse(value) as ChangeRecord
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+function getLocationBadgeClass(type?: string): string {
+  const classes: Record<string, string> = {
+    warehouse: 'bg-amber-100 text-amber-800',
+    vessel: 'bg-blue-100 text-blue-800',
+    person: 'bg-green-100 text-green-800',
+    external: 'bg-purple-100 text-purple-800',
+    platform: 'bg-cyan-100 text-cyan-800',
+    vehicle: 'bg-orange-100 text-orange-800',
+  }
+  return classes[type || ''] || 'bg-gray-100 text-gray-800'
+}
+
 function getFullUrl(url: string): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
@@ -1021,16 +1059,16 @@ async function executeStatusAction() {
       showReturnModal.value = true
       break
     case 'repair':
-      await handleSendToRepair()
+      showRepairModal.value = true
       break
     case 'calibration':
-      await handleSendToCalibration()
+      showCalibrationModal.value = true
       break
     case 'in_stock':
-      await handleSetStatus('in_stock')
+      showInStockModal.value = true
       break
     case 'rented':
-      await handleSetStatus('rented')
+      showRentedModal.value = true
       break
     case 'maintenance':
       showMaintenanceModal.value = true
@@ -1060,40 +1098,32 @@ async function handleSetStatus(status: string) {
   }
 }
 
-async function handleSendToRepair() {
-  if (!equipment.value) return
-
-  const notes = prompt('Notes for repair (optional):')
-  if (notes === null) return
-
-  try {
-    await equipmentApi.repair(equipment.value.id, notes || undefined)
-    uiStore.showNotification('success', 'Equipment sent to repair')
-    // Refresh equipment data and logs
-    await equipmentStore.fetchById(equipmentId.value)
-    logSection.value?.loadLogs()
-    childrenSection.value?.loadChildren()
-  } catch (error: any) {
-    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to repair')
-  }
+async function handleRepairSubmitted() {
+  // Refresh equipment data and logs after repair
+  await equipmentStore.fetchById(equipmentId.value)
+  logSection.value?.loadLogs()
+  childrenSection.value?.loadChildren()
 }
 
-async function handleSendToCalibration() {
-  if (!equipment.value) return
+async function handleCalibrationSubmitted() {
+  // Refresh equipment data and logs after calibration
+  await equipmentStore.fetchById(equipmentId.value)
+  logSection.value?.loadLogs()
+  childrenSection.value?.loadChildren()
+}
 
-  const notes = prompt('Notes for calibration (optional):')
-  if (notes === null) return
+async function handleInStockSubmitted() {
+  // Refresh equipment data and logs after setting to in stock
+  await equipmentStore.fetchById(equipmentId.value)
+  logSection.value?.loadLogs()
+  childrenSection.value?.loadChildren()
+}
 
-  try {
-    await equipmentApi.sendToCalibration(equipment.value.id, notes || undefined)
-    uiStore.showNotification('success', 'Equipment sent to calibration')
-    // Refresh equipment data and logs
-    await equipmentStore.fetchById(equipmentId.value)
-    logSection.value?.loadLogs()
-    childrenSection.value?.loadChildren()
-  } catch (error: any) {
-    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to send to calibration')
-  }
+async function handleRentedSubmitted() {
+  // Refresh equipment data and logs after setting to rented
+  await equipmentStore.fetchById(equipmentId.value)
+  logSection.value?.loadLogs()
+  childrenSection.value?.loadChildren()
 }
 
 async function handleDeployed() {
@@ -1186,12 +1216,7 @@ async function handleLogDoubleClick(log: any) {
   if (!authStore.isOperator) return
 
   selectedLog.value = log
-  quickActionTab.value = 'status'
-  quickStatusForm.value = {
-    action: '',
-    notes: log.description || '',
-    includeChildren: true
-  }
+  quickActionTab.value = 'attachments'
   editLogForm.value = {
     description: log.description || '',
     latitude: log.latitude,
@@ -1372,11 +1397,7 @@ async function viewLogAttachments(log: any) {
 async function loadLogAttachments(logId: number) {
   loadingAttachments.value = true
   try {
-    const response = await axios.get(`/api/uploads/equipment-logs/${logId}/attachments`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('auth') ? JSON.parse(localStorage.getItem('auth')!).token : ''}`
-      }
-    })
+    const response = await apiClient.get(`/uploads/equipment-logs/${logId}/attachments`)
     currentAttachments.value = response.data
   } catch (error) {
     console.error('Failed to load attachments:', error)
@@ -1404,16 +1425,12 @@ async function uploadAttachment() {
       formData.append('description', uploadDescription.value)
     }
 
-    const authData = localStorage.getItem('auth')
-    const token = authData ? JSON.parse(authData).token : ''
-
-    await axios.post(
-      `/api/uploads/equipment-logs/${selectedLog.value.id}/attachments`,
+    await apiClient.post(
+      `/uploads/equipment-logs/${selectedLog.value.id}/attachments`,
       formData,
       {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`
+          'Content-Type': 'multipart/form-data'
         }
       }
     )
@@ -1432,16 +1449,17 @@ async function uploadAttachment() {
   }
 }
 
+function getAttachmentUrl(fileUrl: string): string {
+  // Ensure URL starts with /
+  const normalizedUrl = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`
+  return normalizedUrl
+}
+
 async function deleteAttachment(attachmentId: number) {
   if (!confirm('Delete this attachment?')) return
 
   try {
-    const authData = localStorage.getItem('auth')
-    const token = authData ? JSON.parse(authData).token : ''
-
-    await axios.delete(`/api/uploads/log-attachments/${attachmentId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    await apiClient.delete(`/uploads/log-attachments/${attachmentId}`)
 
     uiStore.showNotification('success', 'Attachment deleted')
     if (selectedLog.value) {

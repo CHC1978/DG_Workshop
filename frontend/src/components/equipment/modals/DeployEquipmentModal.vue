@@ -10,15 +10,15 @@
       <div class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Deploy to Location
+            Deploy to
           </label>
           <select
             v-model="deployForm.locationId"
             class="w-full px-3 py-2 border rounded-lg"
             required
           >
-            <option :value="null">Select location...</option>
-            <option v-for="location in locations" :key="location.id" :value="location.id">
+            <option :value="null">Select...</option>
+            <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
               {{ location.name }} ({{ location.location_type }})
             </option>
           </select>
@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { equipmentApi } from '@/api/equipment'
 import { useUiStore } from '@/stores/ui'
 import AppButton from '@/components/common/AppButton.vue'
@@ -87,6 +87,11 @@ const deployForm = ref({
   notes: '',
   includeChildren: true
 })
+
+// Filter locations to only show Vessel and Person types
+const filteredLocations = computed(() =>
+  props.locations.filter(l => l.location_type === 'vessel' || l.location_type === 'person')
+)
 
 // Reset form when modal closes
 watch(() => props.show, (newShow) => {

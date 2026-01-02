@@ -1,4 +1,5 @@
 """Equipment management API endpoints"""
+import json
 import logging
 from typing import Optional
 from datetime import datetime
@@ -410,6 +411,10 @@ async def update_equipment(
     old_parent_id = equipment.parent_equipment_id
     new_parent_id = None
 
+    # Store old values for JSON log
+    old_status = equipment.status
+    old_location_id = equipment.current_location_id
+
     # Update fields
     update_data = equipment_data.model_dump(exclude_unset=True)
     logger.debug(f"[UPDATE API] Update data received: {update_data}")
@@ -427,6 +432,10 @@ async def update_equipment(
 
     # Log changes
     if changes:
+        # Check if status or location changed for JSON format log
+        status_changed = 'status' in update_data
+        location_changed = 'current_location_id' in update_data
+
         # Special log for parent equipment attachment/detachment
         if parent_changed:
             if old_parent_id is None and new_parent_id is not None:
@@ -441,32 +450,24 @@ async def update_equipment(
 
                     logger.debug(f"[ATTACH SYNC] Child equipment: {equipment.asset_code}")
                     logger.debug(f"[ATTACH SYNC] Parent equipment: {parent_equipment.asset_code}")
-                    logger.debug(f"[ATTACH SYNC] Child status: {equipment.status}, Parent status: {parent_equipment.status}")
-                    logger.debug(f"[ATTACH SYNC] Child location: {equipment.current_location_id}, Parent location: {parent_equipment.current_location_id}")
-                    logger.debug(f"[ATTACH SYNC] Child project: {equipment.project_id}, Parent project: {parent_equipment.project_id}")
 
                     # Sync status
                     if equipment.status.value != parent_equipment.status.value:
-                        old_status = equipment.status
+                        old_sync_status = equipment.status
                         equipment.status = parent_equipment.status
-                        sync_changes.append(f"status: {old_status.value} → {parent_equipment.status.value}")
-                        logger.debug(f"[ATTACH SYNC] Updated status from {old_status.value} to {parent_equipment.status.value}")
+                        sync_changes.append(f"status: {old_sync_status.value} → {parent_equipment.status.value}")
 
                     # Sync location
                     if equipment.current_location_id != parent_equipment.current_location_id:
                         old_location = equipment.current_location_id
                         equipment.current_location_id = parent_equipment.current_location_id
                         sync_changes.append(f"location_id: {old_location} → {parent_equipment.current_location_id}")
-                        logger.debug(f"[ATTACH SYNC] Updated location from {old_location} to {parent_equipment.current_location_id}")
 
                     # Sync project
                     if equipment.project_id != parent_equipment.project_id:
                         old_project = equipment.project_id
                         equipment.project_id = parent_equipment.project_id
                         sync_changes.append(f"project_id: {old_project} → {parent_equipment.project_id}")
-                        logger.debug(f"[ATTACH SYNC] Updated project from {old_project} to {parent_equipment.project_id}")
-
-                    logger.debug(f"[ATTACH SYNC] Total sync changes: {len(sync_changes)}")
 
                     # Log attachment with sync details
                     sync_detail = f" (Synced: {', '.join(sync_changes)})" if sync_changes else ""
@@ -491,16 +492,72 @@ async def update_equipment(
                     user_id=current_user.id,
                 )
 
-        # Regular update log (for non-parent changes or additional changes)
+        # Regular update log with JSON format for status/location changes
         if not parent_changed or len(changes) > 1:
-            await log_equipment_change(
-                db=db,
-                equipment_id=equipment.id,
-                log_type=EquipmentLogType.UPDATED,
-                description=f"Equipment updated",
-                old_value="; ".join(changes[:5]),  # Limit to first 5 changes
-                user_id=current_user.id,
-            )
+            if status_changed or location_changed:
+                # Get old location info
+                old_location_info = None
+                if old_location_id:
+                    old_loc_result = await db.execute(
+                        select(Location).where(Location.id == old_location_id)
+                    )
+                    old_location = old_loc_result.scalar_one_or_none()
+                    if old_location:
+                        old_location_info = {
+                            "id": old_location.id,
+                            "name": old_location.name,
+                            "type": old_location.location_type.value if old_location.location_type else None
+                        }
+
+                # Get new location info
+                new_location_info = None
+                if equipment.current_location_id:
+                    new_loc_result = await db.execute(
+                        select(Location).where(Location.id == equipment.current_location_id)
+                    )
+                    new_location = new_loc_result.scalar_one_or_none()
+                    if new_location:
+                        new_location_info = {
+                            "id": new_location.id,
+                            "name": new_location.name,
+                            "type": new_location.location_type.value if new_location.location_type else None
+                        }
+
+                # Build JSON for old/new values
+                old_value_json = json.dumps({
+                    "status": old_status.value if hasattr(old_status, 'value') else str(old_status),
+                    "location": old_location_info
+                }, ensure_ascii=False)
+
+                new_value_json = json.dumps({
+                    "status": equipment.status.value if hasattr(equipment.status, 'value') else str(equipment.status),
+                    "location": new_location_info
+                }, ensure_ascii=False)
+
+                # Build description
+                description = "Equipment updated"
+                if new_location_info:
+                    description = f"Equipment updated - moved to {new_location_info['name']}"
+
+                await log_equipment_change(
+                    db=db,
+                    equipment_id=equipment.id,
+                    log_type=EquipmentLogType.UPDATED,
+                    description=description,
+                    old_value=old_value_json,
+                    new_value=new_value_json,
+                    user_id=current_user.id,
+                )
+            else:
+                # Non status/location changes - use old format
+                await log_equipment_change(
+                    db=db,
+                    equipment_id=equipment.id,
+                    log_type=EquipmentLogType.UPDATED,
+                    description=f"Equipment updated",
+                    old_value="; ".join(changes[:5]),  # Limit to first 5 changes
+                    user_id=current_user.id,
+                )
 
     # If this equipment is a parent and its status/location/project changed,
     # sync all children to match
@@ -619,6 +676,7 @@ async def get_equipment_logs(
     # Get current equipment location and project info
     from app.models.location import Location
     from app.models.project import Project
+    from app.models.log_attachment import LogAttachment
 
     current_location = None
     current_project = None
@@ -635,13 +693,50 @@ async def get_equipment_logs(
         )
         current_project = proj_result.scalar_one_or_none()
 
+    # Get all log IDs to fetch attachments
+    log_ids = [log.id for log, _, _ in log_rows]
+
+    # Fetch all attachments for these logs in one query
+    attachments_result = await db.execute(
+        select(LogAttachment).where(LogAttachment.equipment_log_id.in_(log_ids))
+    )
+    all_attachments = attachments_result.scalars().all()
+
+    # Group attachments by log_id
+    attachments_by_log: dict[int, list] = {}
+    for att in all_attachments:
+        if att.equipment_log_id not in attachments_by_log:
+            attachments_by_log[att.equipment_log_id] = []
+        attachments_by_log[att.equipment_log_id].append({
+            "id": att.id,
+            "file_url": att.file_url,
+            "file_name": att.file_name,
+            "file_type": att.file_type.value,
+            "file_size": att.file_size
+        })
+
     # Build response with usernames and current location/project
     responses = []
     for log, creator, editor in log_rows:
-        log_dict = EquipmentLogResponse.model_validate(log).model_dump()
-        log_dict['created_by_username'] = creator.username if creator else None
-        log_dict['edited_by_username'] = editor.username if editor else None
-        log_dict['is_edited'] = log.edit_count > 0
+        # Build log dict manually to avoid lazy loading issues
+        log_dict = {
+            "id": log.id,
+            "equipment_id": log.equipment_id,
+            "log_type": log.log_type.value if hasattr(log.log_type, 'value') else log.log_type,
+            "old_value": log.old_value,
+            "new_value": log.new_value,
+            "description": log.description,
+            "latitude": log.latitude,
+            "longitude": log.longitude,
+            "created_at": log.created_at,
+            "created_by": log.created_by,
+            "created_by_username": creator.username if creator else None,
+            "edited_at": log.edited_at,
+            "edited_by": log.edited_by,
+            "edited_by_username": editor.username if editor else None,
+            "edit_count": log.edit_count,
+            "is_edited": log.edit_count > 0,
+        }
 
         # Add current equipment location and project info
         if current_location:
@@ -650,6 +745,11 @@ async def get_equipment_logs(
         if current_project:
             log_dict['project_code'] = current_project.code
             log_dict['project_name'] = current_project.name
+
+        # Add attachments
+        log_attachments = attachments_by_log.get(log.id, [])
+        log_dict['attachment_count'] = len(log_attachments)
+        log_dict['attachments'] = log_attachments
 
         responses.append(EquipmentLogResponse(**log_dict))
 
@@ -743,6 +843,44 @@ async def update_equipment_log(
     return EquipmentLogResponse(**log_dict)
 
 
+@router.delete("/{equipment_id}/logs")
+async def clear_equipment_logs(
+    equipment_id: int,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Clear all logs for an equipment (Admin only)
+    """
+    # Verify equipment exists
+    result = await db.execute(
+        select(Equipment).where(Equipment.id == equipment_id)
+    )
+    equipment = result.scalar_one_or_none()
+
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found"
+        )
+
+    # Count logs to delete
+    count_result = await db.execute(
+        select(func.count(EquipmentLog.id)).where(EquipmentLog.equipment_id == equipment_id)
+    )
+    count = count_result.scalar()
+
+    # Delete all logs for this equipment
+    from sqlalchemy import delete
+    await db.execute(
+        delete(EquipmentLog).where(EquipmentLog.equipment_id == equipment_id)
+    )
+
+    await db.commit()
+
+    return {"message": f"Deleted {count} logs for equipment {equipment.asset_code}", "deleted_count": count}
+
+
 # ==================== Status Change Operations ====================
 
 @router.post("/{equipment_id}/deploy", response_model=EquipmentResponse)
@@ -769,27 +907,69 @@ async def deploy_equipment(
         )
 
     # Check if equipment can be deployed
-    if equipment.status not in [EquipmentStatus.IN_STOCK, EquipmentStatus.ORDERING]:
+    # Allow: IN_STOCK, ORDERING, DEPLOYED (direct transfer without return)
+    allowed_statuses = [EquipmentStatus.IN_STOCK, EquipmentStatus.ORDERING, EquipmentStatus.DEPLOYED]
+    if equipment.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot deploy equipment with status: {equipment.status.value}",
         )
 
+    # Get target location name
+    loc_result = await db.execute(
+        select(Location).where(Location.id == location_id)
+    )
+    target_location = loc_result.scalar_one_or_none()
+    if not target_location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found"
+        )
+
     # Update status and location
     old_status = equipment.status
-    old_location = equipment.current_location_id
+    old_location_id = equipment.current_location_id
+
+    # Get old location info if exists
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
 
     equipment.status = EquipmentStatus.DEPLOYED
     equipment.current_location_id = location_id
 
-    # Log the deployment
+    # Build structured JSON for old/new values
+    old_value_json = json.dumps({
+        "status": old_status.value,
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_value_json = json.dumps({
+        "status": EquipmentStatus.DEPLOYED.value,
+        "location": {
+            "id": target_location.id,
+            "name": target_location.name,
+            "type": target_location.location_type.value if target_location.location_type else None
+        }
+    }, ensure_ascii=False)
+
+    # Log the deployment with structured JSON
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.STATUS_CHANGE,
-        description=notes or f"Equipment deployed to location {location_id}",
-        old_value=f"Status: {old_status.value}, Location: {old_location}",
-        new_value=f"Status: {EquipmentStatus.DEPLOYED.value}, Location: {location_id}",
+        description=notes or f"Equipment deployed to {target_location.name}",
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
 
@@ -833,21 +1013,61 @@ async def return_equipment(
             detail="Equipment not found",
         )
 
+    # Get target location name
+    loc_result = await db.execute(
+        select(Location).where(Location.id == location_id)
+    )
+    target_location = loc_result.scalar_one_or_none()
+    if not target_location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found"
+        )
+
     # Update status and location
     old_status = equipment.status
-    old_location = equipment.current_location_id
+    old_location_id = equipment.current_location_id
+
+    # Get old location info if exists
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
 
     equipment.status = EquipmentStatus.IN_STOCK
     equipment.current_location_id = location_id
 
-    # Log the return
+    # Build structured JSON for old/new values
+    old_value_json = json.dumps({
+        "status": old_status.value,
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_value_json = json.dumps({
+        "status": EquipmentStatus.IN_STOCK.value,
+        "location": {
+            "id": target_location.id,
+            "name": target_location.name,
+            "type": target_location.location_type.value if target_location.location_type else None
+        }
+    }, ensure_ascii=False)
+
+    # Log the return with structured JSON
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.STATUS_CHANGE,
-        description=notes or f"Equipment returned to location {location_id}",
-        old_value=f"Status: {old_status.value}, Location: {old_location}",
-        new_value=f"Status: {EquipmentStatus.IN_STOCK.value}, Location: {location_id}",
+        description=notes or f"Equipment returned to {target_location.name}",
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
 
@@ -871,13 +1091,15 @@ async def return_equipment(
 @router.post("/{equipment_id}/repair", response_model=EquipmentResponse)
 async def send_to_repair(
     equipment_id: int,
+    location_id: Optional[int] = None,
+    expected_return_date: Optional[str] = None,
     notes: Optional[str] = None,
     current_user: User = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Send equipment to repair (Operator+ only)
-    Changes status to REPAIR
+    Changes status to REPAIR, optionally sets location
     """
     result = await db.execute(
         select(Equipment).where(Equipment.id == equipment_id)
@@ -890,18 +1112,76 @@ async def send_to_repair(
             detail="Equipment not found",
         )
 
+    # Verify location if provided
+    target_location = None
+    if location_id:
+        loc_result = await db.execute(
+            select(Location).where(Location.id == location_id)
+        )
+        target_location = loc_result.scalar_one_or_none()
+        if not target_location:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Location not found"
+            )
+
     # Update status
     old_status = equipment.status
+    old_location_id = equipment.current_location_id
     equipment.status = EquipmentStatus.REPAIR
 
-    # Log the repair
+    # Get old location info
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
+
+    # Update location if provided
+    if location_id:
+        equipment.current_location_id = location_id
+
+    # Build description with details
+    description_parts = [notes or "Equipment sent to repair"]
+    if target_location:
+        description_parts.append(f"Location: {target_location.name}")
+    if expected_return_date:
+        description_parts.append(f"Expected return: {expected_return_date}")
+
+    # Build structured JSON for old/new values
+    old_value_json = json.dumps({
+        "status": old_status.value,
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_location_info = None
+    if target_location:
+        new_location_info = {
+            "id": target_location.id,
+            "name": target_location.name,
+            "type": target_location.location_type.value if target_location.location_type else None
+        }
+
+    new_value_json = json.dumps({
+        "status": EquipmentStatus.REPAIR.value,
+        "location": new_location_info
+    }, ensure_ascii=False)
+
+    # Log the repair with structured JSON
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.MAINTENANCE,
-        description=notes or "Equipment sent to repair",
-        old_value=f"Status: {old_status.value}",
-        new_value=f"Status: {EquipmentStatus.REPAIR.value}",
+        description=" | ".join(description_parts),
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
 
@@ -911,7 +1191,7 @@ async def send_to_repair(
         parent_id=equipment_id,
         user_id=current_user.id,
         sync_status=True,
-        sync_location=False,
+        sync_location=location_id is not None,
         sync_project=False,
         notes="Parent sent to repair"
     )
@@ -925,13 +1205,14 @@ async def send_to_repair(
 @router.post("/{equipment_id}/send-to-calibration", response_model=EquipmentResponse)
 async def send_to_calibration(
     equipment_id: int,
+    location_id: Optional[int] = None,
     notes: Optional[str] = None,
     current_user: User = Depends(require_operator),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Send equipment to calibration (Operator+ only)
-    Changes status to CALIBRATING
+    Changes status to CALIBRATING, optionally sets location
     """
     result = await db.execute(
         select(Equipment).where(Equipment.id == equipment_id)
@@ -944,18 +1225,76 @@ async def send_to_calibration(
             detail="Equipment not found",
         )
 
+    # Verify location if provided
+    target_location = None
+    if location_id:
+        loc_result = await db.execute(
+            select(Location).where(Location.id == location_id)
+        )
+        target_location = loc_result.scalar_one_or_none()
+        if not target_location:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Location not found"
+            )
+
     # Update status
     old_status = equipment.status
+    old_location_id = equipment.current_location_id
     equipment.status = EquipmentStatus.CALIBRATING
 
-    # Log the calibration send
+    # Get old location info
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
+
+    # Update location if provided
+    if location_id:
+        equipment.current_location_id = location_id
+
+    # Build description with details
+    description_parts = [notes or "Equipment sent to calibration"]
+    if target_location:
+        description_parts.append(f"Location: {target_location.name}")
+    if equipment.calibration_due:
+        description_parts.append(f"Cal Due: {equipment.calibration_due.strftime('%Y-%m-%d')}")
+
+    # Build structured JSON for old/new values
+    old_value_json = json.dumps({
+        "status": old_status.value,
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_location_info = None
+    if target_location:
+        new_location_info = {
+            "id": target_location.id,
+            "name": target_location.name,
+            "type": target_location.location_type.value if target_location.location_type else None
+        }
+
+    new_value_json = json.dumps({
+        "status": EquipmentStatus.CALIBRATING.value,
+        "location": new_location_info
+    }, ensure_ascii=False)
+
+    # Log the calibration send with structured JSON
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.CALIBRATION,
-        description=notes or "Equipment sent to calibration",
-        old_value=f"Status: {old_status.value}",
-        new_value=f"Status: {EquipmentStatus.CALIBRATING.value}",
+        description=" | ".join(description_parts),
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
 
@@ -965,7 +1304,7 @@ async def send_to_calibration(
         parent_id=equipment_id,
         user_id=current_user.id,
         sync_status=True,
-        sync_location=False,
+        sync_location=location_id is not None,
         sync_project=False,
         notes="Parent sent to calibration"
     )

@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, require_admin
 from app.models.user import User
 from app.models.equipment import Equipment, EquipmentStatus
 from app.models.rental import Rental, RentalStatus
@@ -343,3 +343,28 @@ async def get_recent_activities(
         print(f"[ERROR] Failed to get recent activities: {e}")
         # Return empty list instead of error
         return []
+
+
+@router.delete("/recent-activities")
+async def clear_all_activities(
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """Clear all equipment logs (Admin only)"""
+    from app.models.equipment_log import EquipmentLog
+    from sqlalchemy import delete
+
+    try:
+        # Delete all equipment logs
+        result = await db.execute(delete(EquipmentLog))
+        deleted_count = result.rowcount
+        await db.commit()
+
+        return {
+            "message": f"Successfully deleted {deleted_count} activity logs",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        await db.rollback()
+        print(f"[ERROR] Failed to clear activities: {e}")
+        raise

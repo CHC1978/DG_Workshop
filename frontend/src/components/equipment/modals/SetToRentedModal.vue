@@ -1,0 +1,149 @@
+<template>
+  <!-- Set to Rented Modal -->
+  <div
+    v-if="show"
+    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+    @click.self="$emit('close')"
+  >
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Set to Rented</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Rent to
+          </label>
+          <select
+            v-model="rentedForm.locationId"
+            class="w-full px-3 py-2 border rounded-lg"
+          >
+            <option :value="null">Select...</option>
+            <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
+              {{ location.name }} ({{ location.location_type }})
+            </option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Rental Start Date
+          </label>
+          <input
+            type="date"
+            v-model="rentedForm.startDate"
+            class="w-full px-3 py-2 border rounded-lg"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+          <textarea
+            v-model="rentedForm.notes"
+            class="w-full px-3 py-2 border rounded-lg"
+            rows="3"
+            placeholder="Enter rental notes..."
+          ></textarea>
+        </div>
+
+        <!-- Include Children Option -->
+        <div v-if="childrenCount > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              v-model="rentedForm.includeChildren"
+              class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+            />
+            <div class="flex-1">
+              <span class="text-sm font-medium text-gray-900">Include Child Components</span>
+              <p class="text-xs text-gray-600 mt-1">
+                Set all {{ childrenCount }} child component(s) to rented as well
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t">
+          <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
+          <AppButton @click="handleSubmit" :loading="submitting">Set to Rented</AppButton>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, watch, computed } from 'vue'
+import { equipmentApi } from '@/api/equipment'
+import { useUiStore } from '@/stores/ui'
+import AppButton from '@/components/common/AppButton.vue'
+import type { Equipment, Location } from '@/types'
+
+interface Props {
+  show: boolean
+  equipment: Equipment | null
+  childrenCount: number
+  locations: Location[]
+}
+
+interface Emits {
+  (e: 'close'): void
+  (e: 'submitted', data: { success: boolean }): void
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
+const uiStore = useUiStore()
+
+const submitting = ref(false)
+
+// Filter locations to show only warehouses and persons
+const filteredLocations = computed(() =>
+  props.locations.filter(l => l.location_type === 'warehouse' || l.location_type === 'person')
+)
+
+const rentedForm = ref({
+  locationId: null as number | null,
+  startDate: new Date().toISOString().split('T')[0],
+  notes: '',
+  includeChildren: true
+})
+
+// Reset form when modal closes
+watch(() => props.show, (newShow) => {
+  if (!newShow) {
+    rentedForm.value = {
+      locationId: null,
+      startDate: new Date().toISOString().split('T')[0],
+      notes: '',
+      includeChildren: true
+    }
+  }
+})
+
+async function handleSubmit() {
+  if (!props.equipment) return
+
+  submitting.value = true
+
+  try {
+    // Build notes with date info
+    let fullNotes = rentedForm.value.notes || 'Set to rented'
+    if (rentedForm.value.startDate) {
+      fullNotes += ` | Rental Start: ${rentedForm.value.startDate}`
+    }
+
+    // Update status and location
+    await equipmentApi.update(props.equipment.id, {
+      status: 'rented',
+      current_location_id: rentedForm.value.locationId || undefined
+    })
+
+    uiStore.showNotification('success', 'Equipment set to rented')
+    emit('submitted', { success: true })
+    emit('close')
+  } catch (error: any) {
+    uiStore.showNotification('error', error.response?.data?.detail || 'Failed to set status')
+  } finally {
+    submitting.value = false
+  }
+}
+</script>

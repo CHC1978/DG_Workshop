@@ -6,24 +6,65 @@
           <h2 class="text-lg font-semibold text-gray-900">Activity Log</h2>
           <p class="text-xs text-gray-500 mt-1">Double-click a log to quick-edit status</p>
         </div>
-        <!-- Log Type Filter -->
-        <div>
-          <label class="text-xs text-gray-600 mr-2">Filter:</label>
-          <select
-            v-model="selectedLogType"
-            class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+        <!-- Log Type Filter + Admin Clear -->
+        <div class="flex items-center gap-3">
+          <div>
+            <label class="text-xs text-gray-600 mr-2">Filter:</label>
+            <select
+              v-model="selectedLogType"
+              class="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+            >
+              <option value="">All Types</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="calibration">Calibration</option>
+              <option value="status_change">Status Change</option>
+              <option value="location_change">Location Change</option>
+              <option value="rental_start">Rental Start</option>
+              <option value="rental_end">Rental End</option>
+              <option value="note">Note</option>
+              <option value="created">Created</option>
+              <option value="updated">Updated</option>
+            </select>
+          </div>
+          <!-- Admin Clear All Logs Button -->
+          <button
+            v-if="isAdmin && logs.length > 0"
+            @click="confirmClearLogs"
+            class="px-3 py-1 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-300 rounded-lg transition-colors"
+            title="Clear all logs (Admin only)"
           >
-            <option value="">All Types</option>
-            <option value="maintenance">Maintenance</option>
-            <option value="calibration">Calibration</option>
-            <option value="status_change">Status Change</option>
-            <option value="location_change">Location Change</option>
-            <option value="rental_start">Rental Start</option>
-            <option value="rental_end">Rental End</option>
-            <option value="note">Note</option>
-            <option value="created">Created</option>
-            <option value="updated">Updated</option>
-          </select>
+            Clear All
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clear Logs Confirmation Modal -->
+    <div
+      v-if="showClearConfirm"
+      class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
+      @click.self="showClearConfirm = false"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Clear All Logs</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          Are you sure you want to delete all <span class="font-bold text-red-600">{{ logs.length }}</span> logs for this equipment?
+          This action cannot be undone.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button
+            @click="showClearConfirm = false"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            @click="clearAllLogs"
+            :disabled="clearing"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {{ clearing ? 'Deleting...' : 'Delete All' }}
+          </button>
         </div>
       </div>
     </div>
@@ -70,13 +111,47 @@
             </div>
 
             <div class="text-xs text-gray-600 space-y-1">
-              <div v-if="log.created_by_username">
-                <span class="font-medium">User:</span> {{ log.created_by_username }}
+              <!-- Handler (User who performed the action) -->
+              <div v-if="log.created_by_username" class="flex items-center gap-1">
+                <span class="text-gray-400">By:</span>
+                <span class="font-medium text-gray-700">{{ log.created_by_username }}</span>
               </div>
-              <div v-if="log.new_value">
+
+              <!-- Transfer Flow (From → To) for status_change logs -->
+              <div v-if="isTransferLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg">
+                <!-- From -->
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-gray-500">From:</span>
+                  <span v-if="parseTransferInfo(log.old_value)?.location" class="inline-flex items-center gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseTransferInfo(log.old_value)?.location?.type)">
+                      {{ parseTransferInfo(log.old_value)?.location?.name || 'N/A' }}
+                    </span>
+                  </span>
+                  <span v-else class="text-xs text-gray-400">N/A</span>
+                </div>
+
+                <!-- Arrow -->
+                <span class="text-gray-400">→</span>
+
+                <!-- To -->
+                <div class="flex items-center gap-1">
+                  <span class="text-xs text-gray-500">To:</span>
+                  <span v-if="parseTransferInfo(log.new_value)?.location" class="inline-flex items-center gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseTransferInfo(log.new_value)?.location?.type)">
+                      {{ parseTransferInfo(log.new_value)?.location?.name || 'N/A' }}
+                    </span>
+                  </span>
+                  <span v-else class="text-xs text-gray-400">N/A</span>
+                </div>
+              </div>
+
+              <!-- Non-transfer log details (fallback for old format or other log types) -->
+              <div v-else-if="log.new_value && !isTransferLog(log)" class="text-xs text-gray-500">
                 <span class="font-medium">Details:</span> {{ log.new_value }}
               </div>
-              <div v-if="log.current_location_name" class="flex items-center gap-1">
+
+              <!-- Current location info (for non-transfer logs) -->
+              <div v-if="!isTransferLog(log) && log.current_location_name" class="flex items-center gap-1">
                 <span>📍</span>
                 <span class="font-medium">{{ locationTypeLabel(log.current_location_type) }}:</span>
                 {{ log.current_location_name }}
@@ -91,14 +166,32 @@
             </div>
           </div>
 
-          <!-- Right: View Attachments Button -->
-          <div class="flex-shrink-0">
+          <!-- Right: Attachments & Actions -->
+          <div class="flex-shrink-0 flex flex-col items-end gap-1">
+            <!-- Attachment buttons if has attachments -->
+            <div v-if="log.attachment_count > 0" class="flex items-center gap-1">
+              <a
+                v-for="att in log.attachments.slice(0, 2)"
+                :key="att.id"
+                :href="getAttachmentUrl(att.file_url)"
+                target="_blank"
+                class="text-xs px-2 py-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                :title="`View: ${att.file_name}`"
+                @click.stop
+              >
+                📎 {{ truncateFileName(att.file_name) }}
+              </a>
+              <span v-if="log.attachment_count > 2" class="text-xs text-gray-500">
+                +{{ log.attachment_count - 2 }}
+              </span>
+            </div>
+            <!-- View/Edit button -->
             <button
               @click.stop="$emit('viewAttachments', log)"
               class="text-xs px-2 py-1 text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors"
-              title="View attachments and actions"
+              title="View details and manage attachments"
             >
-              View
+              {{ log.attachment_count > 0 ? 'Manage' : 'View' }}
             </button>
           </div>
         </div>
@@ -122,15 +215,57 @@
                 {{ logTypeLabel(log.log_type) }}
               </span>
             </div>
-            <button
-              @click.stop="$emit('viewAttachments', log)"
-              class="text-xs px-2 py-1 text-sky-600 hover:text-sky-800"
-            >
-              View
-            </button>
+            <!-- Right: Attachments & Actions (Mobile) -->
+            <div class="flex flex-col items-end gap-1">
+              <div v-if="log.attachment_count > 0" class="flex items-center gap-1">
+                <a
+                  v-for="att in log.attachments.slice(0, 1)"
+                  :key="att.id"
+                  :href="getAttachmentUrl(att.file_url)"
+                  target="_blank"
+                  class="text-xs px-2 py-1 text-green-600 hover:text-green-800"
+                  @click.stop
+                >
+                  📎 {{ log.attachment_count }} file(s)
+                </a>
+              </div>
+              <button
+                @click.stop="$emit('viewAttachments', log)"
+                class="text-xs px-2 py-1 text-sky-600 hover:text-sky-800"
+              >
+                {{ log.attachment_count > 0 ? 'Manage' : 'View' }}
+              </button>
+            </div>
           </div>
+
+          <!-- Description -->
           <p class="text-sm text-gray-900 mb-1">{{ log.description }}</p>
-          <div v-if="log.current_location_name || log.project_code" class="text-xs text-gray-600 space-y-0.5">
+
+          <!-- Handler -->
+          <div v-if="log.created_by_username" class="text-xs text-gray-600 mb-1">
+            <span class="text-gray-400">By:</span>
+            <span class="font-medium text-gray-700 ml-1">{{ log.created_by_username }}</span>
+          </div>
+
+          <!-- Transfer Flow (Mobile) -->
+          <div v-if="isTransferLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg text-xs">
+            <div class="flex items-center gap-1">
+              <span v-if="parseTransferInfo(log.old_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseTransferInfo(log.old_value)?.location?.type)]">
+                {{ parseTransferInfo(log.old_value)?.location?.name || 'N/A' }}
+              </span>
+              <span v-else class="text-gray-400">N/A</span>
+            </div>
+            <span class="text-gray-400">→</span>
+            <div class="flex items-center gap-1">
+              <span v-if="parseTransferInfo(log.new_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseTransferInfo(log.new_value)?.location?.type)]">
+                {{ parseTransferInfo(log.new_value)?.location?.name || 'N/A' }}
+              </span>
+              <span v-else class="text-gray-400">N/A</span>
+            </div>
+          </div>
+
+          <!-- Non-transfer details -->
+          <div v-else-if="log.current_location_name || log.project_code" class="text-xs text-gray-600 space-y-0.5 mt-1">
             <div v-if="log.current_location_name">
               📍 {{ locationTypeLabel(log.current_location_type) }}: {{ log.current_location_name }}
             </div>
@@ -150,18 +285,24 @@ import { equipmentApi } from '@/api/equipment'
 
 interface Props {
   equipmentId: number
+  isAdmin?: boolean
 }
 
 interface Emits {
   (e: 'logDoubleClicked', log: any): void
   (e: 'viewAttachments', log: any): void
+  (e: 'logsCleared'): void
 }
 
-const props = defineProps<Props>()
-defineEmits<Emits>()
+const props = withDefaults(defineProps<Props>(), {
+  isAdmin: false
+})
+const emit = defineEmits<Emits>()
 
 const logs = ref<any[]>([])
 const selectedLogType = ref('')
+const showClearConfirm = ref(false)
+const clearing = ref(false)
 
 // Filtered logs based on selected type
 const filteredLogs = computed(() => {
@@ -186,6 +327,26 @@ async function loadLogs() {
     logs.value = response.data
   } catch (error) {
     console.error('Failed to load logs:', error)
+  }
+}
+
+function confirmClearLogs() {
+  showClearConfirm.value = true
+}
+
+async function clearAllLogs() {
+  if (!props.equipmentId) return
+
+  clearing.value = true
+  try {
+    await equipmentApi.clearLogs(props.equipmentId)
+    logs.value = []
+    showClearConfirm.value = false
+    emit('logsCleared')
+  } catch (error) {
+    console.error('Failed to clear logs:', error)
+  } finally {
+    clearing.value = false
   }
 }
 
@@ -235,6 +396,73 @@ function locationTypeLabel(type?: string): string {
     vehicle: 'Vehicle',
   }
   return labels[type] || type
+}
+
+// Parse JSON transfer info from old_value/new_value
+interface TransferInfo {
+  status?: string
+  location?: {
+    id?: number
+    name?: string
+    type?: string
+  }
+}
+
+function parseTransferInfo(value?: string): TransferInfo | null {
+  if (!value) return null
+  try {
+    // Check if it's JSON format
+    if (value.startsWith('{')) {
+      return JSON.parse(value) as TransferInfo
+    }
+    // Old format fallback: "Status: xxx, Location: yyy"
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Check if this is a transfer log (any log with JSON format in new_value)
+function isTransferLog(log: any): boolean {
+  // Check if new_value is in JSON format with location info
+  if (!log.new_value || !log.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(log.new_value)
+    // Must have location info to be a transfer log
+    return parsed.location !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Badge class for location type
+function locationBadgeClass(type?: string): string {
+  const classes: Record<string, string> = {
+    warehouse: 'bg-amber-100 text-amber-800',
+    vessel: 'bg-blue-100 text-blue-800',
+    person: 'bg-green-100 text-green-800',
+    external: 'bg-purple-100 text-purple-800',
+    platform: 'bg-cyan-100 text-cyan-800',
+    vehicle: 'bg-orange-100 text-orange-800',
+  }
+  return classes[type || ''] || 'bg-gray-100 text-gray-800'
+}
+
+function getAttachmentUrl(fileUrl: string): string {
+  // Ensure URL starts with /
+  return fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`
+}
+
+function truncateFileName(fileName: string, maxLength: number = 12): string {
+  if (fileName.length <= maxLength) return fileName
+  const ext = fileName.lastIndexOf('.')
+  if (ext > 0) {
+    const name = fileName.substring(0, ext)
+    const extension = fileName.substring(ext)
+    const truncatedName = name.substring(0, maxLength - extension.length - 2)
+    return `${truncatedName}..${extension}`
+  }
+  return fileName.substring(0, maxLength - 2) + '..'
 }
 
 // Expose reload method for parent component

@@ -96,6 +96,13 @@ export const equipmentApi = {
   },
 
   /**
+   * Clear all logs for equipment (Admin only)
+   */
+  clearLogs(id: number) {
+    return apiClient.delete<{ message: string; deleted_count: number }>(`/equipment/${id}/logs`)
+  },
+
+  /**
    * Update equipment log (only description and GPS)
    */
   updateLog(
@@ -145,15 +152,32 @@ export const equipmentApi = {
   /**
    * Send equipment to repair
    */
-  repair(id: number, notes?: string) {
-    return apiClient.post<Equipment>(`/equipment/${id}/repair`, { notes })
+  repair(
+    id: number,
+    data: {
+      location_id?: number
+      expected_return_date?: string
+      notes?: string
+    }
+  ) {
+    return apiClient.post<Equipment>(`/equipment/${id}/repair`, null, {
+      params: data
+    })
   },
 
   /**
    * Send equipment to calibration
    */
-  sendToCalibration(id: number, notes?: string) {
-    return apiClient.post<Equipment>(`/equipment/${id}/send-to-calibration`, { notes })
+  sendToCalibration(
+    id: number,
+    data: {
+      location_id?: number
+      notes?: string
+    }
+  ) {
+    return apiClient.post<Equipment>(`/equipment/${id}/send-to-calibration`, null, {
+      params: data
+    })
   },
 
   /**

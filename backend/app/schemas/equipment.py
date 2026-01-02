@@ -178,6 +178,17 @@ class MaintenanceRecordRequest(BaseModel):
     next_maintenance_date: Optional[date] = Field(None, description="Next scheduled maintenance date")
 
 
+class LogAttachmentInfo(BaseModel):
+    """Simplified attachment info for log list"""
+    id: int
+    file_url: str
+    file_name: str
+    file_type: str
+    file_size: int
+
+    model_config = {"from_attributes": True}
+
+
 class EquipmentLogResponse(BaseModel):
     """Equipment log response schema"""
     id: int
@@ -204,6 +215,10 @@ class EquipmentLogResponse(BaseModel):
     current_location_type: Optional[str] = None
     project_code: Optional[str] = None
     project_name: Optional[str] = None
+
+    # Attachments
+    attachment_count: int = 0
+    attachments: list[LogAttachmentInfo] = []
 
     model_config = {"from_attributes": True}
 
