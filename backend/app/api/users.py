@@ -304,9 +304,9 @@ async def reset_user_2fa(
 @router.put("/{user_id}/toggle-2fa", response_model=dict)
 @limiter.limit("10/minute")
 async def toggle_user_2fa(
-    http_request: Request,
+    request: Request,
     user_id: int,
-    request: AdminToggle2FARequest,
+    body: AdminToggle2FARequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
@@ -324,7 +324,7 @@ async def toggle_user_2fa(
             detail="User not found",
         )
 
-    if request.enabled:
+    if body.enabled:
         # Enable 2FA - check if user has valid totp_secret
         if user.totp_secret and user.totp_secret != "RESET":
             # User has existing secret, directly enable
@@ -347,16 +347,16 @@ async def toggle_user_2fa(
     return {
         "message": message,
         "totp_enabled": user.totp_enabled,
-        "needs_setup": needs_setup if request.enabled else False
+        "needs_setup": needs_setup if body.enabled else False
     }
 
 
 @router.post("/{user_id}/reset-password", response_model=dict)
 @limiter.limit("10/minute")
 async def admin_reset_password(
-    http_request: Request,
+    request: Request,
     user_id: int,
-    request: AdminPasswordResetRequest,
+    body: AdminPasswordResetRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
@@ -374,7 +374,7 @@ async def admin_reset_password(
         )
 
     # Reset password
-    user.hashed_password = hash_password(request.new_password)
+    user.hashed_password = hash_password(body.new_password)
     await db.commit()
 
     return {"message": f"Password reset successfully for user {user.username}"}

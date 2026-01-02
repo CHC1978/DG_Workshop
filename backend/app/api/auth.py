@@ -866,8 +866,8 @@ async def setup_2fa(
 @router.post("/2fa/confirm", response_model=Confirm2FAResponse)
 @limiter.limit("5/minute")
 async def confirm_2fa(
-    http_request: Request,
-    request: Confirm2FARequest,
+    request: Request,
+    body: Confirm2FARequest,
     current_user: User = Depends(get_user_from_temp_token),
     db: AsyncSession = Depends(get_db)
 ):
@@ -887,7 +887,7 @@ async def confirm_2fa(
         db=db,
         user_id=current_user.id,
         totp_secret=current_user.totp_secret,
-        totp_code=request.totp_code
+        totp_code=body.totp_code
     )
 
     if not is_valid:
@@ -909,8 +909,8 @@ async def confirm_2fa(
 @router.post("/2fa/disable", response_model=Confirm2FAResponse)
 @limiter.limit("5/minute")
 async def disable_2fa(
-    http_request: Request,
-    request: Confirm2FARequest,
+    request: Request,
+    body: Confirm2FARequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -929,7 +929,7 @@ async def disable_2fa(
         db=db,
         user_id=current_user.id,
         totp_secret=current_user.totp_secret,
-        totp_code=request.totp_code
+        totp_code=body.totp_code
     )
 
     if not is_valid:
