@@ -13,8 +13,8 @@ class CustomerBase(BaseModel):
     contact_person: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=1, max_length=50)
     email: Optional[EmailStr] = None
-    address: Optional[str] = None
-    notes: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class CustomerCreate(CustomerBase):
@@ -29,8 +29,8 @@ class CustomerUpdate(BaseModel):
     contact_person: Optional[str] = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, min_length=1, max_length=50)
     email: Optional[EmailStr] = None
-    address: Optional[str] = None
-    notes: Optional[str] = None
+    address: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
     is_active: Optional[bool] = None
 
 

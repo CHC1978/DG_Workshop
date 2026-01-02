@@ -14,7 +14,7 @@ class RentalBase(BaseModel):
     customer_id: int
     start_date: date
     expected_end_date: date
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class RentalCreate(RentalBase):
@@ -30,21 +30,21 @@ class RentalUpdate(BaseModel):
     expected_end_date: Optional[date] = None
     actual_end_date: Optional[date] = None
     status: Optional[RentalStatus] = None
-    notes: Optional[str] = None
-    delivery_notes: Optional[str] = None
-    return_notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
+    delivery_notes: Optional[str] = Field(None, max_length=2000)
+    return_notes: Optional[str] = Field(None, max_length=2000)
 
 
 # ==================== Action Schemas ====================
 
 class RentalConfirmRequest(BaseModel):
     """Confirm rental request"""
-    notes: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class RentalDeliverRequest(BaseModel):
     """Deliver rental request"""
-    delivery_notes: Optional[str] = None
+    delivery_notes: Optional[str] = Field(None, max_length=2000)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -52,14 +52,14 @@ class RentalDeliverRequest(BaseModel):
 class RentalReturnRequest(BaseModel):
     """Return rental request"""
     actual_end_date: Optional[date] = None
-    return_notes: Optional[str] = None
+    return_notes: Optional[str] = Field(None, max_length=2000)
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
 
 class RentalCancelRequest(BaseModel):
     """Cancel rental request"""
-    reason: str = Field(..., min_length=1)
+    reason: str = Field(..., min_length=1, max_length=2000)
 
 
 # ==================== Response Schemas ====================

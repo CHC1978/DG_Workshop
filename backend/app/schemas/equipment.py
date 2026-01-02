@@ -14,9 +14,9 @@ class EquipmentBase(BaseModel):
     manufacturer: str = Field(..., min_length=1, max_length=100)
     model: str = Field(..., min_length=1, max_length=100)
     serial_number: Optional[str] = Field(None, max_length=100)
-    specifications: Optional[str] = None
-    notes: Optional[str] = None
-    maintenance_notes: Optional[str] = None
+    specifications: Optional[str] = Field(None, max_length=5000)
+    notes: Optional[str] = Field(None, max_length=2000)
+    maintenance_notes: Optional[str] = Field(None, max_length=2000)
 
 
 class EquipmentCreate(EquipmentBase):
@@ -32,12 +32,12 @@ class EquipmentCreate(EquipmentBase):
     project_id: Optional[int] = Field(None, description="Associated project")
     installation_type: Optional[InstallationType] = Field(None, description="Installation type")
     installation_date: Optional[date] = Field(None, description="Installation date")
-    installation_notes: Optional[str] = Field(None, description="Installation notes")
+    installation_notes: Optional[str] = Field(None, max_length=2000, description="Installation notes")
 
     # Attachments
-    photo_url: Optional[str] = None
-    manual_url: Optional[str] = None
-    calibration_report_url: Optional[str] = None
+    photo_url: Optional[str] = Field(None, max_length=500)
+    manual_url: Optional[str] = Field(None, max_length=500)
+    calibration_report_url: Optional[str] = Field(None, max_length=500)
 
     # Maintenance
     last_maintenance_date: Optional[date] = None
@@ -64,21 +64,21 @@ class EquipmentUpdate(BaseModel):
     project_id: Optional[int] = None
     installation_type: Optional[InstallationType] = None
     installation_date: Optional[date] = None
-    installation_notes: Optional[str] = None
+    installation_notes: Optional[str] = Field(None, max_length=2000)
 
     # Content
-    specifications: Optional[str] = None
-    notes: Optional[str] = None
+    specifications: Optional[str] = Field(None, max_length=5000)
+    notes: Optional[str] = Field(None, max_length=2000)
 
     # Attachments
-    photo_url: Optional[str] = None
-    manual_url: Optional[str] = None
-    calibration_report_url: Optional[str] = None
+    photo_url: Optional[str] = Field(None, max_length=500)
+    manual_url: Optional[str] = Field(None, max_length=500)
+    calibration_report_url: Optional[str] = Field(None, max_length=500)
 
     # Maintenance
     last_maintenance_date: Optional[date] = None
     next_maintenance_date: Optional[date] = None
-    maintenance_notes: Optional[str] = None
+    maintenance_notes: Optional[str] = Field(None, max_length=2000)
 
 
 # ==================== Response Schemas ====================

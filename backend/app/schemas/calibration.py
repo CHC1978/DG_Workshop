@@ -14,8 +14,8 @@ class CalibrationBase(BaseModel):
     provider: str = Field(..., min_length=1, max_length=200)
     certificate_number: Optional[str] = Field(None, max_length=100)
     cost: Optional[float] = Field(None, ge=0)
-    report_url: Optional[str] = None
-    notes: Optional[str] = None
+    report_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class CalibrationCreate(CalibrationBase):
@@ -31,8 +31,8 @@ class CalibrationUpdate(BaseModel):
     provider: Optional[str] = Field(None, min_length=1, max_length=200)
     certificate_number: Optional[str] = Field(None, max_length=100)
     cost: Optional[float] = Field(None, ge=0)
-    report_url: Optional[str] = None
-    notes: Optional[str] = None
+    report_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 # ==================== Response Schemas ====================

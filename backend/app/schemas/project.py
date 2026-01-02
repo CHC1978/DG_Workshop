@@ -10,7 +10,7 @@ class ProjectBase(BaseModel):
     """專案基礎 Schema"""
     code: str = Field(..., min_length=1, max_length=30, description="專案代碼")
     name: str = Field(..., min_length=1, max_length=100, description="專案名稱")
-    description: Optional[str] = Field(None, description="專案描述")
+    description: Optional[str] = Field(None, max_length=2000, description="專案描述")
 
     # 客戶資訊
     client_name: Optional[str] = Field(None, max_length=100, description="客戶名稱")
@@ -35,7 +35,7 @@ class ProjectUpdate(BaseModel):
     """更新專案 Schema"""
     code: Optional[str] = Field(None, min_length=1, max_length=30)
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=2000)
 
     client_name: Optional[str] = Field(None, max_length=100)
     client_contact: Optional[str] = Field(None, max_length=50)

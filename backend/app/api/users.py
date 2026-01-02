@@ -1,5 +1,5 @@
 """User management API endpoints"""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -18,6 +18,9 @@ from app.schemas.user import (
 )
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+# 從 main.py 獲取 limiter
+from app.main import limiter
 
 
 # ==================== User CRUD ====================
@@ -56,7 +59,9 @@ async def list_users(
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 async def create_user(
+    request: Request,
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
@@ -224,7 +229,9 @@ async def delete_user(
 # ==================== Password Management ====================
 
 @router.post("/{user_id}/password", response_model=dict)
+@limiter.limit("5/minute")  # 密碼修改需要更嚴格的限制
 async def update_password(
+    request: Request,
     user_id: int,
     password_data: UserPasswordUpdate,
     db: AsyncSession = Depends(get_db),
@@ -258,7 +265,9 @@ async def update_password(
 # ==================== 2FA Management (Admin) ====================
 
 @router.post("/{user_id}/reset-2fa", response_model=dict)
+@limiter.limit("10/minute")
 async def reset_user_2fa(
+    request: Request,
     user_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
@@ -293,7 +302,9 @@ async def reset_user_2fa(
 
 
 @router.put("/{user_id}/toggle-2fa", response_model=dict)
+@limiter.limit("10/minute")
 async def toggle_user_2fa(
+    http_request: Request,
     user_id: int,
     request: AdminToggle2FARequest,
     db: AsyncSession = Depends(get_db),
@@ -341,7 +352,9 @@ async def toggle_user_2fa(
 
 
 @router.post("/{user_id}/reset-password", response_model=dict)
+@limiter.limit("10/minute")
 async def admin_reset_password(
+    http_request: Request,
     user_id: int,
     request: AdminPasswordResetRequest,
     db: AsyncSession = Depends(get_db),
@@ -370,7 +383,9 @@ async def admin_reset_password(
 # ==================== 2FA Enable (Admin) ====================
 
 @router.post("/{user_id}/2fa/setup", response_model=dict)
+@limiter.limit("10/minute")
 async def admin_setup_2fa(
+    request: Request,
     user_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_admin)
@@ -415,7 +430,9 @@ async def admin_setup_2fa(
 
 
 @router.post("/{user_id}/2fa/confirm", response_model=dict)
+@limiter.limit("10/minute")
 async def admin_confirm_2fa(
+    request: Request,
     user_id: int,
     totp_code: str,
     db: AsyncSession = Depends(get_db),

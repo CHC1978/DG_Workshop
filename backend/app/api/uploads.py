@@ -4,7 +4,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -14,6 +14,9 @@ from app.models.user import User
 from app.models.equipment import Equipment
 
 router = APIRouter(prefix="/uploads", tags=["File Uploads"])
+
+# 從 main.py 獲取 limiter
+from app.main import limiter
 
 # Upload directory
 UPLOAD_DIR = Path("uploads")
@@ -135,7 +138,9 @@ def safe_delete_file(file_url: str) -> None:
 
 
 @router.post("/equipment/{equipment_id}/photo")
+@limiter.limit("20/minute")  # 上傳操作限制
 async def upload_equipment_photo(
+    request: Request,
     equipment_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -201,7 +206,9 @@ async def upload_equipment_photo(
 
 
 @router.post("/equipment/{equipment_id}/manual")
+@limiter.limit("20/minute")
 async def upload_equipment_manual(
+    request: Request,
     equipment_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -267,7 +274,9 @@ async def upload_equipment_manual(
 
 
 @router.post("/equipment/{equipment_id}/calibration-report")
+@limiter.limit("20/minute")
 async def upload_calibration_report(
+    request: Request,
     equipment_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -469,7 +478,9 @@ async def list_equipment_files(
 # ==================== Calibration Report Upload ====================
 
 @router.post("/calibrations/{calibration_id}/report")
-async def upload_calibration_report(
+@limiter.limit("20/minute")
+async def upload_calibration_report_file(
+    request: Request,
     calibration_id: int,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -581,7 +592,9 @@ async def delete_calibration_report(
 # ==================== Equipment Log Attachment Upload ====================
 
 @router.post("/equipment-logs/{log_id}/attachments")
+@limiter.limit("20/minute")
 async def upload_log_attachment(
+    request: Request,
     log_id: int,
     file: UploadFile = File(...),
     attachment_type: str = "other",
