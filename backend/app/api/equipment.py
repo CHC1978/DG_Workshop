@@ -1,7 +1,10 @@
 """Equipment management API endpoints"""
+import logging
 from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -93,29 +96,29 @@ async def sync_children_with_parent(
     for child in children:
         sync_changes = []
 
-        print(f"[SYNC CHILD] Syncing child {child.asset_code} with parent {parent.asset_code}")
+        logger.debug(f"[SYNC CHILD] Syncing child {child.asset_code} with parent {parent.asset_code}")
 
         if sync_status and child.status.value != parent.status.value:
             old_status = child.status
             child.status = parent.status
             sync_changes.append(f"status: {old_status.value} → {parent.status.value}")
-            print(f"[SYNC CHILD] Updated {child.asset_code} status from {old_status.value} to {parent.status.value}")
+            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} status from {old_status.value} to {parent.status.value}")
 
         if sync_location and child.current_location_id != parent.current_location_id:
             old_location = child.current_location_id
             child.current_location_id = parent.current_location_id
             sync_changes.append(f"location_id: {old_location} → {parent.current_location_id}")
-            print(f"[SYNC CHILD] Updated {child.asset_code} location from {old_location} to {parent.current_location_id}")
+            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} location from {old_location} to {parent.current_location_id}")
 
         if sync_project and child.project_id != parent.project_id:
             old_project = child.project_id
             child.project_id = parent.project_id
             sync_changes.append(f"project_id: {old_project} → {parent.project_id}")
-            print(f"[SYNC CHILD] Updated {child.asset_code} project from {old_project} to {parent.project_id}")
+            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} project from {old_project} to {parent.project_id}")
 
         # Log the sync if there were changes
         if sync_changes:
-            print(f"[SYNC CHILD] {child.asset_code} has {len(sync_changes)} changes")
+            logger.debug(f"[SYNC CHILD] {child.asset_code} has {len(sync_changes)} changes")
             description = f"Auto-synced with parent {parent.asset_code}"
             if notes:
                 description += f" - {notes}"
@@ -130,7 +133,7 @@ async def sync_children_with_parent(
                 user_id=user_id,
             )
         else:
-            print(f"[SYNC CHILD] {child.asset_code} already in sync, no changes needed")
+            logger.debug(f"[SYNC CHILD] {child.asset_code} already in sync, no changes needed")
 
 
 # ==================== CRUD Operations ====================
@@ -379,9 +382,9 @@ async def update_equipment(
     """
     Update equipment (Manager+ only)
     """
-    print(f"\n[UPDATE API] ===== UPDATE EQUIPMENT REQUEST =====")
-    print(f"[UPDATE API] Equipment ID: {equipment_id}")
-    print(f"[UPDATE API] User: {current_user.username}")
+    logger.debug(f"[UPDATE API] ===== UPDATE EQUIPMENT REQUEST =====")
+    logger.debug(f"[UPDATE API] Equipment ID: {equipment_id}")
+    logger.debug(f"[UPDATE API] User: {current_user.username}")
 
     result = await db.execute(
         select(Equipment).where(Equipment.id == equipment_id)
@@ -389,17 +392,17 @@ async def update_equipment(
     equipment = result.scalar_one_or_none()
 
     if not equipment:
-        print(f"[UPDATE API] ERROR: Equipment {equipment_id} not found")
+        logger.debug(f"[UPDATE API] ERROR: Equipment {equipment_id} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Equipment not found",
         )
 
-    print(f"[UPDATE API] Current equipment: {equipment.asset_code}")
-    print(f"[UPDATE API] Current status: {equipment.status.value}")
-    print(f"[UPDATE API] Current location: {equipment.current_location_id}")
-    print(f"[UPDATE API] Current project: {equipment.project_id}")
-    print(f"[UPDATE API] Current parent_id: {equipment.parent_equipment_id}")
+    logger.debug(f"[UPDATE API] Current equipment: {equipment.asset_code}")
+    logger.debug(f"[UPDATE API] Current status: {equipment.status.value}")
+    logger.debug(f"[UPDATE API] Current location: {equipment.current_location_id}")
+    logger.debug(f"[UPDATE API] Current project: {equipment.project_id}")
+    logger.debug(f"[UPDATE API] Current parent_id: {equipment.parent_equipment_id}")
 
     # Track changes for logging
     changes = []
@@ -409,7 +412,7 @@ async def update_equipment(
 
     # Update fields
     update_data = equipment_data.model_dump(exclude_unset=True)
-    print(f"[UPDATE API] Update data received: {update_data}")
+    logger.debug(f"[UPDATE API] Update data received: {update_data}")
     for field, value in update_data.items():
         if hasattr(equipment, field):
             old_value = getattr(equipment, field)
@@ -436,34 +439,34 @@ async def update_equipment(
                     # Sync child's status, location, and project with parent
                     sync_changes = []
 
-                    print(f"[ATTACH SYNC] Child equipment: {equipment.asset_code}")
-                    print(f"[ATTACH SYNC] Parent equipment: {parent_equipment.asset_code}")
-                    print(f"[ATTACH SYNC] Child status: {equipment.status}, Parent status: {parent_equipment.status}")
-                    print(f"[ATTACH SYNC] Child location: {equipment.current_location_id}, Parent location: {parent_equipment.current_location_id}")
-                    print(f"[ATTACH SYNC] Child project: {equipment.project_id}, Parent project: {parent_equipment.project_id}")
+                    logger.debug(f"[ATTACH SYNC] Child equipment: {equipment.asset_code}")
+                    logger.debug(f"[ATTACH SYNC] Parent equipment: {parent_equipment.asset_code}")
+                    logger.debug(f"[ATTACH SYNC] Child status: {equipment.status}, Parent status: {parent_equipment.status}")
+                    logger.debug(f"[ATTACH SYNC] Child location: {equipment.current_location_id}, Parent location: {parent_equipment.current_location_id}")
+                    logger.debug(f"[ATTACH SYNC] Child project: {equipment.project_id}, Parent project: {parent_equipment.project_id}")
 
                     # Sync status
                     if equipment.status.value != parent_equipment.status.value:
                         old_status = equipment.status
                         equipment.status = parent_equipment.status
                         sync_changes.append(f"status: {old_status.value} → {parent_equipment.status.value}")
-                        print(f"[ATTACH SYNC] Updated status from {old_status.value} to {parent_equipment.status.value}")
+                        logger.debug(f"[ATTACH SYNC] Updated status from {old_status.value} to {parent_equipment.status.value}")
 
                     # Sync location
                     if equipment.current_location_id != parent_equipment.current_location_id:
                         old_location = equipment.current_location_id
                         equipment.current_location_id = parent_equipment.current_location_id
                         sync_changes.append(f"location_id: {old_location} → {parent_equipment.current_location_id}")
-                        print(f"[ATTACH SYNC] Updated location from {old_location} to {parent_equipment.current_location_id}")
+                        logger.debug(f"[ATTACH SYNC] Updated location from {old_location} to {parent_equipment.current_location_id}")
 
                     # Sync project
                     if equipment.project_id != parent_equipment.project_id:
                         old_project = equipment.project_id
                         equipment.project_id = parent_equipment.project_id
                         sync_changes.append(f"project_id: {old_project} → {parent_equipment.project_id}")
-                        print(f"[ATTACH SYNC] Updated project from {old_project} to {parent_equipment.project_id}")
+                        logger.debug(f"[ATTACH SYNC] Updated project from {old_project} to {parent_equipment.project_id}")
 
-                    print(f"[ATTACH SYNC] Total sync changes: {len(sync_changes)}")
+                    logger.debug(f"[ATTACH SYNC] Total sync changes: {len(sync_changes)}")
 
                     # Log attachment with sync details
                     sync_detail = f" (Synced: {', '.join(sync_changes)})" if sync_changes else ""

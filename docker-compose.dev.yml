@@ -21,8 +21,8 @@ services:
       - APP_NAME=Marine Equipment QR System (Dev)
       - APP_VERSION=0.1.0-dev
       - DEBUG=true
-      # Security settings
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      # Security settings (SECRET_KEY required from .env)
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - TEMP_TOKEN_EXPIRE_MINUTES=5

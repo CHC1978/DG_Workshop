@@ -96,7 +96,7 @@ async def login_step1(
                 key="temp_token",
                 value=temp_token,
                 httponly=True,
-                secure=not settings.DEBUG,
+                secure=settings.SECURE_COOKIE,
                 samesite="lax",
                 max_age=settings.TEMP_TOKEN_EXPIRE_MINUTES * 60,
                 path="/",
@@ -125,7 +125,7 @@ async def login_step1(
             key="access_token",
             value=access_token,
             httponly=True,
-            secure=not settings.DEBUG,  # HTTPS only in production
+            secure=settings.SECURE_COOKIE,  # HTTPS only in production
             samesite="lax",  # 使用 lax 在開發和生產環境都有效
             max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             path="/",
@@ -204,7 +204,7 @@ async def login_step1(
                     key="access_token",
                     value=access_token,
                     httponly=True,
-                    secure=not settings.DEBUG,  # HTTPS only in production
+                    secure=settings.SECURE_COOKIE,  # HTTPS only in production
                     samesite="lax",
                     max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                     path="/",
@@ -230,7 +230,7 @@ async def login_step1(
         key="temp_token",
         value=temp_token,
         httponly=True,
-        secure=not settings.DEBUG,  # HTTPS only in production
+        secure=settings.SECURE_COOKIE,  # HTTPS only in production
         samesite="lax",
         max_age=settings.TEMP_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
@@ -369,7 +369,7 @@ async def login_step2(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=not settings.DEBUG,  # HTTPS only in production
+        secure=settings.SECURE_COOKIE,  # HTTPS only in production
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
@@ -486,7 +486,7 @@ async def login_with_backup_code(
         key="access_token",
         value=access_token,
         httponly=True,
-        secure=not settings.DEBUG,
+        secure=settings.SECURE_COOKIE,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",

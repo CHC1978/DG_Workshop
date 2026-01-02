@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # 安全性設定
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    SECURE_COOKIE: bool = False  # 生產環境設為 True 強制 HTTPS Cookie
 
     # Token 過期時間 (分鐘)
     # 生產環境建議使用更短的過期時間以降低 token 被竊取的風險

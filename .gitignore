@@ -11,11 +11,14 @@ ENV/
 dist/
 build/
 
-# FastAPI
+# FastAPI / Environment
 .env
+.env.*
 .env.production
 .env.local
 .env.nas
+backend/.env
+backend/.env.*
 *.db
 *.db-shm
 *.db-wal
