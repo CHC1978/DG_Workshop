@@ -41,6 +41,14 @@ class User(Base, TimestampMixin):
     # 帳號狀態
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Person 資訊欄位（從 Location type=person 合併）
+    employee_id: Mapped[Optional[str]] = mapped_column(
+        String(30), unique=True, nullable=True, index=True
+    )
+    department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     # Relationships
     trusted_devices: Mapped[list["TrustedDevice"]] = relationship(
         "TrustedDevice",

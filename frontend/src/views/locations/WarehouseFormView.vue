@@ -41,6 +41,62 @@
           </div>
         </div>
 
+        <!-- Address & Contact Information -->
+        <div class="border-b border-gray-200 pb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Address & Contact</h2>
+          <div class="grid grid-cols-1 gap-4">
+            <!-- Address -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              <textarea
+                v-model="form.address"
+                rows="2"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"
+                placeholder="Full address of the warehouse"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <!-- Phone -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input
+                v-model="form.phone"
+                type="tel"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"
+                placeholder="+886-2-12345678"
+              />
+            </div>
+
+            <!-- Email -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                v-model="form.email"
+                type="email"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"
+                placeholder="warehouse@example.com"
+              />
+            </div>
+
+            <!-- Contact Person (改用 User) -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+              <select
+                v-model="form.contact_user_id"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"
+              >
+                <option :value="null">None</option>
+                <option v-for="user in staffUsers" :key="user.id" :value="user.id">
+                  {{ user.full_name }}{{ user.department ? ` (${user.department})` : '' }}
+                </option>
+              </select>
+              <p class="mt-1 text-xs text-gray-500">Select a user as contact person</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Status (Edit mode only) -->
         <div v-if="isEditMode">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Status</h2>
@@ -81,8 +137,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocationStore } from '@/stores/locations'
+import { usersApi } from '@/api/users'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import type { UserStaff } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -95,15 +153,21 @@ const form = ref({
   name: '',
   code: '',
   location_type: 'warehouse' as const,
+  address: '',
+  phone: '',
+  email: '',
+  contact_user_id: null as number | null,  // 改用 User
   is_active: true,
 })
+
+const staffUsers = ref<UserStaff[]>([])  // 改用 User staff
 
 async function handleSubmit() {
   try {
     // Clean form data: remove empty strings
     const cleanedData: any = {}
     Object.entries(form.value).forEach(([key, value]) => {
-      if (value === '') {
+      if (value === '' || value === null) {
         return
       }
       cleanedData[key] = value
@@ -123,6 +187,14 @@ async function handleSubmit() {
 }
 
 onMounted(async () => {
+  // Load staff users for contact person dropdown (改用 User API)
+  try {
+    const response = await usersApi.getStaff()
+    staffUsers.value = response.data
+  } catch (error) {
+    console.error('Failed to load staff users:', error)
+  }
+
   if (isEditMode.value) {
     const location = await locationStore.fetchById(locationId.value)
     if (location) {
@@ -130,6 +202,10 @@ onMounted(async () => {
         name: location.name,
         code: location.code || '',
         location_type: 'warehouse',
+        address: location.address || '',
+        phone: location.phone || '',
+        email: location.email || '',
+        contact_user_id: location.contact_user_id || null,  // 改用 contact_user_id
         is_active: location.is_active,
       }
     }

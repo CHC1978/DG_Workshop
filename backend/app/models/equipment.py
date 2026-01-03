@@ -79,6 +79,13 @@ class Equipment(Base, TimestampMixin):
     deployed_to: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # Vessel name or person name
     deployed_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)  # Who deployed it
 
+    # 設備負責人（從 Location type=person 合併後新增）
+    assigned_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     # Project 關聯
     project_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"),
@@ -136,6 +143,13 @@ class Equipment(Base, TimestampMixin):
         "EquipmentLog",
         back_populates="equipment",
         cascade="all, delete-orphan"
+    )
+
+    # 設備負責人關聯
+    assigned_user: Mapped[Optional["User"]] = relationship(
+        "User",
+        foreign_keys=[assigned_user_id],
+        backref="assigned_equipment"
     )
 
     # Parent-Child relationships (self-referential)

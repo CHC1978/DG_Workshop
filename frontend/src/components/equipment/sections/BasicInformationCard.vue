@@ -56,6 +56,17 @@
         </dd>
       </div>
 
+      <!-- Assigned User -->
+      <div v-if="equipment.assigned_user_name">
+        <dt class="text-sm font-medium text-gray-500 flex items-center gap-1">
+          <span>👤</span>
+          Assigned User
+        </dt>
+        <dd class="mt-1 text-sm text-gray-900">
+          {{ equipment.assigned_user_name }}
+        </dd>
+      </div>
+
       <!-- Parent Equipment Info -->
       <div v-if="equipment.parent_equipment_id" class="pt-3 border-t border-gray-200">
         <dt class="text-sm font-medium text-gray-500 flex items-center gap-1">

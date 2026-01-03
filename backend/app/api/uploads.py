@@ -13,6 +13,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.equipment import Equipment
+from app.models.location import Location
 from app.utils.file_validator import (
     FileValidator,
     ValidationStatus,
@@ -51,6 +52,20 @@ def get_equipment_upload_dir(asset_code: str) -> Path:
     equipment_dir = UPLOAD_DIR / asset_code
     equipment_dir.mkdir(parents=True, exist_ok=True)
     return equipment_dir
+
+
+def get_location_upload_dir(location_id: int) -> Path:
+    """Get or create location upload directory"""
+    location_dir = UPLOAD_DIR / "locations" / str(location_id)
+    location_dir.mkdir(parents=True, exist_ok=True)
+    return location_dir
+
+
+def get_user_upload_dir(user_id: int) -> Path:
+    """Get or create user upload directory"""
+    user_dir = UPLOAD_DIR / "users" / str(user_id)
+    user_dir.mkdir(parents=True, exist_ok=True)
+    return user_dir
 
 
 def validate_file_extension(filename: str, file_type: str) -> str:
@@ -924,3 +939,275 @@ async def delete_log_attachment(
     await db.commit()
 
     return {"message": "Attachment deleted successfully"}
+
+
+# ==================== Location Photo Upload ====================
+
+@router.post("/locations/{location_id}/photo")
+@limiter.limit("20/minute")
+async def upload_location_photo(
+    request: Request,
+    location_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload location photo (for Vessel or Person)"""
+    # Get location
+    result = await db.execute(
+        select(Location).where(Location.id == location_id)
+    )
+    location = result.scalar_one_or_none()
+
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found"
+        )
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided"
+        )
+
+    ext = validate_file_extension(file.filename, "photo")
+    validate_mime_type(file.content_type, "photo")
+
+    # Check file size
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
+        )
+
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Validate file with magic number check and sanitization
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type="image",
+        sanitize=True
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for location photo: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in location photo: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected: {validation_result.message}"
+        )
+
+    # Log if image was sanitized
+    if validation_result.sanitized:
+        logger.info(f"Image sanitized: {file.filename} for location {location.name}")
+
+    # Save file
+    upload_dir = get_location_upload_dir(location_id)
+    filename = f"photo{ext}"
+    file_path = upload_dir / filename
+
+    # Remove old photo if exists
+    if file_path.exists():
+        file_path.unlink()
+
+    # Save processed file
+    with open(file_path, "wb") as f:
+        f.write(processed_content)
+
+    # Update location record
+    relative_path = f"/uploads/locations/{location_id}/{filename}"
+    location.photo_url = relative_path
+    await db.commit()
+
+    return {
+        "message": "Photo uploaded successfully",
+        "url": relative_path,
+        "filename": filename,
+        "sanitized": validation_result.sanitized,
+        "warnings": validation_result.warnings if validation_result.warnings else None
+    }
+
+
+@router.delete("/locations/{location_id}/photo")
+async def delete_location_photo(
+    location_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete location photo"""
+    result = await db.execute(
+        select(Location).where(Location.id == location_id)
+    )
+    location = result.scalar_one_or_none()
+
+    if not location or not location.photo_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Photo not found"
+        )
+
+    # Delete file
+    safe_delete_file(location.photo_url)
+
+    # Clear URL from database
+    location.photo_url = None
+    await db.commit()
+
+    return {"message": "Photo deleted successfully"}
+
+
+# ==================== User Photo Upload ====================
+
+@router.post("/users/{user_id}/photo")
+@limiter.limit("20/minute")
+async def upload_user_photo(
+    request: Request,
+    user_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Upload user photo (avatar)"""
+    # Check permission: only self or admin can upload photo
+    if current_user.id != user_id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to upload photo for this user"
+        )
+
+    # Get user
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+
+    # Validate file
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided"
+        )
+
+    ext = validate_file_extension(file.filename, "photo")
+    validate_mime_type(file.content_type, "photo")
+
+    # Check file size
+    file.file.seek(0, 2)
+    file_size = file.file.tell()
+    file.file.seek(0)
+
+    if file_size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size: {MAX_FILE_SIZE / 1024 / 1024}MB"
+        )
+
+    # Read file content for validation
+    file_content = await file.read()
+
+    # Validate file with magic number check and sanitization
+    processed_content, validation_result = validate_upload(
+        file_content=file_content,
+        filename=file.filename,
+        file_type="image",
+        sanitize=True
+    )
+
+    if validation_result.status == ValidationStatus.INVALID_SIGNATURE:
+        logger.warning(f"Invalid file signature for user photo: {file.filename}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file format: {validation_result.message}"
+        )
+
+    if validation_result.status == ValidationStatus.SUSPICIOUS_CONTENT:
+        logger.warning(f"Suspicious content in user photo: {file.filename} - {validation_result.warnings}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File rejected: {validation_result.message}"
+        )
+
+    # Log if image was sanitized
+    if validation_result.sanitized:
+        logger.info(f"Image sanitized: {file.filename} for user {user.username}")
+
+    # Save file
+    upload_dir = get_user_upload_dir(user_id)
+    filename = f"photo{ext}"
+    file_path = upload_dir / filename
+
+    # Remove old photo if exists
+    if file_path.exists():
+        file_path.unlink()
+
+    # Save processed file
+    with open(file_path, "wb") as f:
+        f.write(processed_content)
+
+    # Update user record
+    relative_path = f"/uploads/users/{user_id}/{filename}"
+    user.photo_url = relative_path
+    await db.commit()
+
+    return {
+        "message": "Photo uploaded successfully",
+        "url": relative_path,
+        "filename": filename,
+        "sanitized": validation_result.sanitized,
+        "warnings": validation_result.warnings if validation_result.warnings else None
+    }
+
+
+@router.delete("/users/{user_id}/photo")
+async def delete_user_photo(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete user photo"""
+    # Check permission: only self or admin can delete photo
+    if current_user.id != user_id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete photo for this user"
+        )
+
+    result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user = result.scalar_one_or_none()
+
+    if not user or not user.photo_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Photo not found"
+        )
+
+    # Delete file
+    safe_delete_file(user.photo_url)
+
+    # Clear URL from database
+    user.photo_url = None
+    await db.commit()
+
+    return {"message": "Photo deleted successfully"}

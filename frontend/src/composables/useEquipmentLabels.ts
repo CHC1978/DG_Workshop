@@ -106,7 +106,6 @@ export function useEquipmentLabels() {
     const labels: Record<string, string> = {
       warehouse: 'Warehouse',
       vessel: 'Vessel',
-      person: 'Person',
       external: 'External',
       platform: 'Platform',
       vehicle: 'Vehicle',

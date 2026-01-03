@@ -182,6 +182,56 @@
           </div>
         </div>
 
+        <!-- Vessel Photo & Contact Person -->
+        <div class="border-b border-gray-200 pb-6">
+          <h2 class="text-lg font-semibold text-gray-900 mb-4">Photo & Contact</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Vessel Photo -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Vessel Photo</label>
+              <div v-if="form.photo_url" class="mb-3">
+                <img
+                  :src="form.photo_url"
+                  alt="Vessel Photo"
+                  class="w-32 h-32 object-cover rounded-lg border"
+                />
+                <button
+                  v-if="isEditMode"
+                  type="button"
+                  @click="handleDeletePhoto"
+                  class="mt-2 text-sm text-red-600 hover:text-red-800"
+                >
+                  Remove Photo
+                </button>
+              </div>
+              <input
+                v-if="isEditMode"
+                type="file"
+                accept="image/*"
+                @change="handlePhotoUpload"
+                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+              />
+              <p v-if="!isEditMode" class="text-xs text-gray-500">Photo can be uploaded after creating the vessel</p>
+              <p v-if="uploadingPhoto" class="mt-1 text-xs text-sky-600">Uploading...</p>
+            </div>
+
+            <!-- Contact Person (改用 User) -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+              <select
+                v-model="form.contact_user_id"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-sky-500 focus:ring-sky-500"
+              >
+                <option :value="null">None</option>
+                <option v-for="user in staffUsers" :key="user.id" :value="user.id">
+                  {{ user.full_name }}{{ user.department ? ` (${user.department})` : '' }}
+                </option>
+              </select>
+              <p class="mt-1 text-xs text-gray-500">Select a user as contact person</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Project Association -->
         <div class="border-b border-gray-200 pb-6">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Project Association</h2>
@@ -244,8 +294,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLocationStore } from '@/stores/locations'
 import { useProjectStore } from '@/stores/projects'
+import { locationApi } from '@/api/locations'
+import { usersApi } from '@/api/users'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppButton from '@/components/common/AppButton.vue'
+import type { UserStaff } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -269,12 +322,16 @@ const form = ref({
   vessel_type: '',
   vessel_owner: '',
   owner_company: '',
+  photo_url: '' as string | null,
+  contact_user_id: null as number | null,  // 改用 User
   current_project_id: null as number | null,
   is_active: true,
 })
 
 const identifierError = ref('')
 const projects = ref<any[]>([])
+const staffUsers = ref<UserStaff[]>([])  // 改用 User staff
+const uploadingPhoto = ref(false)
 
 // Validate that at least one identifier is provided
 function validateIdentifiers(): boolean {
@@ -334,13 +391,55 @@ async function handleSubmit() {
   }
 }
 
+async function handlePhotoUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length || !isEditMode.value) return
+
+  const file = input.files[0]
+  uploadingPhoto.value = true
+
+  try {
+    const response = await locationApi.uploadPhoto(locationId.value, file)
+    form.value.photo_url = response.data.url
+    alert('Photo uploaded successfully!')
+  } catch (error: any) {
+    console.error('Failed to upload photo:', error)
+    alert(error.response?.data?.detail || 'Failed to upload photo')
+  } finally {
+    uploadingPhoto.value = false
+  }
+}
+
+async function handleDeletePhoto() {
+  if (!isEditMode.value || !form.value.photo_url) return
+
+  if (!confirm('Are you sure you want to delete this photo?')) return
+
+  try {
+    await locationApi.deletePhoto(locationId.value)
+    form.value.photo_url = null
+    alert('Photo deleted successfully!')
+  } catch (error: any) {
+    console.error('Failed to delete photo:', error)
+    alert(error.response?.data?.detail || 'Failed to delete photo')
+  }
+}
+
 onMounted(async () => {
   // Load projects for dropdown
   try {
-    const response = await projectStore.fetchProjects({ skip: 0, limit: 100, is_active: true })
+    await projectStore.fetchProjects({ skip: 0, limit: 100, is_active: true })
     projects.value = projectStore.projects
   } catch (error) {
     console.error('Failed to load projects:', error)
+  }
+
+  // Load staff users for contact person dropdown (改用 User API)
+  try {
+    const response = await usersApi.getStaff()
+    staffUsers.value = response.data
+  } catch (error) {
+    console.error('Failed to load staff users:', error)
   }
 
   // Load location data if editing
@@ -361,6 +460,8 @@ onMounted(async () => {
         vessel_type: location.vessel_type || '',
         vessel_owner: location.vessel_owner || '',
         owner_company: location.owner_company || '',
+        photo_url: location.photo_url || null,
+        contact_user_id: location.contact_user_id || null,  // 改用 contact_user_id
         current_project_id: location.current_project_id || null,
         is_active: location.is_active,
       }

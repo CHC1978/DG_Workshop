@@ -14,8 +14,23 @@ export interface User {
   role: UserRole
   totp_enabled: boolean
   is_active: boolean
+  // Person 資訊欄位（從 Location type=person 合併）
+  employee_id?: string
+  department?: string
+  phone?: string
+  photo_url?: string
   created_at: string
   updated_at: string
+}
+
+// 簡化的使用者資訊（用於聯繫人/負責人下拉選單）
+export interface UserStaff {
+  id: number
+  username: string
+  full_name: string
+  employee_id?: string
+  department?: string
+  photo_url?: string
 }
 
 export interface LoginStep1Request {
@@ -123,6 +138,10 @@ export interface Equipment {
   // Parent-Child relationship
   parent_equipment_id?: number
 
+  // 設備負責人（Person 合併到 User 後使用）
+  assigned_user_id?: number
+  assigned_user_name?: string
+
   is_active: boolean
   created_at: string
   updated_at: string
@@ -159,6 +178,9 @@ export interface EquipmentCreateRequest {
 
   // Parent-Child relationship
   parent_equipment_id?: number
+
+  // 設備負責人
+  assigned_user_id?: number
 }
 
 // ==================== Parent-Child Equipment Management ====================
@@ -183,7 +205,7 @@ export interface SyncChildrenStatusRequest {
 
 // ==================== Location ====================
 
-export type LocationType = 'warehouse' | 'vessel' | 'person' | 'external'
+export type LocationType = 'warehouse' | 'vessel' | 'platform' | 'vehicle' | 'external'
 
 export interface Location {
   id: number
@@ -213,6 +235,20 @@ export interface Location {
   employee_id?: string
   department?: string
 
+  // Photo (for Vessel and Person)
+  photo_url?: string
+
+  // Warehouse fields
+  address?: string
+  phone?: string
+  email?: string
+
+  // Contact person (舊欄位，待遷移後移除)
+  contact_person_id?: number
+
+  // Contact user (新欄位，Person 合併到 User 後使用)
+  contact_user_id?: number
+
   // Project association
   current_project_id?: number
 
@@ -225,6 +261,8 @@ export interface LocationDetail extends Location {
   equipment_count: number
   project_name?: string
   project_code?: string
+  contact_person_name?: string  // 舊欄位
+  contact_user_name?: string    // 新欄位
 }
 
 export interface LocationCreateRequest {
@@ -245,6 +283,12 @@ export interface LocationCreateRequest {
   person_contact?: string
   employee_id?: string
   department?: string
+  photo_url?: string
+  address?: string
+  phone?: string
+  email?: string
+  contact_person_id?: number  // 舊欄位
+  contact_user_id?: number    // 新欄位
   current_project_id?: number
 }
 
@@ -555,6 +599,10 @@ export interface UserCreateRequest {
   full_name: string
   password: string
   role: UserRole
+  // Person 資訊欄位
+  employee_id?: string
+  department?: string
+  phone?: string
 }
 
 export interface UserUpdateRequest {
@@ -562,6 +610,10 @@ export interface UserUpdateRequest {
   full_name?: string
   role?: UserRole
   is_active?: boolean
+  // Person 資訊欄位
+  employee_id?: string
+  department?: string
+  phone?: string
 }
 
 export interface PasswordUpdateRequest {

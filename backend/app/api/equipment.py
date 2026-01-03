@@ -143,6 +143,7 @@ async def list_equipment(
         query
         .options(selectinload(Equipment.current_location))
         .options(selectinload(Equipment.project))
+        .options(selectinload(Equipment.assigned_user))
         .offset(skip)
         .limit(limit)
         .order_by(Equipment.created_at.desc())
@@ -164,6 +165,10 @@ async def list_equipment(
         if eq.project:
             eq_dict['project_code'] = eq.project.code
             eq_dict['project_name'] = eq.project.name
+
+        # Add assigned user info
+        if eq.assigned_user:
+            eq_dict['assigned_user_name'] = eq.assigned_user.full_name
 
         # Count children
         children_result = await db.execute(
@@ -287,6 +292,7 @@ async def get_equipment(
         .options(selectinload(Equipment.current_location))
         .options(selectinload(Equipment.project))
         .options(selectinload(Equipment.parent))
+        .options(selectinload(Equipment.assigned_user))
         .where(Equipment.id == equipment_id)
     )
     equipment = result.scalar_one_or_none()
@@ -309,6 +315,10 @@ async def get_equipment(
     if equipment.project:
         eq_dict['project_code'] = equipment.project.code
         eq_dict['project_name'] = equipment.project.name
+
+    # Add assigned user info
+    if equipment.assigned_user:
+        eq_dict['assigned_user_name'] = equipment.assigned_user.full_name
 
     # Add parent equipment info
     if equipment.parent:
@@ -528,6 +538,9 @@ async def update_equipment(
         children_count = children_check.scalar() or 0
 
         if children_count > 0:
+            # Flush changes before syncing children (required because autoflush=False)
+            await db.flush()
+
             # Sync children with parent
             await sync_children_with_parent(
                 db=db,
@@ -926,6 +939,9 @@ async def deploy_equipment(
         user_id=current_user.id,
     )
 
+    # Flush changes before syncing children (required because autoflush=False)
+    await db.flush()
+
     # Sync children with parent's new status and location
     await sync_children_with_parent(
         db=db,
@@ -1023,6 +1039,9 @@ async def return_equipment(
         new_value=new_value_json,
         user_id=current_user.id,
     )
+
+    # Flush changes before syncing children (required because autoflush=False)
+    await db.flush()
 
     # Sync children with parent's new status and location
     await sync_children_with_parent(
@@ -1138,6 +1157,9 @@ async def send_to_repair(
         user_id=current_user.id,
     )
 
+    # Flush changes before syncing children (required because autoflush=False)
+    await db.flush()
+
     # Sync children with parent's new status
     await sync_children_with_parent(
         db=db,
@@ -1250,6 +1272,9 @@ async def send_to_calibration(
         new_value=new_value_json,
         user_id=current_user.id,
     )
+
+    # Flush changes before syncing children (required because autoflush=False)
+    await db.flush()
 
     # Sync children with parent's new status
     await sync_children_with_parent(
@@ -1544,7 +1569,8 @@ async def group_move_equipment(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Move equipment and optionally all its children to a new location (group move)
+    Move equipment and optionally all its children to a new location (group move).
+    Also updates status to DEPLOYED when moving to vessel/person.
     """
     from app.models.location import Location
 
@@ -1574,6 +1600,14 @@ async def group_move_equipment(
 
     moved_count = 0
     old_location_id = equipment.current_location_id
+    old_status = equipment.status
+
+    # Determine new status based on target location type
+    # vessel/person -> DEPLOYED, warehouse -> IN_STOCK
+    if target_location.location_type.value in ['vessel', 'person']:
+        new_status = EquipmentStatus.DEPLOYED
+    else:
+        new_status = EquipmentStatus.IN_STOCK
 
     # Get old location info for JSON
     old_location_info = None
@@ -1589,15 +1623,18 @@ async def group_move_equipment(
                 "type": old_location.location_type.value if old_location.location_type else None
             }
 
-    # Move parent equipment
+    # Move parent equipment and update status
     equipment.current_location_id = request_data.location_id
+    equipment.status = new_status
 
     # JSON format for log
     old_value_json = json.dumps({
+        "status": old_status.value,
         "location": old_location_info
     }, ensure_ascii=False)
 
     new_value_json = json.dumps({
+        "status": new_status.value,
         "location": {
             "id": target_location.id,
             "name": target_location.name,
@@ -1608,7 +1645,7 @@ async def group_move_equipment(
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
-        log_type=EquipmentLogType.LOCATION_CHANGE,
+        log_type=EquipmentLogType.STATUS_CHANGE,
         description=request_data.notes or f"Moved to {target_location.name} (group move)",
         old_value=old_value_json,
         new_value=new_value_json,
@@ -1628,6 +1665,7 @@ async def group_move_equipment(
 
         for child in children:
             old_child_location_id = child.current_location_id
+            old_child_status = child.status
 
             # Get old child location info
             old_child_location_info = None
@@ -1643,16 +1681,19 @@ async def group_move_equipment(
                         "type": old_child_loc.location_type.value if old_child_loc.location_type else None
                     }
 
+            # Update child location and status
             child.current_location_id = request_data.location_id
+            child.status = new_status
 
             child_old_value_json = json.dumps({
+                "status": old_child_status.value,
                 "location": old_child_location_info
             }, ensure_ascii=False)
 
             await log_equipment_change(
                 db=db,
                 equipment_id=child.id,
-                log_type=EquipmentLogType.LOCATION_CHANGE,
+                log_type=EquipmentLogType.STATUS_CHANGE,
                 description=f"Moved with parent {equipment.asset_code} to {target_location.name}",
                 old_value=child_old_value_json,
                 new_value=new_value_json,
@@ -1665,7 +1706,8 @@ async def group_move_equipment(
     return {
         "message": "Equipment moved successfully",
         "moved_count": moved_count,
-        "target_location": target_location.name
+        "target_location": target_location.name,
+        "new_status": new_status.value
     }
 
 

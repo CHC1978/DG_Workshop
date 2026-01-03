@@ -6,7 +6,6 @@
         <h1 class="text-3xl font-bold text-gray-900">Locations</h1>
         <div class="flex gap-2">
           <AppButton @click="handleCreateVessel">New Vessel</AppButton>
-          <AppButton @click="handleCreatePerson" variant="secondary">New Person</AppButton>
           <AppButton @click="handleCreateWarehouse" variant="secondary">New Warehouse</AppButton>
         </div>
       </div>
@@ -36,8 +35,9 @@
             >
               <option value="">All</option>
               <option value="vessel">Vessel</option>
-              <option value="person">Person</option>
               <option value="warehouse">Warehouse</option>
+              <option value="platform">Platform</option>
+              <option value="vehicle">Vehicle</option>
               <option value="external">External</option>
             </select>
           </div>
@@ -118,27 +118,6 @@
                   </div>
                 </template>
 
-                <!-- Person Info -->
-                <template v-else-if="location.location_type === 'person'">
-                  <div class="flex flex-wrap gap-4 text-sm text-gray-500">
-                    <div v-if="location.person_name" class="flex items-center gap-1">
-                      <span class="font-medium">Name:</span>
-                      <span>{{ location.person_name }}</span>
-                    </div>
-                    <div v-if="location.employee_id" class="flex items-center gap-1">
-                      <span class="font-medium">Employee ID:</span>
-                      <span>{{ location.employee_id }}</span>
-                    </div>
-                    <div v-if="location.department" class="flex items-center gap-1">
-                      <span class="font-medium">Department:</span>
-                      <span>{{ location.department }}</span>
-                    </div>
-                    <div v-if="location.person_contact" class="flex items-center gap-1">
-                      <span class="font-medium">Contact:</span>
-                      <span>{{ location.person_contact }}</span>
-                    </div>
-                  </div>
-                </template>
               </div>
             </div>
           </div>
@@ -173,7 +152,7 @@
         <p class="text-gray-500 mb-4">No locations found</p>
         <div class="flex gap-2 justify-center">
           <AppButton @click="handleCreateVessel">Create First Vessel</AppButton>
-          <AppButton @click="handleCreatePerson" variant="secondary">Create Person</AppButton>
+          <AppButton @click="handleCreateWarehouse" variant="secondary">Create Warehouse</AppButton>
         </div>
       </div>
     </div>
@@ -200,8 +179,9 @@ let searchTimeout: ReturnType<typeof setTimeout> | null = null
 function typeLabel(type: string): string {
   const labels: Record<string, string> = {
     vessel: 'Vessel',
-    person: 'Person',
     warehouse: 'Warehouse',
+    platform: 'Platform',
+    vehicle: 'Vehicle',
     external: 'External',
   }
   return labels[type] || type
@@ -210,8 +190,9 @@ function typeLabel(type: string): string {
 function typeBadgeClass(type: string): string {
   const variants: Record<string, string> = {
     vessel: 'bg-blue-100 text-blue-800',
-    person: 'bg-green-100 text-green-800',
     warehouse: 'bg-purple-100 text-purple-800',
+    platform: 'bg-amber-100 text-amber-800',
+    vehicle: 'bg-teal-100 text-teal-800',
     external: 'bg-gray-100 text-gray-800',
   }
   return variants[type] || 'bg-gray-100 text-gray-800'
@@ -266,10 +247,6 @@ function handlePageChange(page: number) {
 
 function handleCreateVessel() {
   router.push('/locations/new/vessel')
-}
-
-function handleCreatePerson() {
-  router.push('/locations/new/person')
 }
 
 function handleCreateWarehouse() {

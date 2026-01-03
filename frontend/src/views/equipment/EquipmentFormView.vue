@@ -114,6 +114,25 @@
             @location-change="handleLocationChange"
           />
 
+          <!-- Assigned User (設備負責人) -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Assigned User
+            </label>
+            <select
+              v-model="formData.assigned_user_id"
+              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
+            >
+              <option :value="null">None</option>
+              <option v-for="user in staffUsers" :key="user.id" :value="user.id">
+                {{ user.full_name }}{{ user.department ? ` (${user.department})` : '' }}
+              </option>
+            </select>
+            <p class="mt-1 text-sm text-gray-500">
+              Assign a user responsible for this equipment
+            </p>
+          </div>
+
           <!-- Photo Upload (Available in both Create and Edit modes) -->
           <div class="space-y-4 p-4 bg-gray-50 rounded-lg">
             <h3 class="text-sm font-semibold text-gray-700">Equipment Photo</h3>
@@ -250,13 +269,14 @@ import { useLocationStore } from '@/stores/locations'
 import { useProjectStore } from '@/stores/projects'
 import { useUiStore } from '@/stores/ui'
 import apiClient from '@/api/client'
+import { usersApi } from '@/api/users'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import FileUpload from '@/components/common/FileUpload.vue'
 import FormCategorySection from '@/components/equipment/form/FormCategorySection.vue'
 import FormLocationProjectSection from '@/components/equipment/form/FormLocationProjectSection.vue'
-import type { Location, Project } from '@/types'
+import type { Location, Project, UserStaff } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -299,12 +319,16 @@ const formData = reactive({
   specifications: '',
   notes: '',
   parent_equipment_id: null as number | null,
+  assigned_user_id: null as number | null,  // 設備負責人
 })
 
 // Location and Project data
 const locations = ref<Location[]>([])
 const projects = ref<Project[]>([])
 const suggestedProject = ref<Project | null>(null)
+
+// Staff users for assigned user dropdown
+const staffUsers = ref<UserStaff[]>([])
 
 // Parent Equipment data (for sub-components)
 const showParentSelector = ref(false)
@@ -447,7 +471,7 @@ async function handleParentEquipmentChange() {
   }
 }
 
-// Load locations and projects
+// Load locations, projects, and staff users
 async function loadLocationsAndProjects() {
   try {
     // Load locations
@@ -457,8 +481,12 @@ async function loadLocationsAndProjects() {
     // Load projects
     const projResponse = await projectStore.fetchProjects({ skip: 0, limit: 100, is_active: true })
     projects.value = projectStore.projects
+
+    // Load staff users for assigned user dropdown
+    const usersResponse = await usersApi.getStaff()
+    staffUsers.value = usersResponse.data
   } catch (error) {
-    console.error('Failed to load locations/projects:', error)
+    console.error('Failed to load locations/projects/users:', error)
   }
 }
 
@@ -575,6 +603,7 @@ async function loadEquipment() {
     formData.maintenance_notes = equipment.maintenance_notes || ''
     formData.specifications = equipment.specifications || ''
     formData.notes = equipment.notes || ''
+    formData.assigned_user_id = equipment.assigned_user_id || null  // 設備負責人
   } catch (error: any) {
     console.error('Failed to load equipment:', error)
     errorMessage.value = error.response?.data?.detail || 'Failed to load equipment'
@@ -621,7 +650,8 @@ async function handleSubmit() {
       // last_maintenance_date, next_maintenance_date, and maintenance_notes are excluded
       specifications: formData.specifications || undefined,
       notes: formData.notes || undefined,
-      parent_equipment_id: formData.parent_equipment_id || undefined,  // Add parent_equipment_id
+      parent_equipment_id: formData.parent_equipment_id || undefined,
+      assigned_user_id: formData.assigned_user_id || undefined,  // 設備負責人
     }
 
     if (isEdit.value) {

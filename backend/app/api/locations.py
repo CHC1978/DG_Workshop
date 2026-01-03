@@ -128,11 +128,33 @@ async def get_location(
             project_name = project.name
             project_code = project.code
 
+    # Get contact person name if associated (舊：指向 Location)
+    contact_person_name = None
+    if location.contact_person_id:
+        contact_result = await db.execute(
+            select(Location).where(Location.id == location.contact_person_id)
+        )
+        contact_person = contact_result.scalar_one_or_none()
+        if contact_person:
+            contact_person_name = contact_person.person_name or contact_person.name
+
+    # Get contact user name if associated (新：指向 User)
+    contact_user_name = None
+    if location.contact_user_id:
+        contact_user_result = await db.execute(
+            select(User).where(User.id == location.contact_user_id)
+        )
+        contact_user = contact_user_result.scalar_one_or_none()
+        if contact_user:
+            contact_user_name = contact_user.full_name
+
     # Build response
     response_dict = LocationDetailResponse.model_validate(location).model_dump()
     response_dict['equipment_count'] = equipment_count
     response_dict['project_name'] = project_name
     response_dict['project_code'] = project_code
+    response_dict['contact_person_name'] = contact_person_name
+    response_dict['contact_user_name'] = contact_user_name
 
     return LocationDetailResponse(**response_dict)
 

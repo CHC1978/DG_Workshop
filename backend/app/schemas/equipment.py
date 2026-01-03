@@ -25,6 +25,9 @@ class EquipmentCreate(EquipmentBase):
     purchase_date: Optional[date] = None
     current_location_id: Optional[int] = None
 
+    # 設備負責人（從 Person 合併到 User 後使用）
+    assigned_user_id: Optional[int] = Field(None, description="Assigned user ID (equipment owner/responsible person)")
+
     # Parent-Child relationship
     parent_equipment_id: Optional[int] = Field(None, description="Parent equipment ID (for sub-components)")
 
@@ -56,6 +59,9 @@ class EquipmentUpdate(BaseModel):
     deployed_to: Optional[str] = Field(None, max_length=200)
     deployed_by: Optional[int] = None
     purchase_date: Optional[date] = None
+
+    # 設備負責人
+    assigned_user_id: Optional[int] = Field(None, description="Assigned user ID")
 
     # Parent-Child relationship
     parent_equipment_id: Optional[int] = Field(None, description="Parent equipment ID (for attaching/detaching)")
@@ -98,6 +104,10 @@ class EquipmentResponse(BaseModel):
     deployed_to: Optional[str]
     deployed_by: Optional[int]
     purchase_date: Optional[date]
+
+    # 設備負責人
+    assigned_user_id: Optional[int] = None
+    assigned_user_name: Optional[str] = None  # 顯示用
 
     # Parent-Child relationship
     parent_equipment_id: Optional[int]

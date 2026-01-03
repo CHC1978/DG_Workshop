@@ -76,6 +76,35 @@
             </p>
           </div>
 
+          <!-- Person Information Section -->
+          <div class="border-t pt-6 mt-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Person Information</h3>
+
+            <!-- Employee ID -->
+            <AppInput
+              v-model="formData.employee_id"
+              label="Employee ID"
+              placeholder="Enter employee ID"
+              :error="errors.employee_id"
+            />
+
+            <!-- Department -->
+            <AppInput
+              v-model="formData.department"
+              label="Department"
+              placeholder="Enter department"
+              class="mt-4"
+            />
+
+            <!-- Phone -->
+            <AppInput
+              v-model="formData.phone"
+              label="Phone"
+              placeholder="Enter phone number"
+              class="mt-4"
+            />
+          </div>
+
           <!-- Active Status (only for edit and admin) -->
           <div v-if="isEdit && authStore.isAdmin" class="flex items-center">
             <input
@@ -150,6 +179,10 @@ const formData = reactive({
   password: '',
   role: 'viewer' as 'admin' | 'manager' | 'operator' | 'viewer',
   is_active: true,
+  // Person 資訊欄位
+  employee_id: '',
+  department: '',
+  phone: '',
 })
 
 const errors = reactive({
@@ -157,6 +190,7 @@ const errors = reactive({
   email: '',
   full_name: '',
   password: '',
+  employee_id: '',
 })
 
 function clearErrors() {
@@ -164,6 +198,7 @@ function clearErrors() {
   errors.email = ''
   errors.full_name = ''
   errors.password = ''
+  errors.employee_id = ''
   errorMessage.value = ''
 }
 
@@ -176,6 +211,10 @@ async function loadUser() {
     formData.full_name = user.full_name
     formData.role = user.role as any
     formData.is_active = user.is_active
+    // Person 資訊欄位
+    formData.employee_id = user.employee_id || ''
+    formData.department = user.department || ''
+    formData.phone = user.phone || ''
   } catch (error: any) {
     console.error('Failed to load user:', error)
     errorMessage.value = error.response?.data?.detail || 'Failed to load user'
@@ -213,6 +252,10 @@ async function handleSubmit() {
         full_name: formData.full_name,
         role: formData.role,
         is_active: formData.is_active,
+        // Person 資訊欄位
+        employee_id: formData.employee_id || undefined,
+        department: formData.department || undefined,
+        phone: formData.phone || undefined,
       })
       uiStore.showNotification('success', 'User updated successfully')
       router.push('/admin/users')
@@ -224,6 +267,10 @@ async function handleSubmit() {
         full_name: formData.full_name,
         password: formData.password,
         role: formData.role,
+        // Person 資訊欄位
+        employee_id: formData.employee_id || undefined,
+        department: formData.department || undefined,
+        phone: formData.phone || undefined,
       })
       uiStore.showNotification('success', 'User created successfully')
       router.push('/admin/users')

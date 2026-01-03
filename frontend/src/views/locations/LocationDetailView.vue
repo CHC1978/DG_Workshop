@@ -36,6 +36,15 @@
 
         <!-- Vessel Information -->
         <template v-if="location.location_type === 'vessel'">
+          <!-- Vessel Photo Banner -->
+          <div v-if="location.photo_url" class="mb-6 bg-white rounded-lg shadow overflow-hidden flex justify-center items-center bg-gray-50">
+            <img
+              :src="location.photo_url"
+              :alt="location.name"
+              class="max-w-full max-h-64 md:max-h-80 lg:max-h-96 w-auto h-auto object-contain"
+            />
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- Vessel Identifiers -->
             <div class="bg-white rounded-lg shadow p-6">
@@ -88,6 +97,25 @@
                   <dt class="text-sm font-medium text-gray-500">Owner Company (Legacy)</dt>
                   <dd class="mt-1 text-sm text-gray-900">{{ location.owner_company }}</dd>
                 </div>
+                <!-- Contact User (新：指向 User) -->
+                <div v-if="location.contact_user_name">
+                  <dt class="text-sm font-medium text-gray-500">Contact Person</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ location.contact_user_name }}</dd>
+                </div>
+                <!-- Contact Person (舊：指向 Location，作為 fallback) -->
+                <div v-else-if="location.contact_person_name">
+                  <dt class="text-sm font-medium text-gray-500">Contact Person</dt>
+                  <dd class="mt-1 text-sm text-gray-900">
+                    <router-link
+                      v-if="location.contact_person_id"
+                      :to="`/locations/${location.contact_person_id}`"
+                      class="text-sky-600 hover:text-sky-800 hover:underline"
+                    >
+                      {{ location.contact_person_name }}
+                    </router-link>
+                    <span v-else>{{ location.contact_person_name }}</span>
+                  </dd>
+                </div>
               </dl>
             </div>
 
@@ -122,9 +150,31 @@
         <!-- Person Information -->
         <template v-else-if="location.location_type === 'person'">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Person Details -->
+            <!-- Person Photo & Details -->
             <div class="bg-white rounded-lg shadow p-6">
               <h2 class="text-lg font-semibold text-gray-900 mb-4">Person Information</h2>
+
+              <!-- Photo -->
+              <div class="flex items-start gap-4 mb-4">
+                <div v-if="location.photo_url" class="flex-shrink-0">
+                  <img
+                    :src="location.photo_url"
+                    :alt="location.person_name || location.name"
+                    class="w-24 h-24 object-cover rounded-full border-2 border-gray-200"
+                  />
+                </div>
+                <div v-else class="flex-shrink-0 w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center">
+                  <svg class="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <div v-if="location.person_name" class="text-lg font-medium text-gray-900">{{ location.person_name }}</div>
+                  <div v-if="location.department" class="text-sm text-gray-500">{{ location.department }}</div>
+                  <div v-if="location.employee_id" class="text-sm text-gray-500 font-mono">{{ location.employee_id }}</div>
+                </div>
+              </div>
+
               <dl class="space-y-3">
                 <div v-if="location.person_name">
                   <dt class="text-sm font-medium text-gray-500">Name</dt>
@@ -180,6 +230,51 @@
                 <div>
                   <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
                   <dd class="mt-1 text-sm text-gray-900">{{ formatDateTime(location.updated_at) }}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <!-- Address & Contact -->
+            <div class="bg-white rounded-lg shadow p-6">
+              <h2 class="text-lg font-semibold text-gray-900 mb-4">Address & Contact</h2>
+              <dl class="space-y-3">
+                <div v-if="location.address">
+                  <dt class="text-sm font-medium text-gray-500">Address</dt>
+                  <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ location.address }}</dd>
+                </div>
+                <div v-if="location.phone">
+                  <dt class="text-sm font-medium text-gray-500">Phone</dt>
+                  <dd class="mt-1 text-sm text-gray-900">
+                    <a :href="'tel:' + location.phone" class="text-sky-600 hover:text-sky-800">{{ location.phone }}</a>
+                  </dd>
+                </div>
+                <div v-if="location.email">
+                  <dt class="text-sm font-medium text-gray-500">Email</dt>
+                  <dd class="mt-1 text-sm text-gray-900">
+                    <a :href="'mailto:' + location.email" class="text-sky-600 hover:text-sky-800">{{ location.email }}</a>
+                  </dd>
+                </div>
+                <!-- Contact User (新：指向 User) -->
+                <div v-if="location.contact_user_name">
+                  <dt class="text-sm font-medium text-gray-500">Contact Person</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ location.contact_user_name }}</dd>
+                </div>
+                <!-- Contact Person (舊：指向 Location，作為 fallback) -->
+                <div v-else-if="location.contact_person_name">
+                  <dt class="text-sm font-medium text-gray-500">Contact Person</dt>
+                  <dd class="mt-1 text-sm text-gray-900">
+                    <router-link
+                      v-if="location.contact_person_id"
+                      :to="`/locations/${location.contact_person_id}`"
+                      class="text-sky-600 hover:text-sky-800 hover:underline"
+                    >
+                      {{ location.contact_person_name }}
+                    </router-link>
+                    <span v-else>{{ location.contact_person_name }}</span>
+                  </dd>
+                </div>
+                <div v-if="!location.address && !location.phone && !location.email && !location.contact_person_name && !location.contact_user_name">
+                  <p class="text-sm text-gray-400 italic">No contact information available</p>
                 </div>
               </dl>
             </div>

@@ -2,7 +2,7 @@
  * Users API
  */
 import apiClient from './client'
-import type { User } from '@/types'
+import type { User, UserStaff } from '@/types'
 
 export interface UserListResponse {
   users: User[]
@@ -15,6 +15,10 @@ export interface UserCreateRequest {
   full_name: string
   password: string
   role: 'admin' | 'manager' | 'operator' | 'viewer'
+  // Person 資訊欄位
+  employee_id?: string
+  department?: string
+  phone?: string
 }
 
 export interface UserUpdateRequest {
@@ -22,6 +26,10 @@ export interface UserUpdateRequest {
   full_name?: string
   role?: 'admin' | 'manager' | 'operator' | 'viewer'
   is_active?: boolean
+  // Person 資訊欄位
+  employee_id?: string
+  department?: string
+  phone?: string
 }
 
 export interface UserPasswordUpdateRequest {
@@ -37,6 +45,13 @@ export const usersApi = {
     return apiClient.get<UserListResponse>('/users', {
       params: { skip, limit },
     })
+  },
+
+  /**
+   * Get staff users (for contact/assignee dropdowns)
+   */
+  getStaff() {
+    return apiClient.get<UserStaff[]>('/users/staff')
   },
 
   /**
@@ -116,5 +131,25 @@ export const usersApi = {
       null,
       { params: { totp_code: totpCode } }
     )
+  },
+
+  /**
+   * Upload user photo
+   */
+  uploadPhoto(id: number, file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post<{ photo_url: string; message: string }>(
+      `/uploads/users/${id}/photo`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+  },
+
+  /**
+   * Delete user photo
+   */
+  deletePhoto(id: number) {
+    return apiClient.delete<{ message: string }>(`/uploads/users/${id}/photo`)
   },
 }

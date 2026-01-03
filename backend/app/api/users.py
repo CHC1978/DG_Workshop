@@ -15,6 +15,7 @@ from app.schemas.user import (
     AdminToggle2FARequest,
     UserResponse,
     UserListResponse,
+    UserStaffResponse,
 )
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -58,6 +59,21 @@ async def list_users(
     )
 
 
+@router.get("/staff", response_model=list[UserStaffResponse])
+async def list_staff_users(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    取得所有 active 使用者（簡化版，用於聯繫人/負責人下拉選單）
+    """
+    query = select(User).where(User.is_active == True).order_by(User.full_name)
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return [UserStaffResponse.model_validate(user) for user in users]
+
+
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 async def create_user(
@@ -89,6 +105,17 @@ async def create_user(
             detail="Email already exists",
         )
 
+    # Check if employee_id already exists (if provided)
+    if user_data.employee_id:
+        result = await db.execute(
+            select(User).where(User.employee_id == user_data.employee_id)
+        )
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Employee ID already exists",
+            )
+
     # Create new user
     new_user = User(
         username=user_data.username,
@@ -98,6 +125,10 @@ async def create_user(
         role=user_data.role,
         totp_enabled=False,
         is_active=True,
+        # Person 資訊欄位
+        employee_id=user_data.employee_id,
+        department=user_data.department,
+        phone=user_data.phone,
     )
 
     db.add(new_user)
@@ -188,6 +219,26 @@ async def update_user(
             user.role = user_data.role
         if user_data.is_active is not None:
             user.is_active = user_data.is_active
+
+    # Person 資訊欄位（任何人都可以更新自己的）
+    if user_data.employee_id is not None:
+        # Check uniqueness
+        if user_data.employee_id:
+            result = await db.execute(
+                select(User).where(User.employee_id == user_data.employee_id, User.id != user_id)
+            )
+            if result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Employee ID already exists",
+                )
+        user.employee_id = user_data.employee_id or None
+
+    if user_data.department is not None:
+        user.department = user_data.department or None
+
+    if user_data.phone is not None:
+        user.phone = user_data.phone or None
 
     await db.commit()
     await db.refresh(user)

@@ -36,6 +36,20 @@ class LocationBase(BaseModel):
     employee_id: Optional[str] = Field(None, max_length=30, description="Employee ID")
     department: Optional[str] = Field(None, max_length=100, description="Department")
 
+    # Photo (for Vessel and Person)
+    photo_url: Optional[str] = Field(None, max_length=500, description="Photo URL")
+
+    # Warehouse fields
+    address: Optional[str] = Field(None, max_length=500, description="Warehouse Address")
+    phone: Optional[str] = Field(None, max_length=50, description="Phone Number")
+    email: Optional[str] = Field(None, max_length=100, description="Email Address")
+
+    # Contact person (舊：reference to another Location with type=person，待遷移後移除)
+    contact_person_id: Optional[int] = Field(None, description="Contact Person Location ID (deprecated)")
+
+    # Contact user (新：reference to User，Person 合併到 User 後使用)
+    contact_user_id: Optional[int] = Field(None, description="Contact User ID")
+
     # Project association
     current_project_id: Optional[int] = Field(None, description="Current Project ID")
 
@@ -92,6 +106,20 @@ class LocationUpdate(BaseModel):
     employee_id: Optional[str] = Field(None, max_length=30)
     department: Optional[str] = Field(None, max_length=100)
 
+    # Photo (for Vessel and Person)
+    photo_url: Optional[str] = Field(None, max_length=500)
+
+    # Warehouse fields
+    address: Optional[str] = Field(None, max_length=500)
+    phone: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=100)
+
+    # Contact person (舊，待遷移後移除)
+    contact_person_id: Optional[int] = None
+
+    # Contact user (新)
+    contact_user_id: Optional[int] = None
+
     # Project association
     current_project_id: Optional[int] = None
 
@@ -121,5 +149,7 @@ class LocationDetailResponse(LocationResponse):
     equipment_count: int = 0
     project_name: Optional[str] = None
     project_code: Optional[str] = None
+    contact_person_name: Optional[str] = None  # 舊欄位，待遷移後移除
+    contact_user_name: Optional[str] = None  # 新欄位，Person 合併到 User 後使用
 
     model_config = {"from_attributes": True}

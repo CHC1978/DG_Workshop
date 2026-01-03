@@ -101,12 +101,6 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresManager: true },
   },
   {
-    path: '/locations/new/person',
-    name: 'location-create-person',
-    component: () => import('@/views/locations/PersonFormView.vue'),
-    meta: { requiresAuth: true, requiresManager: true },
-  },
-  {
     path: '/locations/new/warehouse',
     name: 'location-create-warehouse',
     component: () => import('@/views/locations/WarehouseFormView.vue'),
@@ -122,12 +116,6 @@ const routes: RouteRecordRaw[] = [
     path: '/locations/:id/edit/vessel',
     name: 'location-edit-vessel',
     component: () => import('@/views/locations/VesselFormView.vue'),
-    meta: { requiresAuth: true, requiresManager: true },
-  },
-  {
-    path: '/locations/:id/edit/person',
-    name: 'location-edit-person',
-    component: () => import('@/views/locations/PersonFormView.vue'),
     meta: { requiresAuth: true, requiresManager: true },
   },
   {
