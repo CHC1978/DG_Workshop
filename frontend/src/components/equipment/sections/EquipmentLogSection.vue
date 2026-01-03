@@ -117,14 +117,14 @@
                 <span class="font-medium text-gray-700">{{ log.created_by_username }}</span>
               </div>
 
-              <!-- Transfer Flow (From → To) for status_change logs -->
+              <!-- Transfer Flow (From → To) for location change logs -->
               <div v-if="isTransferLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg">
                 <!-- From -->
                 <div class="flex items-center gap-1">
                   <span class="text-xs text-gray-500">From:</span>
-                  <span v-if="parseTransferInfo(log.old_value)?.location" class="inline-flex items-center gap-1">
-                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseTransferInfo(log.old_value)?.location?.type)">
-                      {{ parseTransferInfo(log.old_value)?.location?.name || 'N/A' }}
+                  <span v-if="parseLogInfo(log.old_value)?.location" class="inline-flex items-center gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseLogInfo(log.old_value)?.location?.type)">
+                      {{ parseLogInfo(log.old_value)?.location?.name || 'N/A' }}
                     </span>
                   </span>
                   <span v-else class="text-xs text-gray-400">N/A</span>
@@ -136,25 +136,45 @@
                 <!-- To -->
                 <div class="flex items-center gap-1">
                   <span class="text-xs text-gray-500">To:</span>
-                  <span v-if="parseTransferInfo(log.new_value)?.location" class="inline-flex items-center gap-1">
-                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseTransferInfo(log.new_value)?.location?.type)">
-                      {{ parseTransferInfo(log.new_value)?.location?.name || 'N/A' }}
+                  <span v-if="parseLogInfo(log.new_value)?.location" class="inline-flex items-center gap-1">
+                    <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseLogInfo(log.new_value)?.location?.type)">
+                      {{ parseLogInfo(log.new_value)?.location?.name || 'N/A' }}
                     </span>
                   </span>
                   <span v-else class="text-xs text-gray-400">N/A</span>
                 </div>
               </div>
 
-              <!-- Non-transfer log details (fallback for old format or other log types) -->
-              <div v-else-if="log.new_value && !isTransferLog(log)" class="text-xs text-gray-500">
-                <span class="font-medium">Details:</span> {{ log.new_value }}
+              <!-- Maintenance log (show dates) -->
+              <div v-else-if="isMaintenanceLog(log)" class="flex items-center gap-4 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                <div class="flex items-center gap-1">
+                  <span class="text-gray-500">Last:</span>
+                  <span class="font-medium text-gray-700">{{ parseLogInfo(log.new_value)?.last_maintenance_date || 'N/A' }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="text-gray-500">Next:</span>
+                  <span class="font-medium text-gray-700">{{ parseLogInfo(log.new_value)?.next_maintenance_date || 'N/A' }}</span>
+                </div>
               </div>
 
-              <!-- Current location info (for non-transfer logs) -->
-              <div v-if="!isTransferLog(log) && log.current_location_name" class="flex items-center gap-1">
-                <span>📍</span>
-                <span class="font-medium">{{ locationTypeLabel(log.current_location_type) }}:</span>
-                {{ log.current_location_name }}
+              <!-- Status-only log (show status change) -->
+              <div v-else-if="isStatusOnlyLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-blue-50 rounded-lg text-xs">
+                <span class="text-gray-500">Status:</span>
+                <span v-if="parseLogInfo(log.old_value)?.status" class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+                  {{ parseLogInfo(log.old_value)?.status }}
+                </span>
+                <span class="text-gray-400">→</span>
+                <span class="px-2 py-0.5 bg-blue-200 text-blue-800 rounded font-medium">
+                  {{ parseLogInfo(log.new_value)?.status }}
+                </span>
+              </div>
+
+              <!-- Deactivate log -->
+              <div v-else-if="isDeactivateLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                <span class="text-gray-500">Active:</span>
+                <span class="px-2 py-0.5 bg-green-200 text-green-800 rounded">True</span>
+                <span class="text-gray-400">→</span>
+                <span class="px-2 py-0.5 bg-red-200 text-red-800 rounded font-medium">False</span>
               </div>
               <div v-if="log.project_code" class="flex items-center gap-1 text-sky-700">
                 <span>📋</span>
@@ -250,28 +270,47 @@
           <!-- Transfer Flow (Mobile) -->
           <div v-if="isTransferLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg text-xs">
             <div class="flex items-center gap-1">
-              <span v-if="parseTransferInfo(log.old_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseTransferInfo(log.old_value)?.location?.type)]">
-                {{ parseTransferInfo(log.old_value)?.location?.name || 'N/A' }}
+              <span v-if="parseLogInfo(log.old_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseLogInfo(log.old_value)?.location?.type)]">
+                {{ parseLogInfo(log.old_value)?.location?.name || 'N/A' }}
               </span>
               <span v-else class="text-gray-400">N/A</span>
             </div>
             <span class="text-gray-400">→</span>
             <div class="flex items-center gap-1">
-              <span v-if="parseTransferInfo(log.new_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseTransferInfo(log.new_value)?.location?.type)]">
-                {{ parseTransferInfo(log.new_value)?.location?.name || 'N/A' }}
+              <span v-if="parseLogInfo(log.new_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseLogInfo(log.new_value)?.location?.type)]">
+                {{ parseLogInfo(log.new_value)?.location?.name || 'N/A' }}
               </span>
               <span v-else class="text-gray-400">N/A</span>
             </div>
           </div>
 
-          <!-- Non-transfer details -->
-          <div v-else-if="log.current_location_name || log.project_code" class="text-xs text-gray-600 space-y-0.5 mt-1">
-            <div v-if="log.current_location_name">
-              📍 {{ locationTypeLabel(log.current_location_type) }}: {{ log.current_location_name }}
-            </div>
-            <div v-if="log.project_code" class="text-sky-700">
-              📋 {{ log.project_code }}
-            </div>
+          <!-- Maintenance log (Mobile) -->
+          <div v-else-if="isMaintenanceLog(log)" class="flex flex-wrap gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+            <span class="text-gray-500">Last: {{ parseLogInfo(log.new_value)?.last_maintenance_date || 'N/A' }}</span>
+            <span class="text-gray-500">Next: {{ parseLogInfo(log.new_value)?.next_maintenance_date || 'N/A' }}</span>
+          </div>
+
+          <!-- Status-only log (Mobile) -->
+          <div v-else-if="isStatusOnlyLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-blue-50 rounded-lg text-xs">
+            <span v-if="parseLogInfo(log.old_value)?.status" class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+              {{ parseLogInfo(log.old_value)?.status }}
+            </span>
+            <span class="text-gray-400">→</span>
+            <span class="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
+              {{ parseLogInfo(log.new_value)?.status }}
+            </span>
+          </div>
+
+          <!-- Deactivate log (Mobile) -->
+          <div v-else-if="isDeactivateLog(log)" class="flex items-center gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+            <span class="px-2 py-0.5 bg-green-200 text-green-800 rounded">Active</span>
+            <span class="text-gray-400">→</span>
+            <span class="px-2 py-0.5 bg-red-200 text-red-800 rounded">Deactivated</span>
+          </div>
+
+          <!-- Project info -->
+          <div v-if="log.project_code" class="text-xs text-sky-700 mt-1">
+            📋 {{ log.project_code }}
           </div>
         </div>
       </div>
@@ -398,38 +437,89 @@ function locationTypeLabel(type?: string): string {
   return labels[type] || type
 }
 
-// Parse JSON transfer info from old_value/new_value
-interface TransferInfo {
+// Parse JSON log info from old_value/new_value
+interface LogInfo {
   status?: string
   location?: {
     id?: number
     name?: string
     type?: string
   }
+  // Extended fields
+  is_active?: boolean
+  last_maintenance_date?: string
+  next_maintenance_date?: string
+  parent_equipment_id?: number | null
+  parent_asset_code?: string
 }
 
-function parseTransferInfo(value?: string): TransferInfo | null {
+function parseLogInfo(value?: string): LogInfo | null {
   if (!value) return null
   try {
-    // Check if it's JSON format
     if (value.startsWith('{')) {
-      return JSON.parse(value) as TransferInfo
+      return JSON.parse(value) as LogInfo
     }
-    // Old format fallback: "Status: xxx, Location: yyy"
     return null
   } catch {
     return null
   }
 }
 
-// Check if this is a transfer log (any log with JSON format in new_value)
+// Alias for backward compatibility
+function parseTransferInfo(value?: string): LogInfo | null {
+  return parseLogInfo(value)
+}
+
+// Check if this is a JSON formatted log
+function isJsonLog(log: any): boolean {
+  if (!log.new_value || !log.new_value.startsWith('{')) return false
+  try {
+    JSON.parse(log.new_value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a transfer log (has location info)
 function isTransferLog(log: any): boolean {
-  // Check if new_value is in JSON format with location info
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     const parsed = JSON.parse(log.new_value)
-    // Must have location info to be a transfer log
     return parsed.location !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a maintenance log (has maintenance dates)
+function isMaintenanceLog(log: any): boolean {
+  if (!log.new_value || !log.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(log.new_value)
+    return parsed.last_maintenance_date !== undefined || parsed.next_maintenance_date !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a delete/deactivate log
+function isDeactivateLog(log: any): boolean {
+  if (!log.new_value || !log.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(log.new_value)
+    return parsed.is_active !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a status-only log (no location)
+function isStatusOnlyLog(log: any): boolean {
+  if (!log.new_value || !log.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(log.new_value)
+    return parsed.status !== undefined && parsed.location === undefined
   } catch {
     return false
   }

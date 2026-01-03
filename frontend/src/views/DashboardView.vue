@@ -178,12 +178,17 @@
           <div class="block md:hidden divide-y divide-gray-200">
             <div v-for="activity in filteredActivities" :key="activity.id" class="p-4">
               <div class="flex justify-between items-start mb-2">
-                <router-link
-                  :to="`/equipment/${activity.equipment_id}`"
-                  class="font-medium text-sky-600 hover:text-sky-800"
-                >
-                  {{ activity.asset_code }}
-                </router-link>
+                <div class="flex items-center gap-2">
+                  <router-link
+                    :to="`/equipment/${activity.equipment_id}`"
+                    class="font-medium text-sky-600 hover:text-sky-800"
+                  >
+                    {{ activity.asset_code }}
+                  </router-link>
+                  <span :class="logTypeBadge(activity.log_type)" class="px-2 py-0.5 text-xs font-semibold rounded">
+                    {{ logTypeLabel(activity.log_type) }}
+                  </span>
+                </div>
                 <span class="text-xs text-gray-500">
                   {{ formatDateTime(activity.created_at) }}
                 </span>
@@ -192,70 +197,174 @@
               <p class="text-xs text-gray-600 mt-1">
                 {{ activity.manufacturer }} {{ activity.model }}
               </p>
-              <!-- Location and Project -->
-              <div class="flex flex-wrap gap-2 mt-2">
-                <span v-if="activity.current_location_name" class="text-xs text-gray-600">
-                  📍 {{ locationTypeLabel(activity.current_location_type) }}: {{ activity.current_location_name }}
+
+              <!-- Transfer Flow (Mobile) -->
+              <div v-if="isTransferLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg text-xs">
+                <div class="flex items-center gap-1">
+                  <span v-if="parseLogInfo(activity.old_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseLogInfo(activity.old_value)?.location?.type)]">
+                    {{ parseLogInfo(activity.old_value)?.location?.name || 'N/A' }}
+                  </span>
+                  <span v-else class="text-gray-400">N/A</span>
+                </div>
+                <span class="text-gray-400">→</span>
+                <div class="flex items-center gap-1">
+                  <span v-if="parseLogInfo(activity.new_value)?.location" :class="['px-2 py-0.5 rounded', locationBadgeClass(parseLogInfo(activity.new_value)?.location?.type)]">
+                    {{ parseLogInfo(activity.new_value)?.location?.name || 'N/A' }}
+                  </span>
+                  <span v-else class="text-gray-400">N/A</span>
+                </div>
+              </div>
+
+              <!-- Maintenance log (Mobile) -->
+              <div v-else-if="isMaintenanceLog(activity)" class="flex flex-wrap gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                <span class="text-gray-500">Last: {{ parseLogInfo(activity.new_value)?.last_maintenance_date || 'N/A' }}</span>
+                <span class="text-gray-500">Next: {{ parseLogInfo(activity.new_value)?.next_maintenance_date || 'N/A' }}</span>
+              </div>
+
+              <!-- Status-only log (Mobile) -->
+              <div v-else-if="isStatusOnlyLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-blue-50 rounded-lg text-xs">
+                <span v-if="parseLogInfo(activity.old_value)?.status" class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+                  {{ parseLogInfo(activity.old_value)?.status }}
                 </span>
-                <span v-if="activity.project_code" class="text-xs text-sky-700">
-                  📋 {{ activity.project_code }}
+                <span class="text-gray-400">→</span>
+                <span class="px-2 py-0.5 bg-blue-200 text-blue-800 rounded">
+                  {{ parseLogInfo(activity.new_value)?.status }}
                 </span>
               </div>
+
+              <!-- Deactivate log (Mobile) -->
+              <div v-else-if="isDeactivateLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                <span class="px-2 py-0.5 bg-green-200 text-green-800 rounded">Active</span>
+                <span class="text-gray-400">→</span>
+                <span class="px-2 py-0.5 bg-red-200 text-red-800 rounded">Deactivated</span>
+              </div>
+
+              <!-- Project info -->
+              <div v-if="activity.project_code" class="text-xs text-sky-700 mt-1">
+                📋 {{ activity.project_code }}
+              </div>
+
               <p v-if="activity.created_by_username" class="text-xs text-gray-500 mt-1">
                 By: {{ activity.created_by_username }}
               </p>
             </div>
           </div>
 
-          <!-- Desktop: Table view -->
-          <div class="hidden md:block overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Equipment</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="activity in filteredActivities" :key="activity.id" class="hover:bg-gray-50">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ formatDateTime(activity.created_at) }}
-                  </td>
-                  <td class="px-6 py-4">
-                    <router-link
-                      :to="`/equipment/${activity.equipment_id}`"
-                      class="text-sm font-medium text-sky-600 hover:text-sky-800"
-                    >
-                      {{ activity.asset_code }}
-                    </router-link>
-                    <p class="text-xs text-gray-500">{{ activity.manufacturer }} {{ activity.model }}</p>
-                    <!-- Location and Project -->
-                    <div class="flex flex-col gap-0.5 mt-1">
-                      <span v-if="activity.current_location_name" class="text-xs text-gray-600">
-                        📍 {{ locationTypeLabel(activity.current_location_type) }}: {{ activity.current_location_name }}
-                      </span>
-                      <span v-if="activity.project_code" class="text-xs text-sky-700">
-                        📋 {{ activity.project_code }}
-                      </span>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span :class="logTypeBadge(activity.log_type)" class="px-2 py-1 text-xs font-semibold rounded">
+          <!-- Desktop: Card-style Log (same as Activity Log) -->
+          <div class="hidden md:block divide-y divide-gray-200">
+            <div
+              v-for="activity in filteredActivities"
+              :key="activity.id"
+              class="p-4 hover:bg-gray-50 transition-colors"
+            >
+              <div class="flex gap-4">
+                <!-- Left: Date & Time (Vertical) -->
+                <div class="flex-shrink-0 w-32 text-center border-r border-gray-200 pr-4">
+                  <div class="text-xs font-medium text-gray-500 mb-1">
+                    {{ new Date(activity.created_at).toLocaleDateString('zh-TW') }}
+                  </div>
+                  <div class="text-sm font-semibold text-gray-900">
+                    {{ new Date(activity.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) }}
+                  </div>
+                  <div class="mt-2">
+                    <span :class="logTypeBadge(activity.log_type)" class="px-2 py-1 text-xs font-semibold rounded inline-block">
                       {{ logTypeLabel(activity.log_type) }}
                     </span>
-                  </td>
-                  <td class="px-6 py-4 text-sm text-gray-900">
-                    {{ activity.description }}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {{ activity.created_by_username || 'System' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+
+                <!-- Middle: Description & Details -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start justify-between mb-1">
+                    <div>
+                      <router-link
+                        :to="`/equipment/${activity.equipment_id}`"
+                        class="text-sm font-medium text-sky-600 hover:text-sky-800"
+                      >
+                        {{ activity.asset_code }}
+                      </router-link>
+                      <span class="text-xs text-gray-500 ml-2">{{ activity.manufacturer }} {{ activity.model }}</span>
+                    </div>
+                  </div>
+
+                  <p class="text-sm text-gray-900 mb-1">{{ activity.description }}</p>
+
+                  <div class="text-xs text-gray-600 space-y-1">
+                    <!-- Handler (User who performed the action) -->
+                    <div v-if="activity.created_by_username" class="flex items-center gap-1">
+                      <span class="text-gray-400">By:</span>
+                      <span class="font-medium text-gray-700">{{ activity.created_by_username }}</span>
+                    </div>
+
+                    <!-- Transfer Flow (From → To) -->
+                    <div v-if="isTransferLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg">
+                      <!-- From -->
+                      <div class="flex items-center gap-1">
+                        <span class="text-xs text-gray-500">From:</span>
+                        <span v-if="parseLogInfo(activity.old_value)?.location" class="inline-flex items-center gap-1">
+                          <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseLogInfo(activity.old_value)?.location?.type)">
+                            {{ parseLogInfo(activity.old_value)?.location?.name || 'N/A' }}
+                          </span>
+                        </span>
+                        <span v-else class="text-xs text-gray-400">N/A</span>
+                      </div>
+
+                      <!-- Arrow -->
+                      <span class="text-gray-400">→</span>
+
+                      <!-- To -->
+                      <div class="flex items-center gap-1">
+                        <span class="text-xs text-gray-500">To:</span>
+                        <span v-if="parseLogInfo(activity.new_value)?.location" class="inline-flex items-center gap-1">
+                          <span class="text-xs px-2 py-0.5 rounded" :class="locationBadgeClass(parseLogInfo(activity.new_value)?.location?.type)">
+                            {{ parseLogInfo(activity.new_value)?.location?.name || 'N/A' }}
+                          </span>
+                        </span>
+                        <span v-else class="text-xs text-gray-400">N/A</span>
+                      </div>
+                    </div>
+
+                    <!-- Maintenance log (show dates) -->
+                    <div v-else-if="isMaintenanceLog(activity)" class="flex items-center gap-4 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                      <div class="flex items-center gap-1">
+                        <span class="text-gray-500">Last:</span>
+                        <span class="font-medium text-gray-700">{{ parseLogInfo(activity.new_value)?.last_maintenance_date || 'N/A' }}</span>
+                      </div>
+                      <div class="flex items-center gap-1">
+                        <span class="text-gray-500">Next:</span>
+                        <span class="font-medium text-gray-700">{{ parseLogInfo(activity.new_value)?.next_maintenance_date || 'N/A' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Status-only log (show status change) -->
+                    <div v-else-if="isStatusOnlyLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-blue-50 rounded-lg text-xs">
+                      <span class="text-gray-500">Status:</span>
+                      <span v-if="parseLogInfo(activity.old_value)?.status" class="px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
+                        {{ parseLogInfo(activity.old_value)?.status }}
+                      </span>
+                      <span class="text-gray-400">→</span>
+                      <span class="px-2 py-0.5 bg-blue-200 text-blue-800 rounded font-medium">
+                        {{ parseLogInfo(activity.new_value)?.status }}
+                      </span>
+                    </div>
+
+                    <!-- Deactivate log -->
+                    <div v-else-if="isDeactivateLog(activity)" class="flex items-center gap-2 mt-2 p-2 bg-red-50 rounded-lg text-xs">
+                      <span class="text-gray-500">Active:</span>
+                      <span class="px-2 py-0.5 bg-green-200 text-green-800 rounded">True</span>
+                      <span class="text-gray-400">→</span>
+                      <span class="px-2 py-0.5 bg-red-200 text-red-800 rounded font-medium">False</span>
+                    </div>
+
+                    <!-- Project info -->
+                    <div v-if="activity.project_code" class="flex items-center gap-1 text-sky-700 mt-1">
+                      <span>📋</span>
+                      <span class="font-medium">Project:</span> {{ activity.project_code }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -354,6 +463,95 @@ function locationTypeLabel(type?: string): string {
     vehicle: 'Vehicle',
   }
   return labels[type] || type
+}
+
+// Parse JSON log info from old_value/new_value
+interface LogInfo {
+  status?: string
+  location?: {
+    id?: number
+    name?: string
+    type?: string
+  }
+  is_active?: boolean
+  last_maintenance_date?: string
+  next_maintenance_date?: string
+  parent_equipment_id?: number | null
+  parent_asset_code?: string
+}
+
+function parseLogInfo(value?: string): LogInfo | null {
+  if (!value) return null
+  try {
+    if (value.startsWith('{')) {
+      return JSON.parse(value) as LogInfo
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Alias for backward compatibility
+function parseTransferInfo(value?: string): LogInfo | null {
+  return parseLogInfo(value)
+}
+
+// Check if this is a transfer log (has location info)
+function isTransferLog(activity: any): boolean {
+  if (!activity.new_value || !activity.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(activity.new_value)
+    return parsed.location !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a maintenance log (has maintenance dates)
+function isMaintenanceLog(activity: any): boolean {
+  if (!activity.new_value || !activity.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(activity.new_value)
+    return parsed.last_maintenance_date !== undefined || parsed.next_maintenance_date !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a status-only log (no location)
+function isStatusOnlyLog(activity: any): boolean {
+  if (!activity.new_value || !activity.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(activity.new_value)
+    return parsed.status !== undefined && parsed.location === undefined
+  } catch {
+    return false
+  }
+}
+
+// Check if this is a delete/deactivate log
+function isDeactivateLog(activity: any): boolean {
+  if (!activity.new_value || !activity.new_value.startsWith('{')) return false
+  try {
+    const parsed = JSON.parse(activity.new_value)
+    return parsed.is_active !== undefined
+  } catch {
+    return false
+  }
+}
+
+// Badge class for location type
+function locationBadgeClass(type?: string): string {
+  const classes: Record<string, string> = {
+    warehouse: 'bg-amber-100 text-amber-800',
+    vessel: 'bg-blue-100 text-blue-800',
+    person: 'bg-green-100 text-green-800',
+    external: 'bg-purple-100 text-purple-800',
+    platform: 'bg-cyan-100 text-cyan-800',
+    vehicle: 'bg-orange-100 text-orange-800',
+  }
+  return classes[type || ''] || 'bg-gray-100 text-gray-800'
 }
 
 function navigateToEquipment(status: string) {

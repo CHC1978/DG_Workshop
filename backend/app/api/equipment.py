@@ -99,14 +99,16 @@ async def sync_children_with_parent(
 
         logger.debug(f"[SYNC CHILD] Syncing child {child.asset_code} with parent {parent.asset_code}")
 
+        # Save old values before any changes
+        old_status = child.status
+        old_location = child.current_location_id
+
         if sync_status and child.status.value != parent.status.value:
-            old_status = child.status
             child.status = parent.status
             sync_changes.append(f"status: {old_status.value} → {parent.status.value}")
             logger.debug(f"[SYNC CHILD] Updated {child.asset_code} status from {old_status.value} to {parent.status.value}")
 
         if sync_location and child.current_location_id != parent.current_location_id:
-            old_location = child.current_location_id
             child.current_location_id = parent.current_location_id
             sync_changes.append(f"location_id: {old_location} → {parent.current_location_id}")
             logger.debug(f"[SYNC CHILD] Updated {child.asset_code} location from {old_location} to {parent.current_location_id}")
@@ -124,13 +126,47 @@ async def sync_children_with_parent(
             if notes:
                 description += f" - {notes}"
 
+            # Get child's old location info
+            child_old_location_info = None
+            if old_location:
+                child_old_location_info = {
+                    "id": old_location,
+                    "name": None,  # We don't have the name here
+                    "type": None
+                }
+
+            # Get parent's current location info
+            parent_location_info = None
+            if parent.current_location_id:
+                parent_loc_result = await db.execute(
+                    select(Location).where(Location.id == parent.current_location_id)
+                )
+                parent_loc = parent_loc_result.scalar_one_or_none()
+                if parent_loc:
+                    parent_location_info = {
+                        "id": parent_loc.id,
+                        "name": parent_loc.name,
+                        "type": parent_loc.location_type.value if parent_loc.location_type else None
+                    }
+
+            # Build JSON for old/new values
+            old_value_json = json.dumps({
+                "status": old_status.value if hasattr(old_status, 'value') else str(old_status),
+                "location": child_old_location_info
+            }, ensure_ascii=False)
+
+            new_value_json = json.dumps({
+                "status": parent.status.value if hasattr(parent.status, 'value') else str(parent.status),
+                "location": parent_location_info
+            }, ensure_ascii=False)
+
             await log_equipment_change(
                 db=db,
                 equipment_id=child.id,
                 log_type=EquipmentLogType.STATUS_CHANGE,
                 description=description,
-                old_value="; ".join(sync_changes[:3]),
-                new_value=f"Synced with parent ({parent.asset_code})",
+                old_value=old_value_json,
+                new_value=new_value_json,
                 user_id=user_id,
             )
         else:
@@ -277,13 +313,16 @@ async def create_equipment(
     db.add(new_equipment)
     await db.flush()  # Get ID before logging
 
-    # Log creation
+    # Log creation with JSON format
     await log_equipment_change(
         db=db,
         equipment_id=new_equipment.id,
         log_type=EquipmentLogType.CREATED,
         description=f"Equipment created: {asset_code}",
-        new_value=f"Status: {EquipmentStatus.ORDERING.value}",
+        new_value=json.dumps({
+            "status": EquipmentStatus.ORDERING.value,
+            "location": None
+        }, ensure_ascii=False),
         user_id=current_user.id,
     )
 
@@ -616,14 +655,14 @@ async def delete_equipment(
     # Soft delete
     equipment.is_active = False
 
-    # Log deletion
+    # Log deletion with JSON format
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.STATUS_CHANGE,
         description=f"Equipment deactivated",
-        old_value="is_active: True",
-        new_value="is_active: False",
+        old_value=json.dumps({"is_active": True}, ensure_ascii=False),
+        new_value=json.dumps({"is_active": False}, ensure_ascii=False),
         user_id=current_user.id,
     )
 
@@ -1388,12 +1427,15 @@ async def add_maintenance_record(
     last_date_str = request.last_maintenance_date.isoformat() if request.last_maintenance_date else 'N/A'
     next_date_str = request.next_maintenance_date.isoformat() if request.next_maintenance_date else 'N/A'
 
-    # Create MAINTENANCE log entry
+    # Create MAINTENANCE log entry with JSON format
     log = EquipmentLog(
         equipment_id=equipment.id,
         log_type=EquipmentLogType.MAINTENANCE,
         description=f"Maintenance Record: {request.maintenance_notes}",
-        new_value=f"Last: {last_date_str}, Next: {next_date_str}",
+        new_value=json.dumps({
+            "last_maintenance_date": last_date_str,
+            "next_maintenance_date": next_date_str
+        }, ensure_ascii=False),
         created_by=current_user.id,
     )
     db.add(log)
@@ -1512,38 +1554,65 @@ async def detach_from_parent(
             detail="Target location not found",
         )
 
-    # Track changes for logging
-    changes = []
+    # Track old values for JSON logging
     old_parent_id = equipment.parent_equipment_id
     old_status = equipment.status
     old_location_id = equipment.current_location_id
 
+    # Get old location info for JSON
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
+
     # Detach from parent
     equipment.parent_equipment_id = None
-    changes.append(f"parent_id: {old_parent_id} → None")
 
     # Update status
     if equipment.status.value != request_data.new_status.value:
         equipment.status = request_data.new_status
-        changes.append(f"status: {old_status.value} → {request_data.new_status.value}")
 
     # Update location
     if equipment.current_location_id != request_data.new_location_id:
         equipment.current_location_id = request_data.new_location_id
-        changes.append(f"location_id: {old_location_id} → {request_data.new_location_id}")
 
-    # Log the detachment
+    # Log the detachment with JSON format
     description = f"Detached from parent equipment {parent_asset_code}"
     if request_data.notes:
         description += f" - {request_data.notes}"
+
+    old_value_json = json.dumps({
+        "parent_equipment_id": old_parent_id,
+        "parent_asset_code": parent_asset_code,
+        "status": old_status.value,
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_value_json = json.dumps({
+        "parent_equipment_id": None,
+        "status": request_data.new_status.value,
+        "location": {
+            "id": new_location.id,
+            "name": new_location.name,
+            "type": new_location.location_type.value if new_location.location_type else None
+        }
+    }, ensure_ascii=False)
 
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.UPDATED,
         description=description,
-        old_value="; ".join(changes[:3]),
-        new_value=f"Independent equipment (moved to {new_location.name})",
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
 
@@ -1592,16 +1661,43 @@ async def group_move_equipment(
     moved_count = 0
     old_location_id = equipment.current_location_id
 
+    # Get old location info for JSON
+    old_location_info = None
+    if old_location_id:
+        old_loc_result = await db.execute(
+            select(Location).where(Location.id == old_location_id)
+        )
+        old_location = old_loc_result.scalar_one_or_none()
+        if old_location:
+            old_location_info = {
+                "id": old_location.id,
+                "name": old_location.name,
+                "type": old_location.location_type.value if old_location.location_type else None
+            }
+
     # Move parent equipment
     equipment.current_location_id = request_data.location_id
+
+    # JSON format for log
+    old_value_json = json.dumps({
+        "location": old_location_info
+    }, ensure_ascii=False)
+
+    new_value_json = json.dumps({
+        "location": {
+            "id": target_location.id,
+            "name": target_location.name,
+            "type": target_location.location_type.value if target_location.location_type else None
+        }
+    }, ensure_ascii=False)
 
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.LOCATION_CHANGE,
         description=request_data.notes or f"Moved to {target_location.name} (group move)",
-        old_value=f"Location ID: {old_location_id}",
-        new_value=f"Location ID: {request_data.location_id}",
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
     moved_count += 1
@@ -1618,15 +1714,34 @@ async def group_move_equipment(
 
         for child in children:
             old_child_location_id = child.current_location_id
+
+            # Get old child location info
+            old_child_location_info = None
+            if old_child_location_id:
+                old_child_loc_result = await db.execute(
+                    select(Location).where(Location.id == old_child_location_id)
+                )
+                old_child_loc = old_child_loc_result.scalar_one_or_none()
+                if old_child_loc:
+                    old_child_location_info = {
+                        "id": old_child_loc.id,
+                        "name": old_child_loc.name,
+                        "type": old_child_loc.location_type.value if old_child_loc.location_type else None
+                    }
+
             child.current_location_id = request_data.location_id
+
+            child_old_value_json = json.dumps({
+                "location": old_child_location_info
+            }, ensure_ascii=False)
 
             await log_equipment_change(
                 db=db,
                 equipment_id=child.id,
                 log_type=EquipmentLogType.LOCATION_CHANGE,
                 description=f"Moved with parent {equipment.asset_code} to {target_location.name}",
-                old_value=f"Location ID: {old_child_location_id}",
-                new_value=f"Location ID: {request_data.location_id}",
+                old_value=child_old_value_json,
+                new_value=new_value_json,
                 user_id=current_user.id,
             )
             moved_count += 1
@@ -1668,13 +1783,17 @@ async def sync_children_status(
     # Update parent equipment status
     equipment.status = request_data.new_status
 
+    # JSON format for log
+    old_value_json = json.dumps({"status": old_status.value}, ensure_ascii=False)
+    new_value_json = json.dumps({"status": request_data.new_status.value}, ensure_ascii=False)
+
     await log_equipment_change(
         db=db,
         equipment_id=equipment.id,
         log_type=EquipmentLogType.STATUS_CHANGE,
         description=request_data.notes or f"Status changed to {request_data.new_status.value}",
-        old_value=f"Status: {old_status.value}",
-        new_value=f"Status: {request_data.new_status.value}",
+        old_value=old_value_json,
+        new_value=new_value_json,
         user_id=current_user.id,
     )
     updated_count += 1
@@ -1693,13 +1812,15 @@ async def sync_children_status(
             old_child_status = child.status
             child.status = request_data.new_status
 
+            child_old_value_json = json.dumps({"status": old_child_status.value}, ensure_ascii=False)
+
             await log_equipment_change(
                 db=db,
                 equipment_id=child.id,
                 log_type=EquipmentLogType.STATUS_CHANGE,
                 description=f"Status synced with parent {equipment.asset_code} to {request_data.new_status.value}",
-                old_value=f"Status: {old_child_status.value}",
-                new_value=f"Status: {request_data.new_status.value}",
+                old_value=child_old_value_json,
+                new_value=new_value_json,
                 user_id=current_user.id,
             )
             updated_count += 1

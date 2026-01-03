@@ -286,6 +286,9 @@ class RecentActivity(BaseModel):
     # Project information
     project_code: Optional[str] = None
     project_name: Optional[str] = None
+    # Transfer information (From → To display)
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
 
 
 @router.get("/recent-activities", response_model=List[RecentActivity])
@@ -335,7 +338,10 @@ async def get_recent_activities(
                 current_location_type=location.location_type.value if location else None,
                 # Project information
                 project_code=project.code if project else None,
-                project_name=project.name if project else None
+                project_name=project.name if project else None,
+                # Transfer information (From → To display)
+                old_value=log.old_value,
+                new_value=log.new_value
             ))
 
         return activities

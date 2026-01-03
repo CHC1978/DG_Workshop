@@ -67,6 +67,9 @@ export interface RecentActivity {
   // Project information
   project_code?: string
   project_name?: string
+  // Transfer information (From → To display)
+  old_value?: string
+  new_value?: string
 }
 
 export const dashboardApi = {
