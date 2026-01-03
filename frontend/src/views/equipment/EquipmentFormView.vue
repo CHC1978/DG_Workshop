@@ -14,101 +14,17 @@
       <!-- Form -->
       <div class="bg-white rounded-lg shadow p-6">
         <form @submit.prevent="handleSubmit" class="space-y-6">
-          <!-- Step 1: Category (Always First) -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Category <span class="text-red-500">*</span>
-            </label>
-            <select
-              v-model="formData.category"
-              required
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              @change="handleCategoryChange"
-              :disabled="showParentSelector && selectedParentEquipment"
-            >
-              <option value="">Select category...</option>
-              <option value="mbes">MBES - Multibeam Echosounder</option>
-              <option value="gnss">GNSS - Receiver</option>
-              <option value="svp">SVP - Sound Velocity Profiler</option>
-              <option value="sbp">SBP - Sub-bottom Profiler</option>
-              <option value="usbl">USBL - Ultra-Short Baseline</option>
-              <option value="rov">ROV - Remotely Operated Vehicle</option>
-              <option value="ins">INS - Inertial Navigation System</option>
-              <option value="magnetometer">Magnetometer</option>
-              <option value="other">Other</option>
-            </select>
-            <p v-if="showParentSelector && selectedParentEquipment" class="mt-1 text-sm text-gray-500">
-              Category inherited from parent equipment
-            </p>
-          </div>
-
-          <!-- Step 2: Equipment Type Selection (Create mode only, shown after category selected) -->
-          <div v-if="!isEdit && formData.category" class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <label class="block text-sm font-medium text-gray-700 mb-3">
-              Equipment Type <span class="text-red-500">*</span>
-            </label>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label
-                class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm hover:border-sky-500 transition-colors"
-                :class="!showParentSelector ? 'border-sky-500 ring-2 ring-sky-500' : 'border-gray-300'"
-              >
-                <input
-                  type="radio"
-                  name="equipmentType"
-                  :value="false"
-                  v-model="showParentSelector"
-                  class="sr-only"
-                  @change="disableParentSelector"
-                />
-                <div class="flex-1">
-                  <span class="block text-sm font-medium text-gray-900">🔧 Standalone Equipment</span>
-                  <span class="mt-1 flex items-center text-sm text-gray-500">
-                    Independent equipment unit
-                  </span>
-                </div>
-              </label>
-              <label
-                class="relative flex cursor-pointer rounded-lg border bg-white p-4 shadow-sm hover:border-sky-500 transition-colors"
-                :class="showParentSelector ? 'border-sky-500 ring-2 ring-sky-500' : 'border-gray-300'"
-              >
-                <input
-                  type="radio"
-                  name="equipmentType"
-                  :value="true"
-                  v-model="showParentSelector"
-                  class="sr-only"
-                  @change="enableParentSelector"
-                />
-                <div class="flex-1">
-                  <span class="block text-sm font-medium text-gray-900">🔗 Sub-Component</span>
-                  <span class="mt-1 flex items-center text-sm text-gray-500">
-                    Part of a parent equipment
-                  </span>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Step 3: Parent Equipment Selection (when sub-component is selected and category is chosen) -->
-          <div v-if="!isEdit && showParentSelector && formData.category" class="p-4 bg-sky-50 rounded-lg border border-sky-200">
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Parent Equipment <span class="text-red-500">*</span>
-            </label>
-            <select
-              v-model="formData.parent_equipment_id"
-              required
-              class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              @change="handleParentEquipmentChange"
-            >
-              <option :value="null">Select parent equipment...</option>
-              <option v-for="eq in availableParentEquipment" :key="eq.id" :value="eq.id">
-                {{ eq.asset_code }} - {{ eq.manufacturer }} {{ eq.model }}
-              </option>
-            </select>
-            <p class="mt-1 text-sm text-gray-500">
-              Child component will inherit category and manufacturer from parent
-            </p>
-          </div>
+          <!-- Category, Equipment Type, Parent Selection -->
+          <FormCategorySection
+            v-model:category="formData.category"
+            v-model:showParentSelector="showParentSelector"
+            v-model:parentEquipmentId="formData.parent_equipment_id"
+            :is-edit="isEdit"
+            :available-parent-equipment="availableParentEquipment"
+            :selected-parent="selectedParentEquipment"
+            @category-change="handleCategoryChange"
+            @parent-change="handleParentEquipmentChange"
+          />
 
           <!-- Manufacturer -->
           <AppInput
@@ -190,93 +106,13 @@
           />
 
           <!-- Location & Project Section -->
-          <div class="space-y-4 p-4 bg-sky-50 rounded-lg border border-sky-200">
-            <h3 class="text-sm font-semibold text-gray-700">Location & Project</h3>
-
-            <!-- Current Location -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Current Location
-              </label>
-              <select
-                v-model="formData.current_location_id"
-                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-                @change="handleLocationChange"
-              >
-                <option :value="null">None (In Stock)</option>
-                <optgroup v-if="vesselLocations.length > 0" label="Vessels">
-                  <option v-for="loc in vesselLocations" :key="loc.id" :value="loc.id">
-                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
-                  </option>
-                </optgroup>
-                <optgroup v-if="personLocations.length > 0" label="Persons">
-                  <option v-for="loc in personLocations" :key="loc.id" :value="loc.id">
-                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
-                  </option>
-                </optgroup>
-                <optgroup v-if="warehouseLocations.length > 0" label="Warehouses">
-                  <option v-for="loc in warehouseLocations" :key="loc.id" :value="loc.id">
-                    {{ loc.name }} {{ loc.code ? `(${loc.code})` : '' }}
-                  </option>
-                </optgroup>
-              </select>
-            </div>
-
-            <!-- Project -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Project
-              </label>
-              <select
-                v-model="formData.project_id"
-                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              >
-                <option :value="null">None</option>
-                <option v-for="project in projects" :key="project.id" :value="project.id">
-                  {{ project.code }} - {{ project.name }}
-                </option>
-              </select>
-              <p v-if="suggestedProject" class="mt-1 text-sm text-sky-600">
-                💡 Suggested: {{ suggestedProject.code }} (from selected Vessel)
-              </p>
-            </div>
-
-            <!-- Installation Type -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Installation Type
-              </label>
-              <select
-                v-model="formData.installation_type"
-                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              >
-                <option :value="null">Not Specified</option>
-                <option value="permanent">Permanent Installation</option>
-                <option value="project">Project-Based</option>
-                <option value="temporary">Temporary</option>
-              </select>
-            </div>
-
-            <!-- Installation Date -->
-            <AppInput
-              v-model="formData.installation_date"
-              type="date"
-              label="Installation Date"
-            />
-
-            <!-- Installation Notes -->
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Installation Notes
-              </label>
-              <textarea
-                v-model="formData.installation_notes"
-                rows="2"
-                placeholder="Installation details, configuration notes, etc."
-                class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 sm:text-sm"
-              ></textarea>
-            </div>
-          </div>
+          <FormLocationProjectSection
+            v-model="locationFormData"
+            :locations="locations"
+            :projects="projects"
+            :suggested-project="suggestedProject"
+            @location-change="handleLocationChange"
+          />
 
           <!-- Photo Upload (Available in both Create and Edit modes) -->
           <div class="space-y-4 p-4 bg-gray-50 rounded-lg">
@@ -418,6 +254,8 @@ import MainLayout from '@/layouts/MainLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import FileUpload from '@/components/common/FileUpload.vue'
+import FormCategorySection from '@/components/equipment/form/FormCategorySection.vue'
+import FormLocationProjectSection from '@/components/equipment/form/FormLocationProjectSection.vue'
 import type { Location, Project } from '@/types'
 
 const router = useRouter()
@@ -478,16 +316,29 @@ const selectedParentEquipment = ref<any | null>(null)
 const photoFileInput = ref<HTMLInputElement | null>(null)
 const pendingPhotoFile = ref<File | null>(null)
 
-// Computed: Group locations by type
-const vesselLocations = computed(() =>
-  locations.value.filter(loc => loc.location_type === 'vessel' && loc.is_active)
-)
-const personLocations = computed(() =>
-  locations.value.filter(loc => loc.location_type === 'person' && loc.is_active)
-)
-const warehouseLocations = computed(() =>
-  locations.value.filter(loc => loc.location_type === 'warehouse' && loc.is_active)
-)
+// Computed: Location form data for FormLocationProjectSection
+const locationFormData = computed({
+  get: () => ({
+    current_location_id: formData.current_location_id,
+    project_id: formData.project_id,
+    installation_type: formData.installation_type,
+    installation_date: formData.installation_date,
+    installation_notes: formData.installation_notes,
+  }),
+  set: (value: {
+    current_location_id: number | null
+    project_id: number | null
+    installation_type: string | null
+    installation_date: string
+    installation_notes: string
+  }) => {
+    formData.current_location_id = value.current_location_id
+    formData.project_id = value.project_id
+    formData.installation_type = value.installation_type
+    formData.installation_date = value.installation_date
+    formData.installation_notes = value.installation_notes
+  },
+})
 
 const errors = reactive({
   manufacturer: '',
@@ -525,13 +376,13 @@ function cleanModelName(model: string): string {
 }
 
 // Handle location change - suggest project if vessel selected
-async function handleLocationChange() {
+function handleLocationChange(locationId: number | null) {
   suggestedProject.value = null
 
-  if (!formData.current_location_id) return
+  if (!locationId) return
 
   // Find selected location
-  const selectedLocation = locations.value.find(loc => loc.id === formData.current_location_id)
+  const selectedLocation = locations.value.find(loc => loc.id === locationId)
 
   if (!selectedLocation) return
 
