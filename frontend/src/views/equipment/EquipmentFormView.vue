@@ -413,6 +413,7 @@ import { useEquipmentStore } from '@/stores/equipment'
 import { useLocationStore } from '@/stores/locations'
 import { useProjectStore } from '@/stores/projects'
 import { useUiStore } from '@/stores/ui'
+import apiClient from '@/api/client'
 import MainLayout from '@/layouts/MainLayout.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -643,25 +644,16 @@ async function uploadPendingPhoto(equipmentId: number) {
   formData.append('file', pendingPhotoFile.value)
 
   try {
-    const authData = localStorage.getItem('auth')
-    let headers: any = {
-      'Content-Type': 'multipart/form-data',
-    }
-
-    if (authData) {
-      try {
-        const auth = JSON.parse(authData)
-        if (auth.token) {
-          headers.Authorization = `Bearer ${auth.token}`
+    // 使用 apiClient，會自動處理 CSRF token 和 cookies 認證
+    await apiClient.post(
+      `/uploads/equipment/${equipmentId}/photo`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
         }
-      } catch (e) {
-        console.error('Failed to parse auth data')
       }
-    }
-
-    const endpoint = `/api/uploads/equipment/${equipmentId}/photo`
-    const axios = (await import('axios')).default
-    await axios.post(endpoint, formData, { headers })
+    )
 
     uiStore.showNotification('success', 'Photo uploaded successfully')
   } catch (error: any) {

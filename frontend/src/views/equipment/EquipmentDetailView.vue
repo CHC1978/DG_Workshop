@@ -488,22 +488,19 @@ async function handleMaintenanceSaved(data: any) {
 
     // Step 2: If there are attachments, upload them to the maintenance log
     if (data.attachments && data.attachments.length > 0) {
-      const authData = localStorage.getItem('auth')
-      const token = authData ? JSON.parse(authData).token : ''
-
       for (const file of data.attachments) {
         const formData = new FormData()
         formData.append('file', file)
         formData.append('attachment_type', 'maintenance_record')
         formData.append('description', file.name)
 
-        await axios.post(
-          `/api/uploads/equipment-logs/${logId}/attachments`,
+        // 使用 apiClient，會自動處理 CSRF token 和 cookies 認證
+        await apiClient.post(
+          `/uploads/equipment-logs/${logId}/attachments`,
           formData,
           {
             headers: {
               'Content-Type': 'multipart/form-data',
-              Authorization: `Bearer ${token}`
             }
           }
         )
