@@ -201,10 +201,10 @@ async function recordScanEvent() {
 
 onMounted(async () => {
   try {
-    console.log('Scanning equipment:', assetCode.value)
+    if (import.meta.env.DEV) console.log('Scanning equipment:', assetCode.value)
     const response = await equipmentApi.getByQR(assetCode.value)
     equipment.value = response.data
-    console.log('Equipment found:', equipment.value)
+    if (import.meta.env.DEV) console.log('Equipment found:', equipment.value)
 
     // Record scan event if authenticated
     if (authStore.isAuthenticated) {

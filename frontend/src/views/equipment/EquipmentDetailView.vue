@@ -482,7 +482,7 @@ async function handleMaintenanceSaved(data: any) {
       data.next_maintenance_date || undefined
     )
 
-    console.log('Maintenance record response:', response.data)
+    if (import.meta.env.DEV) console.log('Maintenance record response:', response.data)
 
     const logId = response.data.log_id
 

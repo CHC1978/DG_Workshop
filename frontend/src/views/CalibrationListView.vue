@@ -398,9 +398,9 @@ async function loadCalibrations() {
     if (filter.value === 'overdue') days = 0
     if (filter.value === 'all') days = 365
 
-    console.log('[CalibrationListView] Loading with days:', days)
+    if (import.meta.env.DEV) console.log('[CalibrationListView] Loading with days:', days)
     const response = await calibrationsApi.getDueSoon(days)
-    console.log('[CalibrationListView] Response:', response.data)
+    if (import.meta.env.DEV) console.log('[CalibrationListView] Response:', response.data)
     calibrationsRaw.value = response.data
 
     // Filter overdue if selected

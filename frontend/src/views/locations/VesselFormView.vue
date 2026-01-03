@@ -312,7 +312,7 @@ async function handleSubmit() {
       cleanedData[key] = value
     })
 
-    console.log('Cleaned data to send:', cleanedData)
+    if (import.meta.env.DEV) console.log('Cleaned data to send:', cleanedData)
 
     if (isEditMode.value) {
       await locationStore.updateLocation(locationId.value, cleanedData)

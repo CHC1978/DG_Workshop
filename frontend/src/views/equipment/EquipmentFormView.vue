@@ -472,7 +472,7 @@ async function loadParentEquipment() {
       eq => !eq.parent_equipment_id && eq.is_active &&
             (!formData.category || eq.category === formData.category)
     )
-    console.log(`Loaded ${availableParentEquipment.value.length} available parent equipment`)
+    if (import.meta.env.DEV) console.log(`Loaded ${availableParentEquipment.value.length} available parent equipment`)
   } catch (error) {
     console.error('Failed to load parent equipment:', error)
   }

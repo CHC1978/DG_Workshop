@@ -119,9 +119,11 @@ const uiStore = useUiStore()
 
 // Debug: Check 2FA setup state on mount
 onMounted(() => {
-  console.log('Setup2FAView mounted')
-  console.log('needs2FASetup:', authStore.needs2FASetup)
-  console.log('totpRequired:', authStore.totpRequired)
+  if (import.meta.env.DEV) {
+    console.log('Setup2FAView mounted')
+    console.log('needs2FASetup:', authStore.needs2FASetup)
+    console.log('totpRequired:', authStore.totpRequired)
+  }
 })
 
 const loading = ref(false)
@@ -150,9 +152,9 @@ async function handleSetup() {
   }
 
   try {
-    console.log('Starting 2FA setup (temp_token in httpOnly cookie)...')
+    if (import.meta.env.DEV) console.log('Starting 2FA setup (temp_token in httpOnly cookie)...')
     const response = await authStore.setup2FA()
-    console.log('2FA setup successful, got QR code')
+    if (import.meta.env.DEV) console.log('2FA setup successful, got QR code')
     qrCodeData.value = response
   } catch (error: any) {
     console.error('2FA setup failed:', error)

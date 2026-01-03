@@ -214,9 +214,9 @@ function handleSearch() {
 
 async function loadEquipment() {
   try {
-    console.log('Loading equipment with filters:', filters)
+    if (import.meta.env.DEV) console.log('Loading equipment with filters:', filters)
     await equipmentStore.fetchList(filters)
-    console.log('Equipment loaded:', equipmentStore.equipmentList.length, 'items')
+    if (import.meta.env.DEV) console.log('Equipment loaded:', equipmentStore.equipmentList.length, 'items')
   } catch (error: any) {
     console.error('Failed to load equipment:', error)
     console.error('Error details:', error.response?.data)
@@ -301,7 +301,7 @@ async function toggleChildren(equipmentId: number) {
     try {
       const response = await equipmentApi.getChildren(equipmentId)
       childrenMap.value[equipmentId] = response.data
-      console.log(`Loaded ${response.data.length} children for equipment ${equipmentId}`)
+      if (import.meta.env.DEV) console.log(`Loaded ${response.data.length} children for equipment ${equipmentId}`)
     } catch (error: any) {
       console.error('Failed to load children:', error)
       // Reset expanded state on error

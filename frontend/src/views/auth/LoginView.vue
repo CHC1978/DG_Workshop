@@ -165,7 +165,7 @@ async function handleStep1() {
   loading.value = true
 
   try {
-    console.log('Attempting login step 1...')
+    if (import.meta.env.DEV) console.log('Attempting login step 1...')
 
     // Add device fingerprint (now async)
     const deviceFingerprint = await generateDeviceFingerprint()
@@ -176,11 +176,11 @@ async function handleStep1() {
       device_fingerprint: deviceFingerprint,
       device_name: deviceName,
     })
-    console.log('Login step 1 response:', response)
+    if (import.meta.env.DEV) console.log('Login step 1 response:', response)
 
     // Check if 2FA setup is required (after reset)
     if (response.needs_2fa_setup) {
-      console.log('2FA setup required, redirecting to setup page')
+      if (import.meta.env.DEV) console.log('2FA setup required, redirecting to setup page')
       uiStore.showNotification('info', 'Please set up 2FA to continue')
       await router.push('/setup-2fa')
       return
@@ -188,11 +188,11 @@ async function handleStep1() {
 
     // Check if 2FA is required
     if (response.totp_required) {
-      console.log('2FA required, moving to step 2')
+      if (import.meta.env.DEV) console.log('2FA required, moving to step 2')
       step.value = 2
     } else {
       // Login successful (2FA not enabled or trusted device)
-      console.log('Login successful, redirecting to dashboard')
+      if (import.meta.env.DEV) console.log('Login successful, redirecting to dashboard')
       if (response.trusted_device) {
         uiStore.showNotification('success', 'Login successful (trusted device)')
       } else {
@@ -221,7 +221,7 @@ async function handleStep2() {
   loading.value = true
 
   try {
-    console.log('Attempting login step 2...')
+    if (import.meta.env.DEV) console.log('Attempting login step 2...')
 
     // Add device fingerprint if remember device is checked (now async)
     const deviceFingerprint = rememberDevice.value ? await generateDeviceFingerprint() : undefined
@@ -234,7 +234,7 @@ async function handleStep2() {
       device_name: deviceName,
     })  // temp_token is now in httpOnly cookie
 
-    console.log('Login successful, redirecting to dashboard')
+    if (import.meta.env.DEV) console.log('Login successful, redirecting to dashboard')
     if (rememberDevice.value) {
       uiStore.showNotification('success', 'Login successful. Device trusted for 7 days.')
     } else {
