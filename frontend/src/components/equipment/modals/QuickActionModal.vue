@@ -177,6 +177,7 @@ import apiClient from '@/api/client'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import LogChangeRecordDisplay from '../log/LogChangeRecordDisplay.vue'
+import type { EquipmentLog } from '@/types'
 
 interface Attachment {
   id: number
@@ -189,12 +190,12 @@ interface Attachment {
 
 interface Props {
   show: boolean
-  log: any
+  log: EquipmentLog | null
 }
 
 interface Emits {
   (e: 'close'): void
-  (e: 'logUpdated', log: any): void
+  (e: 'logUpdated', log: EquipmentLog): void
   (e: 'attachmentsChanged'): void
 }
 

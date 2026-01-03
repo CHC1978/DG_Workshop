@@ -321,6 +321,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { equipmentApi } from '@/api/equipment'
+import type { EquipmentLog } from '@/types'
 
 interface Props {
   equipmentId: number
@@ -328,8 +329,8 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'logDoubleClicked', log: any): void
-  (e: 'viewAttachments', log: any): void
+  (e: 'logDoubleClicked', log: EquipmentLog): void
+  (e: 'viewAttachments', log: EquipmentLog): void
   (e: 'logsCleared'): void
 }
 
@@ -338,7 +339,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 const emit = defineEmits<Emits>()
 
-const logs = ref<any[]>([])
+const logs = ref<EquipmentLog[]>([])
 const selectedLogType = ref('')
 const showClearConfirm = ref(false)
 const clearing = ref(false)
@@ -471,7 +472,7 @@ function parseTransferInfo(value?: string): LogInfo | null {
 }
 
 // Check if this is a JSON formatted log
-function isJsonLog(log: any): boolean {
+function isJsonLog(log: EquipmentLog): boolean {
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     JSON.parse(log.new_value)
@@ -482,7 +483,7 @@ function isJsonLog(log: any): boolean {
 }
 
 // Check if this is a transfer log (has location info)
-function isTransferLog(log: any): boolean {
+function isTransferLog(log: EquipmentLog): boolean {
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     const parsed = JSON.parse(log.new_value)
@@ -493,7 +494,7 @@ function isTransferLog(log: any): boolean {
 }
 
 // Check if this is a maintenance log (has maintenance dates)
-function isMaintenanceLog(log: any): boolean {
+function isMaintenanceLog(log: EquipmentLog): boolean {
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     const parsed = JSON.parse(log.new_value)
@@ -504,7 +505,7 @@ function isMaintenanceLog(log: any): boolean {
 }
 
 // Check if this is a delete/deactivate log
-function isDeactivateLog(log: any): boolean {
+function isDeactivateLog(log: EquipmentLog): boolean {
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     const parsed = JSON.parse(log.new_value)
@@ -515,7 +516,7 @@ function isDeactivateLog(log: any): boolean {
 }
 
 // Check if this is a status-only log (no location)
-function isStatusOnlyLog(log: any): boolean {
+function isStatusOnlyLog(log: EquipmentLog): boolean {
   if (!log.new_value || !log.new_value.startsWith('{')) return false
   try {
     const parsed = JSON.parse(log.new_value)

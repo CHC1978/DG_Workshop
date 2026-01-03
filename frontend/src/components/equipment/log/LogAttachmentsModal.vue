@@ -103,6 +103,7 @@
 import { ref, watch } from 'vue'
 import apiClient from '@/api/client'
 import BaseModal from '@/components/common/BaseModal.vue'
+import type { EquipmentLog } from '@/types'
 
 interface Attachment {
   id: number
@@ -115,7 +116,7 @@ interface Attachment {
 
 interface Props {
   show: boolean
-  log: any
+  log: EquipmentLog | null
 }
 
 interface Emits {

@@ -269,7 +269,7 @@ import BasicInformationCard from '@/components/equipment/sections/BasicInformati
 import LogEditModal from '@/components/equipment/log/LogEditModal.vue'
 import QuickActionModal from '@/components/equipment/modals/QuickActionModal.vue'
 import { useEquipmentLabels } from '@/composables/useEquipmentLabels'
-import type { Equipment } from '@/types'
+import type { Equipment, EquipmentLog } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -313,11 +313,11 @@ const showDetachModal = ref(false)
 const detachingChild = ref<Equipment | null>(null)
 
 // Log selection (for Quick Action Modal)
-const selectedLog = ref<any>(null)
+const selectedLog = ref<EquipmentLog | null>(null)
 
 // Log Editing
 const showEditLogModal = ref(false)
-const editingLog = ref<any>(null)
+const editingLog = ref<EquipmentLog | null>(null)
 const updatingLog = ref(false)
 
 // Children Equipment - list maintained for other components to access count
@@ -472,7 +472,7 @@ async function handleReturned() {
   childrenSection.value?.loadChildren()
 }
 
-async function handleMaintenanceSaved(data: any) {
+async function handleMaintenanceSaved(data: { last_maintenance_date?: string; next_maintenance_date?: string; maintenance_notes?: string }) {
   try {
     // Step 1: Add maintenance record (updates equipment and creates MAINTENANCE log)
     const response = await equipmentApi.addMaintenanceRecord(
@@ -530,13 +530,13 @@ async function handleChildrenUpdated() {
 
 // locationTypeLabel moved to useEquipmentLabels composable
 
-function handleLogDoubleClick(log: any) {
+function handleLogDoubleClick(log: EquipmentLog) {
   if (!authStore.isOperator) return
   selectedLog.value = log
   showQuickStatusModal.value = true
 }
 
-function viewLogAttachmentsQuick(log: any) {
+function viewLogAttachmentsQuick(log: EquipmentLog) {
   selectedLog.value = log
   showQuickStatusModal.value = true
 }
@@ -568,7 +568,7 @@ async function executeQuickStatusChange() {
         if (includeChildren) {
           const targetStatus = action === 'repair' ? 'repair' : 'calibrating'
           const response = await equipmentApi.syncChildrenStatus(equipment.value.id, {
-            new_status: targetStatus as any,
+            new_status: targetStatus,
             include_children: true,
             notes
           })
@@ -595,7 +595,7 @@ async function executeQuickStatusChange() {
         // Use syncChildrenStatus API if includeChildren is enabled
         if (includeChildren) {
           const response = await equipmentApi.syncChildrenStatus(equipment.value.id, {
-            new_status: action as any,
+            new_status: action,
             include_children: true,
             notes
           })
@@ -635,7 +635,7 @@ async function loadQRCode() {
 
 // ==================== Log Editing ====================
 
-function openEditLogModal(log: any) {
+function openEditLogModal(log: EquipmentLog) {
   editingLog.value = log
   showEditLogModal.value = true
 }
@@ -665,7 +665,7 @@ async function handleEditLogSave(form: { description: string }) {
 }
 
 // Handle log update from QuickActionModal
-async function handleQuickActionLogUpdate(updatedLog: any) {
+async function handleQuickActionLogUpdate(updatedLog: EquipmentLog) {
   if (!equipment.value) return
 
   quickActionModalRef.value?.setSaving(true)

@@ -46,10 +46,11 @@ import { ref, watch } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import LogChangeRecordDisplay from './LogChangeRecordDisplay.vue'
+import type { EquipmentLog } from '@/types'
 
 interface Props {
   show: boolean
-  log: any
+  log: EquipmentLog | null
 }
 
 interface Emits {

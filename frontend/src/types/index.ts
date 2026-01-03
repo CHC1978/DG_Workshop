@@ -342,6 +342,99 @@ export interface Rental {
   updated_at: string
 }
 
+// ==================== Equipment Log ====================
+
+export type EquipmentLogType =
+  | 'create'
+  | 'update'
+  | 'deploy'
+  | 'return'
+  | 'repair'
+  | 'calibration'
+  | 'status_change'
+  | 'note'
+  | 'maintenance'
+  | 'scan'
+  | 'transfer'
+  | 'deactivate'
+
+export interface EquipmentLog {
+  id: number
+  equipment_id: number
+  log_type: EquipmentLogType
+  title: string
+  details?: string
+  old_status?: EquipmentStatus
+  new_status?: EquipmentStatus
+  old_location_id?: number
+  new_location_id?: number
+  old_project_id?: number
+  new_project_id?: number
+  latitude?: number
+  longitude?: number
+  is_active: boolean
+  created_at: string
+  updated_at?: string
+  created_by_id?: number
+  edited_by_id?: number
+
+  // Display fields
+  created_by_username?: string
+  edited_by_username?: string
+  old_location_name?: string
+  new_location_name?: string
+  old_project_name?: string
+  new_project_name?: string
+
+  // Attachment info
+  attachments_count?: number
+}
+
+export interface LogAttachment {
+  id: number
+  log_id: number
+  file_name: string
+  file_path: string
+  file_type: string
+  file_size: number
+  attachment_type: string
+  description?: string
+  created_at: string
+  created_by_id?: number
+  created_by_username?: string
+}
+
+// ==================== Maintenance ====================
+
+export interface Maintenance {
+  id: number
+  equipment_id: number
+  maintenance_date: string
+  next_due_date?: string
+  maintenance_type: string
+  description?: string
+  performed_by?: string
+  cost?: number
+  notes?: string
+  created_at: string
+  updated_at: string
+
+  // Display fields
+  equipment_asset_code?: string
+  equipment_model?: string
+}
+
+export interface MaintenanceCreateRequest {
+  equipment_id: number
+  maintenance_date: string
+  next_due_date?: string
+  maintenance_type: string
+  description?: string
+  performed_by?: string
+  cost?: number
+  notes?: string
+}
+
 // ==================== Calibration ====================
 
 export interface Calibration {
@@ -353,8 +446,13 @@ export interface Calibration {
   certificate_number?: string
   cost?: number
   notes?: string
+  report_url?: string
   created_at: string
   updated_at: string
+
+  // Display fields
+  equipment_asset_code?: string
+  equipment_model?: string
 }
 
 // ==================== SubEquipment ====================
@@ -403,4 +501,70 @@ export interface ListResponse<T> {
 
 export interface ApiError {
   detail: string
+}
+
+// ==================== Filter Types ====================
+
+export interface PaginationFilter {
+  skip?: number
+  limit?: number
+}
+
+export interface EquipmentFilter extends PaginationFilter {
+  search?: string
+  category?: EquipmentCategory | ''
+  status?: EquipmentStatus | ''
+  is_active?: boolean
+}
+
+export interface LocationFilter extends PaginationFilter {
+  search?: string
+  location_type?: LocationType | ''
+  is_active?: boolean
+}
+
+export interface ProjectFilter extends PaginationFilter {
+  search?: string
+  status?: ProjectStatus | ''
+  is_active?: boolean
+}
+
+export interface CalibrationFilter extends PaginationFilter {
+  equipment_id?: number
+  due_within_days?: number
+  overdue_only?: boolean
+}
+
+export interface MaintenanceFilter extends PaginationFilter {
+  equipment_id?: number
+  due_within_days?: number
+  overdue_only?: boolean
+}
+
+export interface UserFilter extends PaginationFilter {
+  search?: string
+  role?: UserRole | ''
+  is_active?: boolean
+}
+
+// ==================== User Management Types ====================
+
+export interface UserCreateRequest {
+  username: string
+  email: string
+  full_name: string
+  password: string
+  role: UserRole
+}
+
+export interface UserUpdateRequest {
+  email?: string
+  full_name?: string
+  role?: UserRole
+  is_active?: boolean
+}
+
+export interface PasswordUpdateRequest {
+  old_password: string
+  new_password: string
 }

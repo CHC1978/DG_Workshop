@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { usersApi } from '@/api/users'
-import type { User } from '@/types'
+import type { User, UserCreateRequest, UserUpdateRequest, PasswordUpdateRequest } from '@/types'
 
 export const useUsersStore = defineStore('users', () => {
   // State
@@ -42,7 +42,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function create(data: any) {
+  async function create(data: UserCreateRequest) {
     loading.value = true
     try {
       const response = await usersApi.create(data)
@@ -57,7 +57,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function update(id: number, data: any) {
+  async function update(id: number, data: UserUpdateRequest) {
     loading.value = true
     try {
       const response = await usersApi.update(id, data)
@@ -91,7 +91,7 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  async function updatePassword(id: number, data: any) {
+  async function updatePassword(id: number, data: PasswordUpdateRequest) {
     loading.value = true
     try {
       await usersApi.updatePassword(id, data)
