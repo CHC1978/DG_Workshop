@@ -212,7 +212,9 @@ router.beforeEach((to, _from, next) => {
       next()
     } else {
       // No 2FA setup needed, redirect to login
-      console.log('No 2FA setup required, redirecting to login')
+      if (import.meta.env.DEV) {
+        console.log('No 2FA setup required, redirecting to login')
+      }
       next('/login')
     }
     return
@@ -221,11 +223,15 @@ router.beforeEach((to, _from, next) => {
   // Normal auth check
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     // Redirect to login if not authenticated
-    console.log('Not authenticated, redirecting to login')
+    if (import.meta.env.DEV) {
+      console.log('Not authenticated, redirecting to login')
+    }
     next('/login')
   } else if (to.path === '/login' && authStore.isAuthenticated) {
     // Redirect to dashboard if already authenticated
-    console.log('Already authenticated, redirecting to dashboard')
+    if (import.meta.env.DEV) {
+      console.log('Already authenticated, redirecting to dashboard')
+    }
     next('/dashboard')
   } else {
     next()

@@ -320,7 +320,7 @@ async def login_step1(
         # Check if user was reset (totp_secret == "RESET") - must set up 2FA
         if user.totp_secret == "RESET":
             # User was reset by admin - must set up 2FA before login
-            logger.info(f"User {user.username} was reset, needs to set up 2FA")
+            logger.info(f"User ID {user.id} was reset, needs to set up 2FA")
 
             # Generate temporary token for 2FA setup
             temp_token = create_temp_token({
@@ -349,7 +349,7 @@ async def login_step1(
             )
 
         # 2FA is disabled (totp_secret == None) - login directly without 2FA
-        logger.info(f"2FA disabled for user {user.username}, logging in directly")
+        logger.info(f"2FA disabled for user ID {user.id}, logging in directly")
 
         # Generate access token directly
         access_token = create_access_token({
@@ -402,7 +402,7 @@ async def login_step1(
 
         if trusted_device and trusted_device.is_valid():
             # Device is trusted and still valid, skip 2FA
-            logger.info(f"Trusted device login for user {user.username}")
+            logger.info(f"Trusted device login for user ID {user.id}")
 
             # 驗證 User-Agent 一致性 (允許瀏覽器版本更新)
             current_user_agent = request.headers.get("user-agent", "")
@@ -584,7 +584,7 @@ async def login_step2(
     )
 
     if not is_valid:
-        logger.warning(f"TOTP verification failed for user {user.username}: {error_message}")
+        logger.warning(f"TOTP verification failed for user ID {user.id}: {error_message}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=error_message,
@@ -624,7 +624,7 @@ async def login_step2(
             db.add(new_device)
 
         await db.commit()
-        logger.info(f"Device marked as trusted for user {user.username}")
+        logger.info(f"Device marked as trusted for user ID {user.id}")
 
     # Generate access token
     access_token = create_access_token({
@@ -744,7 +744,7 @@ async def login_with_backup_code(
             break
 
     if not valid_code:
-        logger.warning(f"Invalid backup code attempt for user {user.username}")
+        logger.warning(f"Invalid backup code attempt for user ID {user.id}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or already used backup code",
@@ -754,7 +754,7 @@ async def login_with_backup_code(
     valid_code.mark_as_used()
     await db.commit()
 
-    logger.info(f"User {user.username} logged in using backup code")
+    logger.info(f"User ID {user.id} logged in using backup code")
 
     # Generate access token
     access_token = create_access_token({
@@ -793,7 +793,7 @@ async def login_with_backup_code(
     # Get remaining backup codes count
     remaining = len([c for c in backup_codes if c.id != valid_code.id])
     if remaining <= 2:
-        logger.warning(f"User {user.username} has only {remaining} backup codes remaining")
+        logger.warning(f"User ID {user.id} has only {remaining} backup codes remaining")
 
     return LoginStep2Response(
         access_token=None,
@@ -853,7 +853,7 @@ async def setup_2fa(
     current_user.totp_secret = secret
     await db.commit()
 
-    logger.info(f"2FA setup initiated for user {current_user.username}, {len(backup_codes)} backup codes generated")
+    logger.info(f"2FA setup initiated for user ID {current_user.id}, {len(backup_codes)} backup codes generated")
 
     return Setup2FAResponse(
         secret=secret,
@@ -1160,7 +1160,7 @@ async def refresh_access_token(
     # 刷新 CSRF cookie
     set_csrf_cookie(response)
 
-    logger.info(f"Token refreshed for user {user.username}")
+    logger.info(f"Token refreshed for user ID {user.id}")
 
     return {
         "message": "Token refreshed successfully",

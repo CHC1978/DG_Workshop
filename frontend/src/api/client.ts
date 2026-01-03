@@ -52,26 +52,19 @@ function logSecurityEvent(event: Omit<SecurityEvent, 'timestamp' | 'userAgent'>)
 }
 
 /**
- * Flush security events to localStorage for persistence
- * In production, this could be sent to a security logging endpoint
+ * Flush security events - 僅記憶體緩衝，不使用 localStorage
+ * 未來可擴展為發送到後端安全日誌端點
  */
 function flushSecurityEvents(): void {
   if (securityEventBuffer.length === 0) return
 
-  try {
-    // Get existing events
-    const existingEvents = JSON.parse(localStorage.getItem('security_audit_log') || '[]')
-
-    // Append new events (keep last 100)
-    const allEvents = [...existingEvents, ...securityEventBuffer].slice(-100)
-
-    localStorage.setItem('security_audit_log', JSON.stringify(allEvents))
-
-    // Clear buffer
-    securityEventBuffer.length = 0
-  } catch (e) {
-    console.error('[Security Audit] Failed to flush events:', e)
+  // 開發環境下輸出到 console
+  if (import.meta.env.DEV) {
+    console.log('[Security Audit] Flushing events:', securityEventBuffer.length)
   }
+
+  // 清空緩衝區（未來可改為發送到後端 /api/security/events）
+  securityEventBuffer.length = 0
 }
 
 // Periodic flush
@@ -237,7 +230,9 @@ apiClient.interceptors.response.use(
           statusCode,
           message: 'Token refresh failed after retry',
         })
-        console.log('Token refresh failed, redirecting to login')
+        if (import.meta.env.DEV) {
+          console.log('Token refresh failed, redirecting to login')
+        }
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'
         }
@@ -274,7 +269,9 @@ apiClient.interceptors.response.use(
         })
 
         // Refresh failed, redirect to login
-        console.log('Token refresh failed, redirecting to login')
+        if (import.meta.env.DEV) {
+          console.log('Token refresh failed, redirecting to login')
+        }
         if (window.location.pathname !== '/login') {
           window.location.href = '/login'
         }

@@ -40,16 +40,15 @@ export const equipmentApi = {
       if (filters.location_id) cleanFilters.location_id = filters.location_id
     }
 
-    console.log('[equipmentApi.list] Calling with clean filters:', cleanFilters)
+    if (import.meta.env.DEV) {
+      console.log('[equipmentApi.list] Calling with clean filters:', cleanFilters)
+    }
     return apiClient.get<EquipmentListResponse>('/equipment', { params: cleanFilters })
       .then(response => {
-        console.log('[equipmentApi.list] Response:', response.data)
+        if (import.meta.env.DEV) {
+          console.log('[equipmentApi.list] Response:', response.data)
+        }
         return response
-      })
-      .catch(error => {
-        console.error('[equipmentApi.list] Error:', error)
-        console.error('[equipmentApi.list] Error response:', error.response?.data)
-        throw error
       })
   },
 
