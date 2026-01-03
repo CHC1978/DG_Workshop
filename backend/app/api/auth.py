@@ -41,6 +41,7 @@ from app.schemas.auth import (
     Confirm2FAResponse,
     CurrentUser,
 )
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -48,37 +49,16 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 from app.main import limiter
 
 
-# ==================== TOTP Replay Protection Helper Functions ====================
+# ==================== TOTP Replay Protection Helper Functions (delegating to Service) ====================
 
 async def _check_totp_reuse(
     db: AsyncSession,
     user_id: int,
     totp_code: str
 ) -> bool:
-    """
-    檢查 TOTP 碼是否已被使用
-
-    Args:
-        db: 資料庫 session
-        user_id: 使用者 ID
-        totp_code: TOTP 碼
-
-    Returns:
-        True 如果碼已被使用（應拒絕），False 如果未使用（可繼續）
-    """
-    code_hash = UsedTotpCode.hash_code(user_id, totp_code)
-
-    # 查詢是否有未過期的相同碼
-    result = await db.execute(
-        select(UsedTotpCode).where(
-            UsedTotpCode.user_id == user_id,
-            UsedTotpCode.code_hash == code_hash,
-            UsedTotpCode.expires_at > datetime.utcnow()
-        )
-    )
-    existing = result.scalar_one_or_none()
-
-    return existing is not None
+    """Check if TOTP code has already been used - delegates to AuthService"""
+    service = AuthService(db)
+    return await service.check_totp_reuse(user_id, totp_code)
 
 
 async def _mark_totp_used(
@@ -86,39 +66,18 @@ async def _mark_totp_used(
     user_id: int,
     totp_code: str
 ) -> None:
-    """
-    標記 TOTP 碼為已使用
-
-    Args:
-        db: 資料庫 session
-        user_id: 使用者 ID
-        totp_code: TOTP 碼
-    """
-    # 先清理過期記錄
-    await _cleanup_expired_totp_codes(db, user_id)
-
-    # 建立新記錄
-    used_code = UsedTotpCode.create(user_id, totp_code)
-    db.add(used_code)
+    """Mark TOTP code as used - delegates to AuthService"""
+    service = AuthService(db)
+    await service.mark_totp_used(user_id, totp_code)
 
 
 async def _cleanup_expired_totp_codes(
     db: AsyncSession,
     user_id: int
 ) -> None:
-    """
-    清理使用者的過期 TOTP 碼記錄
-
-    Args:
-        db: 資料庫 session
-        user_id: 使用者 ID
-    """
-    await db.execute(
-        delete(UsedTotpCode).where(
-            UsedTotpCode.user_id == user_id,
-            UsedTotpCode.expires_at < datetime.utcnow()
-        )
-    )
+    """Clean up expired TOTP codes - delegates to AuthService"""
+    service = AuthService(db)
+    await service.cleanup_expired_totp_codes(user_id)
 
 
 async def _verify_totp_with_replay_protection(
@@ -127,34 +86,14 @@ async def _verify_totp_with_replay_protection(
     totp_secret: str,
     totp_code: str
 ) -> tuple[bool, str]:
-    """
-    驗證 TOTP 碼並檢查重播攻擊
-
-    Args:
-        db: 資料庫 session
-        user_id: 使用者 ID
-        totp_secret: TOTP secret
-        totp_code: TOTP 碼
-
-    Returns:
-        (is_valid, error_message) - 驗證結果和錯誤訊息
-    """
-    # 1. 檢查是否已使用
-    if await _check_totp_reuse(db, user_id, totp_code):
-        logger.warning(f"TOTP code reuse detected for user {user_id}")
-        return False, "TOTP code already used. Please wait for a new code."
-
-    # 2. 驗證 TOTP 碼
-    if not verify_totp(totp_secret, totp_code):
-        return False, "Invalid TOTP code"
-
-    # 3. 標記為已使用
-    await _mark_totp_used(db, user_id, totp_code)
-
-    return True, ""
+    """Verify TOTP with replay protection - delegates to AuthService"""
+    service = AuthService(db)
+    return await service.verify_totp_with_replay_protection(
+        user_id, totp_secret, totp_code
+    )
 
 
-# ==================== Refresh Token Helper Functions ====================
+# ==================== Refresh Token Helper Functions (delegating to Service) ====================
 
 async def _issue_refresh_token(
     response: Response,
@@ -163,79 +102,17 @@ async def _issue_refresh_token(
     request: Request,
     device_fingerprint: Optional[str] = None
 ) -> str:
-    """
-    發放新的 Refresh Token 並設定 Cookie
-
-    Args:
-        response: FastAPI Response
-        db: 資料庫 session
-        user: 使用者
-        request: 請求物件
-        device_fingerprint: 裝置指紋 (可選)
-
-    Returns:
-        refresh token 字串
-    """
-    # 清理過期或過多的 tokens
-    await _cleanup_user_refresh_tokens(db, user.id)
-
-    # 生成新 token
-    refresh_token = generate_refresh_token()
-    token_record = RefreshToken(
-        user_id=user.id,
-        token_hash=hash_refresh_token(refresh_token),
-        token_family=generate_token_family(),
-        device_fingerprint=device_fingerprint,
-        user_agent=request.headers.get("user-agent"),
-        ip_address=request.client.host if request.client else None,
-        expires_at=datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+    """Issue new Refresh Token - delegates to AuthService"""
+    service = AuthService(db)
+    return await service.issue_refresh_token(
+        response, user, request, device_fingerprint
     )
-    db.add(token_record)
-
-    # 設定 cookie (限制 path 到 /api/auth 提升安全性)
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.SECURE_COOKIE,
-        samesite="lax",
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
-        path="/api/auth",
-    )
-
-    return refresh_token
 
 
 async def _cleanup_user_refresh_tokens(db: AsyncSession, user_id: int) -> None:
-    """
-    清理使用者的 Refresh Tokens
-
-    - 刪除過期 tokens
-    - 限制活躍 token 數量 (FIFO)
-    """
-    # 刪除過期 tokens
-    await db.execute(
-        delete(RefreshToken).where(
-            RefreshToken.user_id == user_id,
-            RefreshToken.expires_at < datetime.utcnow()
-        )
-    )
-
-    # 限制活躍 token 數量
-    result = await db.execute(
-        select(RefreshToken)
-        .where(
-            RefreshToken.user_id == user_id,
-            RefreshToken.is_revoked == False
-        )
-        .order_by(RefreshToken.created_at.desc())
-    )
-    active_tokens = result.scalars().all()
-
-    if len(active_tokens) >= settings.MAX_REFRESH_TOKENS_PER_USER:
-        # 撤銷最舊的 tokens
-        for token in active_tokens[settings.MAX_REFRESH_TOKENS_PER_USER - 1:]:
-            token.revoke("max_tokens_exceeded")
+    """Clean up user's Refresh Tokens - delegates to AuthService"""
+    service = AuthService(db)
+    await service.cleanup_user_refresh_tokens(user_id)
 
 
 async def _revoke_token_family(
@@ -243,17 +120,9 @@ async def _revoke_token_family(
     token_family: str,
     reason: str
 ) -> None:
-    """撤銷整個 Token Family (用於偵測重播攻擊)"""
-    result = await db.execute(
-        select(RefreshToken).where(
-            RefreshToken.token_family == token_family,
-            RefreshToken.is_revoked == False
-        )
-    )
-    tokens = result.scalars().all()
-    for token in tokens:
-        token.revoke(reason)
-    await db.commit()
+    """Revoke entire Token Family - delegates to AuthService"""
+    service = AuthService(db)
+    await service.revoke_token_family(token_family, reason)
 
 
 async def _revoke_all_user_tokens(
@@ -261,20 +130,9 @@ async def _revoke_all_user_tokens(
     user_id: int,
     reason: str
 ) -> int:
-    """撤銷使用者所有 Refresh Tokens"""
-    result = await db.execute(
-        select(RefreshToken).where(
-            RefreshToken.user_id == user_id,
-            RefreshToken.is_revoked == False
-        )
-    )
-    tokens = result.scalars().all()
-    count = 0
-    for token in tokens:
-        token.revoke(reason)
-        count += 1
-    await db.commit()
-    return count
+    """Revoke all user's Refresh Tokens - delegates to AuthService"""
+    service = AuthService(db)
+    return await service.revoke_all_user_tokens(user_id, reason)
 
 
 # ==================== Login Endpoints ====================

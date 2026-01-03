@@ -30,9 +30,12 @@ from app.schemas.equipment import (
     SyncChildrenStatusRequest,
 )
 from app.utils.asset_code import generate_asset_code, generate_asset_code_v2, generate_qr_code_url, clean_model_code
+from app.services.equipment_service import EquipmentService
 
 router = APIRouter(prefix="/equipment", tags=["Equipment"])
 
+
+# ==================== Helper Functions (delegating to Service) ====================
 
 async def log_equipment_change(
     db: AsyncSession,
@@ -45,18 +48,18 @@ async def log_equipment_change(
     latitude: Optional[float] = None,
     longitude: Optional[float] = None,
 ):
-    """Helper function to log equipment changes"""
-    log = EquipmentLog(
+    """Helper function to log equipment changes - delegates to EquipmentService"""
+    service = EquipmentService(db)
+    await service.log_equipment_change(
         equipment_id=equipment_id,
         log_type=log_type,
+        description=description,
         old_value=old_value,
         new_value=new_value,
-        description=description,
+        user_id=user_id,
         latitude=latitude,
         longitude=longitude,
-        created_by=user_id,
     )
-    db.add(log)
 
 
 async def sync_children_with_parent(
@@ -67,110 +70,21 @@ async def sync_children_with_parent(
     sync_location: bool = True,
     sync_project: bool = True,
     notes: Optional[str] = None
-):
+) -> int:
     """
-    Helper function to sync all child equipment with parent's status, location, and project
-    Called when parent equipment's state changes
+    Helper function to sync all child equipment with parent's status, location, and project.
+    Delegates to EquipmentService.
+    Returns the number of children synced.
     """
-    # Get parent equipment
-    parent_result = await db.execute(
-        select(Equipment).where(Equipment.id == parent_id)
+    service = EquipmentService(db)
+    return await service.sync_children_with_parent(
+        parent_id=parent_id,
+        user_id=user_id,
+        sync_status=sync_status,
+        sync_location=sync_location,
+        sync_project=sync_project,
+        notes=notes,
     )
-    parent = parent_result.scalar_one_or_none()
-
-    if not parent:
-        return
-
-    # Get all active children
-    children_result = await db.execute(
-        select(Equipment).where(
-            Equipment.parent_equipment_id == parent_id,
-            Equipment.is_active == True
-        )
-    )
-    children = children_result.scalars().all()
-
-    if not children:
-        return
-
-    # Sync each child
-    for child in children:
-        sync_changes = []
-
-        logger.debug(f"[SYNC CHILD] Syncing child {child.asset_code} with parent {parent.asset_code}")
-
-        # Save old values before any changes
-        old_status = child.status
-        old_location = child.current_location_id
-
-        if sync_status and child.status.value != parent.status.value:
-            child.status = parent.status
-            sync_changes.append(f"status: {old_status.value} → {parent.status.value}")
-            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} status from {old_status.value} to {parent.status.value}")
-
-        if sync_location and child.current_location_id != parent.current_location_id:
-            child.current_location_id = parent.current_location_id
-            sync_changes.append(f"location_id: {old_location} → {parent.current_location_id}")
-            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} location from {old_location} to {parent.current_location_id}")
-
-        if sync_project and child.project_id != parent.project_id:
-            old_project = child.project_id
-            child.project_id = parent.project_id
-            sync_changes.append(f"project_id: {old_project} → {parent.project_id}")
-            logger.debug(f"[SYNC CHILD] Updated {child.asset_code} project from {old_project} to {parent.project_id}")
-
-        # Log the sync if there were changes
-        if sync_changes:
-            logger.debug(f"[SYNC CHILD] {child.asset_code} has {len(sync_changes)} changes")
-            description = f"Auto-synced with parent {parent.asset_code}"
-            if notes:
-                description += f" - {notes}"
-
-            # Get child's old location info
-            child_old_location_info = None
-            if old_location:
-                child_old_location_info = {
-                    "id": old_location,
-                    "name": None,  # We don't have the name here
-                    "type": None
-                }
-
-            # Get parent's current location info
-            parent_location_info = None
-            if parent.current_location_id:
-                parent_loc_result = await db.execute(
-                    select(Location).where(Location.id == parent.current_location_id)
-                )
-                parent_loc = parent_loc_result.scalar_one_or_none()
-                if parent_loc:
-                    parent_location_info = {
-                        "id": parent_loc.id,
-                        "name": parent_loc.name,
-                        "type": parent_loc.location_type.value if parent_loc.location_type else None
-                    }
-
-            # Build JSON for old/new values
-            old_value_json = json.dumps({
-                "status": old_status.value if hasattr(old_status, 'value') else str(old_status),
-                "location": child_old_location_info
-            }, ensure_ascii=False)
-
-            new_value_json = json.dumps({
-                "status": parent.status.value if hasattr(parent.status, 'value') else str(parent.status),
-                "location": parent_location_info
-            }, ensure_ascii=False)
-
-            await log_equipment_change(
-                db=db,
-                equipment_id=child.id,
-                log_type=EquipmentLogType.STATUS_CHANGE,
-                description=description,
-                old_value=old_value_json,
-                new_value=new_value_json,
-                user_id=user_id,
-            )
-        else:
-            logger.debug(f"[SYNC CHILD] {child.asset_code} already in sync, no changes needed")
 
 
 # ==================== CRUD Operations ====================
