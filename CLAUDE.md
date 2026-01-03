@@ -143,6 +143,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 TEMP_TOKEN_EXPIRE_MINUTES=5
 ```
 
+### 安全注意事項
+- **SECRET_KEY 安全化**: `.gitignore` 已正確配置，`backend/.env` 不會被 git 追蹤
+- 請勿將實際的 SECRET_KEY 提交到版本控制
+- 參考 `backend/.env.example` 建立本地 `.env` 檔案
+
 ## 認證流程
 
 系統採用兩階段登入:
