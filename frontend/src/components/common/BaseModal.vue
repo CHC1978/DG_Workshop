@@ -49,7 +49,7 @@
 interface Props {
   show: boolean
   title?: string
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
   showCloseButton?: boolean
   closeOnBackdrop?: boolean
 }
@@ -70,6 +70,7 @@ const sizeClasses = {
   md: 'max-w-md w-full',
   lg: 'max-w-lg w-full',
   xl: 'max-w-xl w-full',
+  '2xl': 'max-w-2xl w-full',
 }[props.size]
 
 function handleBackdropClick() {

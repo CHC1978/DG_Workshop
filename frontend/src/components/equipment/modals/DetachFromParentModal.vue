@@ -1,80 +1,73 @@
 <template>
-  <!-- Detach from Parent Modal -->
-  <div
-    v-if="show"
-    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Detach from Parent Equipment</h3>
-      <div v-if="equipment" class="space-y-4">
-        <!-- Equipment Info -->
-        <div class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
-          <p class="text-sm font-medium text-gray-900">{{ equipment.asset_code }}</p>
-          <p class="text-xs text-gray-600">{{ equipment.manufacturer }} {{ equipment.model }}</p>
-        </div>
+  <BaseModal :show="show" title="Detach from Parent Equipment" @close="$emit('close')">
+    <div v-if="equipment" class="space-y-4">
+      <!-- Equipment Info -->
+      <div class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
+        <p class="text-sm font-medium text-gray-900">{{ equipment.asset_code }}</p>
+        <p class="text-xs text-gray-600">{{ equipment.manufacturer }} {{ equipment.model }}</p>
+      </div>
 
-        <!-- New Location -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Move to Location <span class="text-red-500">*</span>
-          </label>
-          <select
-            v-model="detachForm.locationId"
-            class="w-full px-3 py-2 border rounded-lg"
-            required
-          >
-            <option :value="null">Select location...</option>
-            <option v-for="location in locations" :key="location.id" :value="location.id">
-              {{ location.name }} ({{ locationTypeLabel(location.location_type) }})
-            </option>
-          </select>
-        </div>
+      <!-- New Location -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Move to Location <span class="text-red-500">*</span>
+        </label>
+        <select
+          v-model="detachForm.locationId"
+          class="w-full px-3 py-2 border rounded-lg"
+          required
+        >
+          <option :value="null">Select location...</option>
+          <option v-for="location in locations" :key="location.id" :value="location.id">
+            {{ location.name }} ({{ locationTypeLabel(location.location_type) }})
+          </option>
+        </select>
+      </div>
 
-        <!-- New Status -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Set Status <span class="text-red-500">*</span>
-          </label>
-          <select
-            v-model="detachForm.status"
-            class="w-full px-3 py-2 border rounded-lg"
-            required
-          >
-            <option value="in_stock">In Stock</option>
-            <option value="deployed">Deployed</option>
-            <option value="rented">Rented</option>
-            <option value="repair">Repair</option>
-            <option value="calibrating">Calibrating</option>
-          </select>
-        </div>
+      <!-- New Status -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Set Status <span class="text-red-500">*</span>
+        </label>
+        <select
+          v-model="detachForm.status"
+          class="w-full px-3 py-2 border rounded-lg"
+          required
+        >
+          <option value="in_stock">In Stock</option>
+          <option value="deployed">Deployed</option>
+          <option value="rented">Rented</option>
+          <option value="repair">Repair</option>
+          <option value="calibrating">Calibrating</option>
+        </select>
+      </div>
 
-        <!-- Notes -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Reason for Detaching (optional)
-          </label>
-          <textarea
-            v-model="detachForm.notes"
-            class="w-full px-3 py-2 border rounded-lg"
-            rows="3"
-            placeholder="Enter reason for detaching this component..."
-          ></textarea>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-4 border-t">
-          <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
-          <AppButton @click="submitDetach" :disabled="!detachForm.locationId">Detach</AppButton>
-        </div>
+      <!-- Notes -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Reason for Detaching (optional)
+        </label>
+        <textarea
+          v-model="detachForm.notes"
+          class="w-full px-3 py-2 border rounded-lg"
+          rows="3"
+          placeholder="Enter reason for detaching this component..."
+        ></textarea>
       </div>
     </div>
-  </div>
+
+    <template #footer>
+      <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
+      <AppButton @click="submitDetach" :disabled="!detachForm.locationId">Detach</AppButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { equipmentApi } from '@/api/equipment'
 import { useUiStore } from '@/stores/ui'
+import BaseModal from '@/components/common/BaseModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import type { Equipment, Location } from '@/types'
 

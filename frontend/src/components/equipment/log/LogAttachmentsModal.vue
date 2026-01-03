@@ -1,120 +1,108 @@
 <template>
-  <div
-    v-if="show"
-    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold text-gray-900">Log Attachments</h3>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
-          ✕
-        </button>
-      </div>
+  <BaseModal :show="show" title="Log Attachments" size="2xl" @close="$emit('close')">
+    <!-- Log Info -->
+    <div v-if="log" class="mb-4 p-3 bg-gray-50 rounded">
+      <p class="text-sm font-medium">{{ log.description }}</p>
+      <p class="text-xs text-gray-500 mt-1">{{ formatDateTime(log.created_at) }}</p>
+    </div>
 
-      <!-- Log Info -->
-      <div v-if="log" class="mb-4 p-3 bg-gray-50 rounded">
-        <p class="text-sm font-medium">{{ log.description }}</p>
-        <p class="text-xs text-gray-500 mt-1">{{ formatDateTime(log.created_at) }}</p>
-      </div>
+    <!-- Attachments List -->
+    <div v-if="loading" class="text-center py-8">
+      <p class="text-gray-500">Loading attachments...</p>
+    </div>
 
-      <!-- Attachments List -->
-      <div v-if="loading" class="text-center py-8">
-        <p class="text-gray-500">Loading attachments...</p>
-      </div>
+    <div v-else-if="attachments.length === 0" class="text-center py-8">
+      <p class="text-gray-500">No attachments yet</p>
+    </div>
 
-      <div v-else-if="attachments.length === 0" class="text-center py-8">
-        <p class="text-gray-500">No attachments yet</p>
-      </div>
-
-      <div v-else class="space-y-3 mb-4">
-        <div
-          v-for="att in attachments"
-          :key="att.id"
-          class="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
-        >
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">{{ att.file_name }}</p>
-            <p class="text-xs text-gray-500">
-              {{ (att.file_size / 1024).toFixed(1) }} KB · {{ att.file_type }}
-            </p>
-            <p v-if="att.description" class="text-xs text-gray-600 mt-1">{{ att.description }}</p>
-          </div>
-          <div class="flex items-center gap-2 ml-4">
-            <a
-              :href="getAttachmentUrl(att.file_url)"
-              target="_blank"
-              class="px-2 py-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors"
-              title="View in new tab"
-            >
-              View
-            </a>
-            <a
-              :href="getAttachmentUrl(att.file_url)"
-              :download="att.file_name"
-              class="px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-              title="Download file"
-            >
-              Download
-            </a>
-            <button
-              @click="handleDelete(att.id)"
-              class="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-              title="Delete attachment"
-            >
-              Delete
-            </button>
-          </div>
+    <div v-else class="space-y-3 mb-4">
+      <div
+        v-for="att in attachments"
+        :key="att.id"
+        class="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+      >
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 truncate">{{ att.file_name }}</p>
+          <p class="text-xs text-gray-500">
+            {{ (att.file_size / 1024).toFixed(1) }} KB · {{ att.file_type }}
+          </p>
+          <p v-if="att.description" class="text-xs text-gray-600 mt-1">{{ att.description }}</p>
         </div>
-      </div>
-
-      <!-- Upload Section -->
-      <div class="border-t pt-4">
-        <h4 class="text-sm font-semibold mb-3">Upload New Attachment</h4>
-        <div class="space-y-3">
-          <select
-            v-model="uploadType"
-            class="w-full px-3 py-2 border rounded-lg"
+        <div class="flex items-center gap-2 ml-4">
+          <a
+            :href="getAttachmentUrl(att.file_url)"
+            target="_blank"
+            class="px-2 py-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors"
+            title="View in new tab"
           >
-            <option value="calibration_report">Calibration Report</option>
-            <option value="damage_photo">Damage Photo</option>
-            <option value="repair_document">Repair Document</option>
-            <option value="maintenance_record">Maintenance Record</option>
-            <option value="other">Other</option>
-          </select>
-
-          <input
-            v-model="uploadDescription"
-            type="text"
-            placeholder="Description (optional)"
-            class="w-full px-3 py-2 border rounded-lg"
-          />
-
-          <div class="flex items-center gap-2">
-            <input
-              ref="fileInput"
-              type="file"
-              @change="handleFileChange"
-              class="flex-1 text-sm"
-            />
-            <button
-              v-if="selectedFile"
-              @click="handleUpload"
-              :disabled="uploading"
-              class="px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {{ uploading ? 'Uploading...' : 'Upload' }}
-            </button>
-          </div>
+            View
+          </a>
+          <a
+            :href="getAttachmentUrl(att.file_url)"
+            :download="att.file_name"
+            class="px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+            title="Download file"
+          >
+            Download
+          </a>
+          <button
+            @click="handleDelete(att.id)"
+            class="px-2 py-1 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+            title="Delete attachment"
+          >
+            Delete
+          </button>
         </div>
       </div>
     </div>
-  </div>
+
+    <!-- Upload Section -->
+    <div class="border-t pt-4">
+      <h4 class="text-sm font-semibold mb-3">Upload New Attachment</h4>
+      <div class="space-y-3">
+        <select
+          v-model="uploadType"
+          class="w-full px-3 py-2 border rounded-lg"
+        >
+          <option value="calibration_report">Calibration Report</option>
+          <option value="damage_photo">Damage Photo</option>
+          <option value="repair_document">Repair Document</option>
+          <option value="maintenance_record">Maintenance Record</option>
+          <option value="other">Other</option>
+        </select>
+
+        <input
+          v-model="uploadDescription"
+          type="text"
+          placeholder="Description (optional)"
+          class="w-full px-3 py-2 border rounded-lg"
+        />
+
+        <div class="flex items-center gap-2">
+          <input
+            ref="fileInput"
+            type="file"
+            @change="handleFileChange"
+            class="flex-1 text-sm"
+          />
+          <button
+            v-if="selectedFile"
+            @click="handleUpload"
+            :disabled="uploading"
+            class="px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {{ uploading ? 'Uploading...' : 'Upload' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import apiClient from '@/api/client'
+import BaseModal from '@/components/common/BaseModal.vue'
 
 interface Attachment {
   id: number
