@@ -465,8 +465,9 @@ manage.bat → [N] Network Mode
 - [SETUP.md](./SETUP.md) - 環境設定詳細步驟
 
 ### 技術文件
+- [**開發者指南**](./docs/260103_Developer_Guide_zh-TW.md) - 技術棧、共用元件、開發慣例（繁體中文）
 - [SYSTEM_REQUIREMENTS.md](./SYSTEM_REQUIREMENTS.md) - 系統需求與規範
-- [BATCH_FILES_README.md](./BATCH_FILES_README.md) - 批次檔使用說明
+- [BATCH_FILES_README.md](./docs/BATCH_FILES_README.md) - 批次檔使用說明
 - Phase 1-3 完成報告（docs/）
 - API 文件：http://localhost:8000/docs
 
@@ -557,6 +558,6 @@ init_db() 只建立資料表，不會自動建立 admin 帳號。
 
 ---
 
-**最後更新**: 2026-01-02
+**最後更新**: 2026-01-03
 **版本**: 1.2
 **狀態**: ✅ Production Ready
