@@ -1,68 +1,61 @@
 <template>
-  <!-- Return Equipment Modal -->
-  <div
-    v-if="show"
-    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Return Equipment</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Return to
-          </label>
-          <select
-            v-model="returnForm.locationId"
-            class="w-full px-3 py-2 border rounded-lg"
-            required
-          >
-            <option :value="null">Select...</option>
-            <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
-              {{ location.name }} ({{ location.location_type }})
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-          <textarea
-            v-model="returnForm.notes"
-            class="w-full px-3 py-2 border rounded-lg"
-            rows="3"
-            placeholder="Enter return notes..."
-          ></textarea>
-        </div>
+  <BaseModal :show="show" title="Return Equipment" @close="$emit('close')">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Return to
+        </label>
+        <select
+          v-model="returnForm.locationId"
+          class="w-full px-3 py-2 border rounded-lg"
+          required
+        >
+          <option :value="null">Select...</option>
+          <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
+            {{ location.name }} ({{ location.location_type }})
+          </option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+        <textarea
+          v-model="returnForm.notes"
+          class="w-full px-3 py-2 border rounded-lg"
+          rows="3"
+          placeholder="Enter return notes..."
+        ></textarea>
+      </div>
 
-        <!-- Include Children Option -->
-        <div v-if="childrenCount > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
-          <label class="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="returnForm.includeChildren"
-              class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-            />
-            <div class="flex-1">
-              <span class="text-sm font-medium text-gray-900">Return Child Components Together</span>
-              <p class="text-xs text-gray-600 mt-1">
-                Return all {{ childrenCount }} child component(s) to the same location
-              </p>
-            </div>
-          </label>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-4 border-t">
-          <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
-          <AppButton @click="handleReturn" :disabled="!returnForm.locationId">Return</AppButton>
-        </div>
+      <!-- Include Children Option -->
+      <div v-if="childrenCount > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            v-model="returnForm.includeChildren"
+            class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
+          />
+          <div class="flex-1">
+            <span class="text-sm font-medium text-gray-900">Return Child Components Together</span>
+            <p class="text-xs text-gray-600 mt-1">
+              Return all {{ childrenCount }} child component(s) to the same location
+            </p>
+          </div>
+        </label>
       </div>
     </div>
-  </div>
+
+    <template #footer>
+      <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
+      <AppButton @click="handleReturn" :disabled="!returnForm.locationId">Return</AppButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { equipmentApi } from '@/api/equipment'
 import { useUiStore } from '@/stores/ui'
+import BaseModal from '@/components/common/BaseModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import type { Equipment, Location } from '@/types'
 

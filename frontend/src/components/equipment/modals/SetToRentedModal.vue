@@ -1,79 +1,72 @@
 <template>
-  <!-- Set to Rented Modal -->
-  <div
-    v-if="show"
-    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
-      <h3 class="text-lg font-semibold text-gray-900 mb-4">Set to Rented</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Rent to
-          </label>
-          <select
-            v-model="rentedForm.locationId"
-            class="w-full px-3 py-2 border rounded-lg"
-          >
-            <option :value="null">Select...</option>
-            <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
-              {{ location.name }} ({{ location.location_type }})
-            </option>
-          </select>
-        </div>
+  <BaseModal :show="show" title="Set to Rented" @close="$emit('close')">
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Rent to
+        </label>
+        <select
+          v-model="rentedForm.locationId"
+          class="w-full px-3 py-2 border rounded-lg"
+        >
+          <option :value="null">Select...</option>
+          <option v-for="location in filteredLocations" :key="location.id" :value="location.id">
+            {{ location.name }} ({{ location.location_type }})
+          </option>
+        </select>
+      </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Rental Start Date
-          </label>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Rental Start Date
+        </label>
+        <input
+          type="date"
+          v-model="rentedForm.startDate"
+          class="w-full px-3 py-2 border rounded-lg"
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+        <textarea
+          v-model="rentedForm.notes"
+          class="w-full px-3 py-2 border rounded-lg"
+          rows="3"
+          placeholder="Enter rental notes..."
+        ></textarea>
+      </div>
+
+      <!-- Include Children Option -->
+      <div v-if="childrenCount > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
+        <label class="flex items-start gap-2 cursor-pointer">
           <input
-            type="date"
-            v-model="rentedForm.startDate"
-            class="w-full px-3 py-2 border rounded-lg"
+            type="checkbox"
+            v-model="rentedForm.includeChildren"
+            class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
           />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-          <textarea
-            v-model="rentedForm.notes"
-            class="w-full px-3 py-2 border rounded-lg"
-            rows="3"
-            placeholder="Enter rental notes..."
-          ></textarea>
-        </div>
-
-        <!-- Include Children Option -->
-        <div v-if="childrenCount > 0" class="p-3 bg-sky-50 border border-sky-200 rounded-lg">
-          <label class="flex items-start gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              v-model="rentedForm.includeChildren"
-              class="mt-1 w-4 h-4 text-sky-600 border-gray-300 rounded focus:ring-sky-500"
-            />
-            <div class="flex-1">
-              <span class="text-sm font-medium text-gray-900">Include Child Components</span>
-              <p class="text-xs text-gray-600 mt-1">
-                Set all {{ childrenCount }} child component(s) to rented as well
-              </p>
-            </div>
-          </label>
-        </div>
-
-        <div class="flex justify-end gap-2 pt-4 border-t">
-          <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
-          <AppButton @click="handleSubmit" :loading="submitting">Set to Rented</AppButton>
-        </div>
+          <div class="flex-1">
+            <span class="text-sm font-medium text-gray-900">Include Child Components</span>
+            <p class="text-xs text-gray-600 mt-1">
+              Set all {{ childrenCount }} child component(s) to rented as well
+            </p>
+          </div>
+        </label>
       </div>
     </div>
-  </div>
+
+    <template #footer>
+      <AppButton variant="secondary" @click="$emit('close')">Cancel</AppButton>
+      <AppButton @click="handleSubmit" :loading="submitting">Set to Rented</AppButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { equipmentApi } from '@/api/equipment'
 import { useUiStore } from '@/stores/ui'
+import BaseModal from '@/components/common/BaseModal.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import type { Equipment, Location } from '@/types'
 
