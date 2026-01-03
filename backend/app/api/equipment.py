@@ -338,7 +338,7 @@ async def update_equipment(
     """
     logger.debug(f"[UPDATE API] ===== UPDATE EQUIPMENT REQUEST =====")
     logger.debug(f"[UPDATE API] Equipment ID: {equipment_id}")
-    logger.debug(f"[UPDATE API] User: {current_user.username}")
+    logger.debug(f"[UPDATE API] User ID: {current_user.id}")
 
     result = await db.execute(
         select(Equipment).where(Equipment.id == equipment_id)
