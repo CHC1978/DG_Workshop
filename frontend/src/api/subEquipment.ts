@@ -14,7 +14,7 @@ export const subEquipmentApi = {
    * List sub-equipment with optional filtering
    */
   list(parentEquipmentId?: number) {
-    const params: any = {}
+    const params: { parent_equipment_id?: number } = {}
     if (parentEquipmentId) {
       params.parent_equipment_id = parentEquipmentId
     }

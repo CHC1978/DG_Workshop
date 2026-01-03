@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { equipmentApi, type EquipmentFilters } from '@/api/equipment'
-import type { Equipment } from '@/types'
+import type { Equipment, EquipmentCreateRequest } from '@/types'
 
 export const useEquipmentStore = defineStore('equipment', () => {
   // State
@@ -65,7 +65,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     }
   }
 
-  async function create(data: any) {
+  async function create(data: EquipmentCreateRequest) {
     loading.value = true
     try {
       const response = await equipmentApi.create(data)
@@ -80,7 +80,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     }
   }
 
-  async function update(id: number, data: any) {
+  async function update(id: number, data: Partial<EquipmentCreateRequest>) {
     loading.value = true
     try {
       const response = await equipmentApi.update(id, data)
