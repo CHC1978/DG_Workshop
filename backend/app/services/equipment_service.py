@@ -192,7 +192,7 @@ class EquipmentService:
             query = query.options(
                 selectinload(Equipment.current_location),
                 selectinload(Equipment.project),
-                selectinload(Equipment.parent_equipment),
+                selectinload(Equipment.parent),
                 selectinload(Equipment.children)
             )
 
@@ -214,7 +214,7 @@ class EquipmentService:
             query = query.options(
                 selectinload(Equipment.current_location),
                 selectinload(Equipment.project),
-                selectinload(Equipment.parent_equipment),
+                selectinload(Equipment.parent),
                 selectinload(Equipment.children)
             )
 
