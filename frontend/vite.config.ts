@@ -31,6 +31,9 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Exclude /uploads/ and /api/ from Service Worker navigation fallback
+        // This prevents SW from returning index.html for file downloads
+        navigateFallbackDenylist: [/^\/uploads/, /^\/api/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\..*/i,
